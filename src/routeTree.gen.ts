@@ -10,7 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
@@ -22,10 +22,10 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 const AppTriageRoute = AppTriageRouteImport.update({
   id: '/triage',
@@ -59,7 +59,7 @@ const AppDeliveryRoute = AppDeliveryRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
   '/delivery': typeof AppDeliveryRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
@@ -68,17 +68,16 @@ export interface FileRoutesByFullPath {
   '/triage': typeof AppTriageRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/delivery': typeof AppDeliveryRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
   '/review': typeof AppReviewRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
+  '/': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/delivery': typeof AppDeliveryRoute
   '/_app/health': typeof AppHealthRoute
@@ -86,6 +85,7 @@ export interface FileRoutesById {
   '/_app/review': typeof AppReviewRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -99,16 +99,15 @@ export interface FileRouteTypes {
     | '/triage'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/delivery'
     | '/health'
     | '/intake'
     | '/review'
     | '/shaping'
     | '/triage'
+    | '/'
   id:
     | '__root__'
-    | '/'
     | '/_app'
     | '/_app/delivery'
     | '/_app/health'
@@ -116,10 +115,10 @@ export interface FileRouteTypes {
     | '/_app/review'
     | '/_app/shaping'
     | '/_app/triage'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
 }
 
@@ -132,12 +131,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/triage': {
       id: '/_app/triage'
@@ -191,6 +190,7 @@ interface AppRouteChildren {
   AppReviewRoute: typeof AppReviewRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
+  AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -200,14 +200,23 @@ const AppRouteChildren: AppRouteChildren = {
   AppReviewRoute: AppReviewRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
+  AppIndexRoute: AppIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
