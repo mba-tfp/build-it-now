@@ -110,6 +110,32 @@ export type JiraEvent = {
   payload: Record<string, unknown>;
 };
 
+export type ReviewSize = "Small" | "Medium" | "Large";
+export type ReviewStatus = "Pending" | "Scheduled" | "Completed";
+export type OutcomeRating = "Met" | "Partially Met" | "Missed";
+
+export type Review = {
+  id: string;
+  shaping_id: string;
+  signal_id: string;
+  size: ReviewSize;
+  status: ReviewStatus;
+  pm_owner_id: string;
+  scheduled_for: string | null;
+  completed_at: string | null;
+  // Retro fields (filled at completion)
+  outcome_rating: OutcomeRating | null;
+  what_worked: string;
+  what_didnt: string;
+  follow_on_signals_created: string[]; // signal ids
+  notes: string;
+  // Auto-generated follow-on draft fields (PM edits then logs)
+  follow_on_draft_title: string;
+  follow_on_draft_description: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Sprint = {
   id: string;
   name: string;
