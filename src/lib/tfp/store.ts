@@ -1107,7 +1107,15 @@ type State = {
   createRetro: (data: Omit<SprintRetro, "id" | "created_at" | "created_by" | "escalated">) => SprintRetro;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  pushNotification: (n: Omit<Notification, "id" | "ts" | "read" | "priority"> & { ts?: string }) => Notification;
+  pushNotification: (n: {
+    trigger: NotificationTrigger;
+    title: string;
+    body: string;
+    link_to?: string | null;
+    for_user_id?: string | null;
+    entity_id?: string | null;
+    ts?: string;
+  }) => Notification;
   audit_log: (entry: Omit<AuditEntry, "id" | "ts" | "actor_id">) => void;
 };
 
