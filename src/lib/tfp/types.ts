@@ -48,7 +48,14 @@ export type Signal = {
   displacement_note: string | null;
 };
 
-export type ShapingStatus = "Unshaped" | "In Shaping" | "Shaped" | "Approved";
+export type ShapingStatus =
+  | "Unshaped"
+  | "In Shaping"
+  | "Shaped"
+  | "In Tech Review"
+  | "Tech Approved"
+  | "Approved"
+  | "In Delivery";
 export type Complexity = "Simple" | "Medium" | "Complex";
 export type RoadmapBucket = "Now" | "Next" | "Later" | "Not Now" | "Override";
 
@@ -73,8 +80,34 @@ export type ShapingItem = {
   solution_decisions: string;
   solution_questions: string;
   solution_risks: string;
+  // Tech Review (Step 4)
+  tech_reviewer_id: string | null;
+  tech_review_notes: string;
+  tech_estimate_pts: number | null;
+  tech_concerns: string;
+  tech_signed_off_at: string | null;
+  // Approval (Step 5)
+  approver_id: string | null;
+  approval_decision: "Approved" | "Changes Requested" | null;
+  approval_notes: string;
+  approved_at: string | null;
+  // Delivery
+  jira_key: string | null;
+  delivery_status: DeliveryStatus | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DeliveryStatus = "To Do" | "In Progress" | "In QA" | "Blocked" | "Done";
+
+export type JiraEvent = {
+  id: string;
+  ts: string;
+  direction: "outbound" | "inbound";
+  type: "issue.created" | "issue.transitioned" | "issue.updated";
+  jira_key: string;
+  shaping_id: string;
+  payload: Record<string, unknown>;
 };
 
 export type Sprint = {
