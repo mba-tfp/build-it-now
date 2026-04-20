@@ -1,0 +1,355 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useTfpStore, daysSince } from "@/lib/tfp/store";
+import { slaState } from "@/lib/tfp/format";
+import type { Product, SignalStatus, Source, Tier } from "@/lib/tfp/types";
+import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import { cn } from "@/lib/utils";
+import { Search, X } from "lucide-react";
+
+export const Route = createFileRoute("/_app/triage")({
+  component: TriageQueuePage,
+});
+
+const STATUSES: Array<SignalStatus | "All"> = ["All", "New", "In Review", "Proceed", "Hold", "Rejected"];
+const SOURCES: Array<Source | "All"> = ["All", "Leadership", "Clinic", "Internal", "Dev Team"];
+const PRODUCTS: Array<Product | "All"> = [
+  "All",
+  "Otto-Onboard",
+  "Otto Notes",
+  "Otto Pulse",
+  "FertiWise",
+  "StimSmart",
+  "Platform",
+];
+const TIERS: Array<Tier | "All"> = ["All", "T1", "T2", "T3", "T4"];
+
+function TriageQueuePage() {
+  const signals = useTfpStore((s) => s.signals);
+  const users = useTfpStore((s) => s.users);
+  const triageDecision = useTfpStore((s) => s.triageDecision);
+  const navigate = useNavigate();
+
+  const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("All");
+  const [sourceF, setSourceF] = useState<(typeof SOURCES)[number]>("All");
+  const [productF, setProductF] = useState<(typeof PRODUCTS)[number]>("All");
+  const [tierF, setTierF] = useState<(typeof TIERS)[number]>("All");
+  const [q, setQ] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const filtered = useMemo(() => {
+    return signals
+      .filter((s) => statusF === "All" || s.status === statusF)
+      .filter((s) => sourceF === "All" || s.source === sourceF)
+      .filter((s) => productF === "All" || s.product === productF)
+      .filter((s) => tierF === "All" || s.tier === tierF)
+      .filter((s) => !q || s.title.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => new Date(a.sla_due_at).getTime() - new Date(b.sla_due_at).getTime());
+  }, [signals, statusF, sourceF, productF, tierF, q]);
+
+  const open = signals.find((s) => s.id === openId);
+  const breaches = signals.filter((s) => s.status === "New" && slaState(s.sla_due_at) === "breach").length;
+
+  return (
+    <div>
+      <header className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 2</p>
+          <h1 className="mt-1 font-display text-3xl">Triage Queue</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            All signals, sorted by SLA. Click a row to make a triage decision.
+          </p>
+        </div>
+        {breaches > 0 && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {breaches} new signal{breaches === 1 ? "" : "s"} past SLA
+          </div>
+        )}
+      </header>
+
+      <div className="tfp-card mb-4 flex flex-wrap items-center gap-2 p-3">
+        <FilterSelect label="Status" value={statusF} onChange={setStatusF} options={STATUSES} />
+        <FilterSelect label="Source" value={sourceF} onChange={setSourceF} options={SOURCES} />
+        <FilterSelect label="Product" value={productF} onChange={setProductF} options={PRODUCTS} />
+        <FilterSelect label="Tier" value={tierF} onChange={setTierF} options={TIERS} />
+        <div className="relative ml-auto">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search title…"
+            className="w-64 rounded-md border border-input bg-surface py-1.5 pl-8 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </div>
+
+      <div className="tfp-card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="border-b border-border bg-surface-2 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2.5 font-medium">ID</th>
+              <th className="px-3 py-2.5 font-medium">Title</th>
+              <th className="px-3 py-2.5 font-medium">Source</th>
+              <th className="px-3 py-2.5 font-medium">Product</th>
+              <th className="px-3 py-2.5 font-medium">Type</th>
+              <th className="px-3 py-2.5 font-medium">Tier</th>
+              <th className="px-3 py-2.5 font-medium">Status</th>
+              <th className="px-3 py-2.5 font-medium">Owner</th>
+              <th className="px-3 py-2.5 font-medium">Days</th>
+              <th className="px-3 py-2.5 font-medium">SLA due</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((s) => {
+              const sla = slaState(s.sla_due_at);
+              const owner = users.find((u) => u.id === s.owner_id);
+              return (
+                <tr
+                  key={s.id}
+                  onClick={() => setOpenId(s.id)}
+                  className={cn(
+                    "cursor-pointer border-b border-border/60 transition hover:bg-accent/30",
+                    sla === "breach" && "bg-destructive/5",
+                    sla === "today" && "bg-[var(--color-status-hold)]/5",
+                  )}
+                >
+                  <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</td>
+                  <td className="px-3 py-2.5 font-medium">{s.title}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{s.product}</td>
+                  <td className="px-3 py-2.5">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{s.issue_type}</span>
+                  </td>
+                  <td className="px-3 py-2.5"><TierBadge tier={s.tier} /></td>
+                  <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{owner?.name ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{daysSince(s.created_at)}d</td>
+                  <td className={cn(
+                    "px-3 py-2.5 text-xs",
+                    sla === "breach" && "font-medium text-destructive",
+                    sla === "today" && "font-medium text-[var(--color-status-hold)]",
+                  )}>
+                    {new Date(s.sla_due_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={10} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                  No signals match these filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {open && (
+        <TriagePanel
+          key={open.id}
+          signalId={open.id}
+          onClose={() => setOpenId(null)}
+          onProceed={() => {
+            triageDecision(open.id, "Proceed");
+            setOpenId(null);
+            navigate({ to: "/shaping" });
+          }}
+          onHold={(reason, until) => {
+            triageDecision(open.id, "Hold", reason, until);
+            setOpenId(null);
+          }}
+          onReject={(reason) => {
+            triageDecision(open.id, "Reject", reason);
+            setOpenId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilterSelect<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: readonly T[];
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="rounded-md border border-input bg-surface px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        {options.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TriagePanel({
+  signalId,
+  onClose,
+  onProceed,
+  onHold,
+  onReject,
+}: {
+  signalId: string;
+  onClose: () => void;
+  onProceed: () => void;
+  onHold: (reason: string, holdUntil: string) => void;
+  onReject: (reason: string) => void;
+}) {
+  const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
+  const users = useTfpStore((s) => s.users);
+  const owner = users.find((u) => u.id === sig.created_by);
+  const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
+  const [reason, setReason] = useState("");
+  const [holdDate, setHoldDate] = useState(
+    new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+  );
+
+  return (
+    <>
+      <div onClick={onClose} className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
+      <aside className="fixed right-0 top-0 z-50 h-screen w-full max-w-[520px] overflow-y-auto bg-surface shadow-2xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-surface/90 px-5 py-3 backdrop-blur">
+          <span className="font-mono text-xs text-muted-foreground">{sig.id}</span>
+          <button onClick={onClose} className="rounded p-1 hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div>
+            <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <TierBadge tier={sig.tier} />
+              <StatusBadge status={sig.status} />
+              <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
+              <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
+            </div>
+          </div>
+
+          <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90">
+            {sig.description}
+          </div>
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <Detail label="Logged by" value={owner?.name ?? "—"} />
+            <Detail label="Logged" value={new Date(sig.created_at).toLocaleString()} />
+            <Detail label="SLA due" value={new Date(sig.sla_due_at).toLocaleString()} />
+            <Detail label="Days in stage" value={`${daysSince(sig.created_at)} days`} />
+            {sig.displacement_flag && (
+              <Detail label="Displacement" value={sig.displacement_note ?? "Flagged"} />
+            )}
+            {sig.triage_reason && <Detail label="Reason" value={sig.triage_reason} />}
+            {sig.hold_until && (
+              <Detail
+                label="Review on"
+                value={new Date(sig.hold_until).toLocaleDateString()}
+              />
+            )}
+          </dl>
+
+          {sig.status === "New" || sig.status === "In Review" ? (
+            <div className="rounded-lg border border-border bg-surface-2 p-4">
+              <p className="mb-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+                Triage decision
+              </p>
+
+              {mode === "none" && (
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={onProceed}
+                    className="rounded-md bg-[var(--color-status-proceed)] px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    Proceed → Shaping
+                  </button>
+                  <button
+                    onClick={() => setMode("hold")}
+                    className="rounded-md border border-border bg-surface px-3 py-2 text-sm hover:bg-accent/40"
+                  >
+                    Hold
+                  </button>
+                  <button
+                    onClick={() => setMode("reject")}
+                    className="rounded-md border border-destructive/30 bg-surface px-3 py-2 text-sm text-destructive hover:bg-destructive/5"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+
+              {mode === "hold" && (
+                <div className="space-y-3">
+                  <label className="block text-xs text-muted-foreground">Review on
+                    <input type="date" value={holdDate} onChange={(e) => setHoldDate(e.target.value)}
+                      className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
+                  </label>
+                  <label className="block text-xs text-muted-foreground">Reason
+                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+                      placeholder="Why are we holding this?"
+                      className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button
+                      disabled={!reason.trim()}
+                      onClick={() => onHold(reason, new Date(holdDate).toISOString())}
+                      className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-40"
+                    >
+                      Place on hold
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mode === "reject" && (
+                <div className="space-y-3">
+                  <label className="block text-xs text-muted-foreground">Reason
+                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+                      placeholder="Why are we rejecting this?"
+                      className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button
+                      disabled={!reason.trim()}
+                      onClick={() => onReject(reason)}
+                      className="rounded-md bg-destructive px-3 py-1.5 text-sm text-destructive-foreground disabled:opacity-40"
+                    >
+                      Reject signal
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-md border border-border bg-surface-2 p-3 text-sm text-muted-foreground">
+              Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>.
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right text-foreground">{value}</dd>
+    </>
+  );
+}
