@@ -9,38 +9,129 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppTriageRouteImport } from './routes/_app.triage'
+import { Route as AppShapingRouteImport } from './routes/_app.shaping'
+import { Route as AppReviewRouteImport } from './routes/_app.review'
+import { Route as AppIntakeRouteImport } from './routes/_app.intake'
+import { Route as AppHealthRouteImport } from './routes/_app.health'
+import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
 
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppTriageRoute = AppTriageRouteImport.update({
+  id: '/triage',
+  path: '/triage',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppShapingRoute = AppShapingRouteImport.update({
+  id: '/shaping',
+  path: '/shaping',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReviewRoute = AppReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntakeRoute = AppIntakeRouteImport.update({
+  id: '/intake',
+  path: '/intake',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDeliveryRoute = AppDeliveryRouteImport.update({
+  id: '/delivery',
+  path: '/delivery',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/delivery': typeof AppDeliveryRoute
+  '/health': typeof AppHealthRoute
+  '/intake': typeof AppIntakeRoute
+  '/review': typeof AppReviewRoute
+  '/shaping': typeof AppShapingRoute
+  '/triage': typeof AppTriageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/delivery': typeof AppDeliveryRoute
+  '/health': typeof AppHealthRoute
+  '/intake': typeof AppIntakeRoute
+  '/review': typeof AppReviewRoute
+  '/shaping': typeof AppShapingRoute
+  '/triage': typeof AppTriageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/delivery': typeof AppDeliveryRoute
+  '/_app/health': typeof AppHealthRoute
+  '/_app/intake': typeof AppIntakeRoute
+  '/_app/review': typeof AppReviewRoute
+  '/_app/shaping': typeof AppShapingRoute
+  '/_app/triage': typeof AppTriageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/delivery'
+    | '/health'
+    | '/intake'
+    | '/review'
+    | '/shaping'
+    | '/triage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/delivery'
+    | '/health'
+    | '/intake'
+    | '/review'
+    | '/shaping'
+    | '/triage'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_app/delivery'
+    | '/_app/health'
+    | '/_app/intake'
+    | '/_app/review'
+    | '/_app/shaping'
+    | '/_app/triage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,21 +139,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/triage': {
+      id: '/_app/triage'
+      path: '/triage'
+      fullPath: '/triage'
+      preLoaderRoute: typeof AppTriageRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/shaping': {
+      id: '/_app/shaping'
+      path: '/shaping'
+      fullPath: '/shaping'
+      preLoaderRoute: typeof AppShapingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/review': {
+      id: '/_app/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof AppReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/intake': {
+      id: '/_app/intake'
+      path: '/intake'
+      fullPath: '/intake'
+      preLoaderRoute: typeof AppIntakeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/health': {
+      id: '/_app/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof AppHealthRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/delivery': {
+      id: '/_app/delivery'
+      path: '/delivery'
+      fullPath: '/delivery'
+      preLoaderRoute: typeof AppDeliveryRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppDeliveryRoute: typeof AppDeliveryRoute
+  AppHealthRoute: typeof AppHealthRoute
+  AppIntakeRoute: typeof AppIntakeRoute
+  AppReviewRoute: typeof AppReviewRoute
+  AppShapingRoute: typeof AppShapingRoute
+  AppTriageRoute: typeof AppTriageRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDeliveryRoute: AppDeliveryRoute,
+  AppHealthRoute: AppHealthRoute,
+  AppIntakeRoute: AppIntakeRoute,
+  AppReviewRoute: AppReviewRoute,
+  AppShapingRoute: AppShapingRoute,
+  AppTriageRoute: AppTriageRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
