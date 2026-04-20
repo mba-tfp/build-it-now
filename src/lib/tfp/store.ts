@@ -401,8 +401,57 @@ const shapingInQA: ShapingItem = {
 } as ShapingItem;
 sigInQA.shaping_item_id = shapingInQA.id;
 
+// A third delivery item already Done — gives us reviews to work with.
+const sigDone: Signal = {
+  ...buildSeedSignal({
+    title: "Coordinator dashboard load time",
+    description:
+      "Coordinator dashboard takes 6+ seconds to load on slow clinic networks. Needs performance work.",
+    source: "Clinic",
+    product: "Otto Pulse",
+    daysAgo: 22,
+    owner: "u-bazil",
+  }),
+  status: "Proceed",
+};
+
+const shapingDone: ShapingItem = {
+  ...blankShaping(sigDone.id, "u-bazil"),
+  shaping_status: "In Delivery",
+  current_step: 5,
+  problem_what: "Coordinator dashboard takes 6+ seconds to first paint on clinic Wi-Fi.",
+  problem_why: "Coordinators check this 20+ times a day; latency wastes ~25min/day per user.",
+  problem_who: "All ~120 coordinator users.",
+  problem_where: "Otto Pulse > Coordinator Dashboard.",
+  problem_evidence: "Five clinics complained; APM shows p95 6.4s on 4G.",
+  problem_out_of_scope: "Native mobile rewrite (Phase 2).",
+  roadmap_bucket: "Now",
+  displacement: "",
+  solution_complexity: "Simple",
+  solution_approach: "Cache aggregations, defer non-critical widgets, add skeleton states.",
+  solution_criteria: "p95 first paint < 2.0s on 4G in 30 days.",
+  solution_effort: "5 points",
+  solution_decisions: "Server cache TTL = 60s.",
+  solution_questions: "",
+  solution_risks: "Stale data perception — mitigated by visible refresh time.",
+  tech_reviewer_id: "u-waseem",
+  tech_review_notes: "Standard caching pattern.",
+  tech_estimate_pts: 5,
+  tech_concerns: "",
+  tech_signed_off_at: new Date(SEED_EPOCH - 18 * 86400000).toISOString(),
+  approver_id: "u-alizar",
+  approval_decision: "Approved",
+  approval_notes: "Ship.",
+  approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
+  jira_key: "TFP-1031",
+  delivery_status: "Done",
+  created_at: new Date(SEED_EPOCH - 21 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+} as ShapingItem;
+sigDone.shaping_item_id = shapingDone.id;
+
 // Push the wave-2 seed signals into the signals list so they appear in triage history
-seedSignals.push(sigForTechReview, sigForApproval, sigInDelivery, sigInQA);
+seedSignals.push(sigForTechReview, sigForApproval, sigInDelivery, sigInQA, sigDone);
 
 const seedShaping: ShapingItem[] = [
   shapingInProgress,
@@ -410,6 +459,38 @@ const seedShaping: ShapingItem[] = [
   shapingForApproval,
   shapingInDelivery,
   shapingInQA,
+  shapingDone,
+];
+
+// Helper: pick review size from delivered shaping item.
+function pickReviewSize(s: ShapingItem): ReviewSize {
+  const pts = s.tech_estimate_pts ?? 0;
+  if (s.solution_complexity === "Complex" || pts >= 13) return "Large";
+  if (s.solution_complexity === "Medium" || pts >= 5) return "Medium";
+  return "Small";
+}
+
+// Seed reviews: one Pending (auto-created when sigDone hit Done), one Completed
+const seedReviews: Review[] = [
+  {
+    id: "rv-" + uid(),
+    shaping_id: shapingDone.id,
+    signal_id: sigDone.id,
+    size: pickReviewSize(shapingDone),
+    status: "Pending",
+    pm_owner_id: shapingDone.pm_owner_id,
+    scheduled_for: new Date(SEED_EPOCH + 3 * 86400000).toISOString(),
+    completed_at: null,
+    outcome_rating: null,
+    what_worked: "",
+    what_didnt: "",
+    follow_on_signals_created: [],
+    notes: "",
+    follow_on_draft_title: "",
+    follow_on_draft_description: "",
+    created_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    updated_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+  },
 ];
 
 const seedJiraEvents: JiraEvent[] = [
