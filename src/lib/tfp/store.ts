@@ -539,6 +539,7 @@ type State = {
   signals: Signal[];
   shaping: ShapingItem[];
   jiraEvents: JiraEvent[];
+  reviews: Review[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -566,6 +567,28 @@ type State = {
   pushToJira: (id: string) => string; // returns jira key
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   syncFromJira: () => number; // returns number of changes
+  // Wave 3 — Reviews
+  startReview: (shapingId: string) => Review | null;
+  updateReview: (id: string, patch: Partial<Review>) => void;
+  scheduleReview: (id: string, when: string) => void;
+  completeReview: (
+    id: string,
+    data: {
+      outcome_rating: OutcomeRating;
+      what_worked: string;
+      what_didnt: string;
+      notes: string;
+    },
+  ) => void;
+  logFollowOnSignal: (
+    reviewId: string,
+    data: {
+      title: string;
+      description: string;
+      source: Signal["source"];
+      product: Signal["product"];
+    },
+  ) => Signal;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -585,6 +608,7 @@ export const useTfpStore = create<State>()(
       signals: seedSignals,
       shaping: seedShaping,
       jiraEvents: seedJiraEvents,
+      reviews: seedReviews,
       setCurrentUser: (id) => set({ currentUserId: id }),
 
       createSignal: (data) => {
