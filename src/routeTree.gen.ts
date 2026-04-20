@@ -14,6 +14,7 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
+import { Route as AppLeadershipRouteImport } from './routes/_app.leadership'
 import { Route as AppIntakeRouteImport } from './routes/_app.intake'
 import { Route as AppHealthRouteImport } from './routes/_app.health'
 import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
@@ -42,6 +43,11 @@ const AppReviewRoute = AppReviewRouteImport.update({
   path: '/review',
   getParentRoute: () => AppRoute,
 } as any)
+const AppLeadershipRoute = AppLeadershipRouteImport.update({
+  id: '/leadership',
+  path: '/leadership',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppIntakeRoute = AppIntakeRouteImport.update({
   id: '/intake',
   path: '/intake',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/delivery': typeof AppDeliveryRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
+  '/leadership': typeof AppLeadershipRoute
   '/review': typeof AppReviewRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByTo {
   '/delivery': typeof AppDeliveryRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
+  '/leadership': typeof AppLeadershipRoute
   '/review': typeof AppReviewRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   '/_app/delivery': typeof AppDeliveryRoute
   '/_app/health': typeof AppHealthRoute
   '/_app/intake': typeof AppIntakeRoute
+  '/_app/leadership': typeof AppLeadershipRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
     | '/delivery'
     | '/health'
     | '/intake'
+    | '/leadership'
     | '/review'
     | '/shaping'
     | '/triage'
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
     | '/delivery'
     | '/health'
     | '/intake'
+    | '/leadership'
     | '/review'
     | '/shaping'
     | '/triage'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
     | '/_app/delivery'
     | '/_app/health'
     | '/_app/intake'
+    | '/_app/leadership'
     | '/_app/review'
     | '/_app/shaping'
     | '/_app/triage'
@@ -159,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReviewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/leadership': {
+      id: '/_app/leadership'
+      path: '/leadership'
+      fullPath: '/leadership'
+      preLoaderRoute: typeof AppLeadershipRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/intake': {
       id: '/_app/intake'
       path: '/intake'
@@ -187,6 +206,7 @@ interface AppRouteChildren {
   AppDeliveryRoute: typeof AppDeliveryRoute
   AppHealthRoute: typeof AppHealthRoute
   AppIntakeRoute: typeof AppIntakeRoute
+  AppLeadershipRoute: typeof AppLeadershipRoute
   AppReviewRoute: typeof AppReviewRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
@@ -197,6 +217,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDeliveryRoute: AppDeliveryRoute,
   AppHealthRoute: AppHealthRoute,
   AppIntakeRoute: AppIntakeRoute,
+  AppLeadershipRoute: AppLeadershipRoute,
   AppReviewRoute: AppReviewRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
