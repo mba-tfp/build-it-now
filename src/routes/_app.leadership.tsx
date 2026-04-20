@@ -24,10 +24,17 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Download,
+  FileText,
   Gauge,
+  Printer,
   TrendingUp,
 } from "lucide-react";
+import { toast } from "sonner";
 import { TierBadge, StatusBadge } from "@/components/tfp/Badge";
+import { SignalTimelineDrawer } from "@/components/tfp/SignalTimelineDrawer";
+import { SprintUpdateModal } from "@/components/tfp/SprintUpdateModal";
+import { downloadCsv, signalsToCsv } from "@/lib/tfp/exports";
 
 export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
