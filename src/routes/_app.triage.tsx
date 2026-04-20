@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useTfpStore, daysSince } from "@/lib/tfp/store";
-import { slaState } from "@/lib/tfp/format";
+import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { Product, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { cn } from "@/lib/utils";
@@ -129,7 +129,7 @@ function TriageQueuePage() {
                     sla === "breach" && "font-medium text-destructive",
                     sla === "today" && "font-medium text-[var(--color-status-hold)]",
                   )}>
-                    {new Date(s.sla_due_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    {fmtDateTime(s.sla_due_at)}
                   </td>
                 </tr>
               );
@@ -246,8 +246,8 @@ function TriagePanel({
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
             <Detail label="Logged by" value={owner?.name ?? "—"} />
-            <Detail label="Logged" value={new Date(sig.created_at).toLocaleString()} />
-            <Detail label="SLA due" value={new Date(sig.sla_due_at).toLocaleString()} />
+            <Detail label="Logged" value={fmtDateTime(sig.created_at)} />
+            <Detail label="SLA due" value={fmtDateTime(sig.sla_due_at)} />
             <Detail label="Days in stage" value={`${daysSince(sig.created_at)} days`} />
             {sig.displacement_flag && (
               <Detail label="Displacement" value={sig.displacement_note ?? "Flagged"} />
@@ -256,7 +256,7 @@ function TriagePanel({
             {sig.hold_until && (
               <Detail
                 label="Review on"
-                value={new Date(sig.hold_until).toLocaleDateString()}
+                value={fmtDateTime(sig.hold_until)}
               />
             )}
           </dl>
