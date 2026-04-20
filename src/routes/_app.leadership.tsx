@@ -454,7 +454,12 @@ function LeadershipPage() {
                   const owner = USERS.find((u) => u.id === s.owner_id);
                   const breach = (s.status === "New" || s.status === "In Review") && new Date(s.sla_due_at).getTime() < now;
                   return (
-                    <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                    <tr
+                      key={s.id}
+                      onClick={() => setOpenSignalId(s.id)}
+                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/30"
+                      title="View timeline"
+                    >
                       <td className="px-3 py-2"><div className="font-medium leading-tight">{s.title}</div><div className="text-[10px] text-muted-foreground">{s.id}</div></td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{s.source}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{s.product}</td>
@@ -473,6 +478,9 @@ function LeadershipPage() {
           </table>
         </div>
       </div>
+
+      <SignalTimelineDrawer signalId={openSignalId} onClose={() => setOpenSignalId(null)} />
+      <SprintUpdateModal open={updateOpen} onClose={() => setUpdateOpen(false)} />
     </div>
   );
 }
