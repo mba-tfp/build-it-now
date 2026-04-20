@@ -1,19 +1,34 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
+  AuditEntityType,
+  AuditEntry,
+  CommsItem,
   Complexity,
+  Decision,
   DeliveryStatus,
+  GoLiveChecklist,
+  GoLiveCriterion,
   JiraEvent,
+  Notification,
+  NotificationTrigger,
   OutcomeRating,
+  Override,
+  OverrideKind,
+  Product,
+  RetroTheme,
   Review,
   ReviewSize,
   RoadmapBucket,
   ShapingItem,
   Signal,
+  Source,
   Sprint,
+  SprintRetro,
   User,
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
+import { buildNotification } from "./notify";
 
 let _uidCounter = 0;
 const uid = () => {
@@ -42,6 +57,8 @@ const seedSprint: Sprint = {
   start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
   status: "Active",
+  scope_locked_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+  scope_locked_by: "u-alizar",
   gross_capacity_pts: 60,
   leave_deduction_pts: 5,
   interrupt_buffer_pts: 6,
@@ -53,6 +70,7 @@ const seedSprint: Sprint = {
 };
 
 function blankShaping(signalId: string, ownerId: string): ShapingItem {
+  const now = new Date().toISOString();
   return {
     id: "sh-" + uid(),
     signal_id: signalId,
@@ -85,8 +103,16 @@ function blankShaping(signalId: string, ownerId: string): ShapingItem {
     approved_at: null,
     jira_key: null,
     delivery_status: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    blocked_since: null,
+    dev_complete: {
+      tests_pass: false,
+      docs_updated: false,
+      qa_signed_off: false,
+      signed_off_by: null,
+      signed_off_at: null,
+    },
+    created_at: now,
+    updated_at: now,
   };
 }
 
@@ -185,7 +211,6 @@ const seedSignals: Signal[] = [
   }),
 ];
 
-// In-shaping seed (Step 3 ready to go)
 const shapingInProgress: ShapingItem = {
   ...blankShaping(seedSignals[1].id, "u-bazil"),
   shaping_status: "In Shaping",
@@ -198,8 +223,7 @@ const shapingInProgress: ShapingItem = {
   problem_where: "Otto Pulse > Cohort Reports > Weekly view",
   problem_evidence:
     "Three clinics raised this in the November ops call; Sami logged 6 separate signals in the past 4 weeks.",
-  problem_out_of_scope:
-    "PDF export, scheduled email delivery, custom date ranges (Phase 2).",
+  problem_out_of_scope: "PDF export, scheduled email delivery, custom date ranges (Phase 2).",
   roadmap_bucket: "Next",
   created_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
@@ -207,7 +231,6 @@ const shapingInProgress: ShapingItem = {
 seedSignals[1].status = "Proceed";
 seedSignals[1].shaping_item_id = shapingInProgress.id;
 
-// Tech Review seed — fully shaped, awaiting Tech Lead sign-off
 const sigForTechReview: Signal = {
   ...buildSeedSignal({
     title: "SSO for clinic admins via Microsoft Entra",
@@ -251,7 +274,6 @@ const shapingInTechReview: ShapingItem = {
 };
 sigForTechReview.shaping_item_id = shapingInTechReview.id;
 
-// Approval seed — Tech Lead has signed off, waiting for Senior PM approval
 const sigForApproval: Signal = {
   ...buildSeedSignal({
     title: "Bulk patient import for new clinic onboarding",
@@ -297,15 +319,13 @@ const shapingForApproval: ShapingItem = {
   tech_signed_off_at: new Date(SEED_EPOCH - 86400000).toISOString(),
   created_at: new Date(SEED_EPOCH - 9 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-} as ShapingItem;
+};
 sigForApproval.shaping_item_id = shapingForApproval.id;
 
-// Delivery seed — already approved & pushed to Jira
 const sigInDelivery: Signal = {
   ...buildSeedSignal({
     title: "Two-factor auth for clinic admin accounts",
-    description:
-      "Add TOTP-based 2FA for admin accounts to meet new clinic security policy.",
+    description: "Add TOTP-based 2FA for admin accounts to meet new clinic security policy.",
     source: "Internal",
     product: "Platform",
     daysAgo: 14,
@@ -348,15 +368,13 @@ const shapingInDelivery: ShapingItem = {
   delivery_status: "In Progress",
   created_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
-} as ShapingItem;
+};
 sigInDelivery.shaping_item_id = shapingInDelivery.id;
 
-// A second delivery item, in QA
 const sigInQA: Signal = {
   ...buildSeedSignal({
     title: "Notes auto-save indicator",
-    description:
-      "Add a save-status indicator so coordinators know their notes have synced.",
+    description: "Add a save-status indicator so coordinators know their notes have synced.",
     source: "Clinic",
     product: "Otto Notes",
     daysAgo: 12,
@@ -398,10 +416,58 @@ const shapingInQA: ShapingItem = {
   delivery_status: "In QA",
   created_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-} as ShapingItem;
+};
 sigInQA.shaping_item_id = shapingInQA.id;
 
-// A third delivery item already Done — gives us reviews to work with.
+// A blocked item (>1 day) — gives notifications work to do.
+const sigBlocked: Signal = {
+  ...buildSeedSignal({
+    title: "FertiWise lead capture form errors",
+    description: "Lead form intermittently 500s after submit — losing inbound leads.",
+    source: "Internal",
+    product: "FertiWise",
+    daysAgo: 9,
+    owner: "u-bazil",
+  }),
+  status: "Proceed",
+};
+
+const shapingBlocked: ShapingItem = {
+  ...blankShaping(sigBlocked.id, "u-bazil"),
+  shaping_status: "In Delivery",
+  current_step: 5,
+  problem_what: "Lead form fails ~8% of submissions, no error shown to user.",
+  problem_why: "Each lost lead is ~£600 LTV; visible to marketing leadership.",
+  problem_who: "Marketing ops + FertiWise prospects.",
+  problem_where: "FertiWise > Get in touch form.",
+  problem_evidence: "APM 500-rate spike since deploy 2026-04-08.",
+  problem_out_of_scope: "Form redesign.",
+  roadmap_bucket: "Now",
+  displacement: "",
+  solution_complexity: "Simple",
+  solution_approach: "Patch validator handling for blank phone fields, add observability.",
+  solution_criteria: "500-rate < 0.5% over 7 days.",
+  solution_effort: "3 points",
+  solution_decisions: "",
+  solution_questions: "",
+  solution_risks: "",
+  tech_reviewer_id: "u-waseem",
+  tech_review_notes: "Confirmed root cause. Quick fix.",
+  tech_estimate_pts: 3,
+  tech_concerns: "",
+  tech_signed_off_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
+  approver_id: "u-alizar",
+  approval_decision: "Approved",
+  approval_notes: "Ship.",
+  approved_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+  jira_key: "TFP-1045",
+  delivery_status: "Blocked",
+  blocked_since: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+  created_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+};
+sigBlocked.shaping_item_id = shapingBlocked.id;
+
 const sigDone: Signal = {
   ...buildSeedSignal({
     title: "Coordinator dashboard load time",
@@ -445,13 +511,19 @@ const shapingDone: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
   jira_key: "TFP-1031",
   delivery_status: "Done",
+  dev_complete: {
+    tests_pass: true,
+    docs_updated: true,
+    qa_signed_off: true,
+    signed_off_by: "u-karim",
+    signed_off_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+  },
   created_at: new Date(SEED_EPOCH - 21 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
-} as ShapingItem;
+};
 sigDone.shaping_item_id = shapingDone.id;
 
-// Push the wave-2 seed signals into the signals list so they appear in triage history
-seedSignals.push(sigForTechReview, sigForApproval, sigInDelivery, sigInQA, sigDone);
+seedSignals.push(sigForTechReview, sigForApproval, sigInDelivery, sigInQA, sigBlocked, sigDone);
 
 const seedShaping: ShapingItem[] = [
   shapingInProgress,
@@ -459,10 +531,10 @@ const seedShaping: ShapingItem[] = [
   shapingForApproval,
   shapingInDelivery,
   shapingInQA,
+  shapingBlocked,
   shapingDone,
 ];
 
-// Helper: pick review size from delivered shaping item.
 function pickReviewSize(s: ShapingItem): ReviewSize {
   const pts = s.tech_estimate_pts ?? 0;
   if (s.solution_complexity === "Complex" || pts >= 13) return "Large";
@@ -470,7 +542,6 @@ function pickReviewSize(s: ShapingItem): ReviewSize {
   return "Small";
 }
 
-// Seed reviews: one Pending (auto-created when sigDone hit Done), one Completed
 const seedReviews: Review[] = [
   {
     id: "rv-" + uid(),
@@ -532,6 +603,431 @@ const seedJiraEvents: JiraEvent[] = [
   },
 ];
 
+// ============ Wave 4 seed data ============
+
+let _ovrCounter = 5;
+function nextOverrideId() {
+  _ovrCounter += 1;
+  return "OVR-" + _ovrCounter.toString().padStart(3, "0");
+}
+
+let _decCounter = 8;
+function nextDecisionId() {
+  _decCounter += 1;
+  return "DEC-" + _decCounter.toString().padStart(3, "0");
+}
+
+const seedOverrides: Override[] = [
+  {
+    id: "OVR-003",
+    kind: "Capacity exceeded",
+    reason: "2FA pulled forward for compliance deadline; carried 87% allocation.",
+    signal_id: sigInDelivery.id,
+    shaping_id: shapingInDelivery.id,
+    sprint_id: seedSprint.id,
+    displaced_shaping_ids: [shapingInProgress.id],
+    displaced_pts: 5,
+    raised_by: "u-alizar",
+    raised_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    ack_status: "Acknowledged",
+    acknowledged_by: "u-shahid",
+    acknowledged_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    shahid_visible: true,
+  },
+  {
+    id: "OVR-004",
+    kind: "Bypass tech review",
+    reason: "FertiWise lead form 500s — patched live with Waseem on call.",
+    signal_id: sigBlocked.id,
+    shaping_id: shapingBlocked.id,
+    sprint_id: seedSprint.id,
+    displaced_shaping_ids: [],
+    displaced_pts: 0,
+    raised_by: "u-bazil",
+    raised_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+    ack_status: "Acknowledged",
+    acknowledged_by: "u-shahid",
+    acknowledged_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    shahid_visible: true,
+  },
+  {
+    id: "OVR-005",
+    kind: "Scope added mid-sprint",
+    reason: "Board KPI dashboard added for Friday board pack.",
+    signal_id: seedSignals[3].id,
+    shaping_id: null,
+    sprint_id: seedSprint.id,
+    displaced_shaping_ids: [],
+    displaced_pts: 0,
+    raised_by: "u-alizar",
+    raised_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    ack_status: "Pending",
+    acknowledged_by: null,
+    acknowledged_at: null,
+    shahid_visible: true,
+  },
+];
+
+const seedGoLive: GoLiveChecklist[] = [
+  {
+    id: "gl-" + uid(),
+    shaping_id: shapingInQA.id,
+    product: "Otto Notes",
+    release_name: "Notes autosave indicator v1",
+    scheduled_for: new Date(SEED_EPOCH + 2 * 86400000).toISOString(),
+    status: "In Progress",
+    war_room: false,
+    criteria: {
+      "Code merged & deployed to staging": {
+        done: true,
+        note: "Deployed 2026-04-13.",
+        checked_by: "u-ahmed",
+        checked_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+      },
+      "QA sign-off complete": { done: false, note: "Karim running regression.", checked_by: null, checked_at: null },
+      "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
+      "Rollback plan documented": {
+        done: true,
+        note: "Feature flag toggle in admin.",
+        checked_by: "u-waseem",
+        checked_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+      },
+      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+    },
+    go_no_go_decision: null,
+    go_no_go_by: null,
+    go_no_go_at: null,
+    created_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+    updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+  },
+  {
+    id: "gl-" + uid(),
+    shaping_id: shapingInDelivery.id,
+    product: "Platform",
+    release_name: "2FA for clinic admins",
+    scheduled_for: new Date(SEED_EPOCH + 6 * 86400000).toISOString(),
+    status: "Not Started",
+    war_room: true,
+    criteria: {
+      "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
+      "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
+      "Clinic comms sent": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
+      "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
+      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+    },
+    go_no_go_decision: null,
+    go_no_go_by: null,
+    go_no_go_at: null,
+    created_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+  },
+];
+
+const seedComms: CommsItem[] = [
+  {
+    id: "cm-" + uid(),
+    product: "Otto Notes",
+    channel: "Email",
+    audience: "All clinics",
+    subject: "New: see when your notes have saved",
+    body: "Hello team,\n\nWe've added a save-status indicator to Otto Notes so coordinators can see at a glance whether their notes have synced. No action needed — it's live next Tuesday.\n\nWith care,\nSami",
+    drafted_by: "u-sami",
+    drafted_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+    status: "Pending Approval",
+    approved_by: null,
+    approved_at: null,
+    sent_at: null,
+    rejected_reason: null,
+    linked_shaping_id: shapingInQA.id,
+  },
+  {
+    id: "cm-" + uid(),
+    product: "Platform",
+    channel: "In-app banner",
+    audience: "Clinic admins",
+    subject: "2FA enrollment opens 22 April",
+    body: "Admin accounts will require 2FA from 22 April. Enrollment opens this week — set up TOTP in your profile settings. Recovery codes provided.",
+    drafted_by: "u-sami",
+    drafted_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    status: "Approved",
+    approved_by: "u-bazil",
+    approved_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+    sent_at: null,
+    rejected_reason: null,
+    linked_shaping_id: shapingInDelivery.id,
+  },
+  {
+    id: "cm-" + uid(),
+    product: "Otto Pulse",
+    channel: "Email",
+    audience: "All clinics",
+    subject: "Faster coordinator dashboard — now live",
+    body: "The coordinator dashboard now loads in under 2 seconds on clinic Wi-Fi. No action needed.",
+    drafted_by: "u-sami",
+    drafted_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+    status: "Sent",
+    approved_by: "u-bazil",
+    approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    sent_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    rejected_reason: null,
+    linked_shaping_id: shapingDone.id,
+  },
+  {
+    id: "cm-" + uid(),
+    product: "FertiWise",
+    channel: "Teams",
+    audience: "Marketing ops",
+    subject: "Lead form 500s — fix in flight",
+    body: "Heads up: the lead form had an 8% 500-rate since the 8 April deploy. Patch is in QA, expect resolution by EOD tomorrow.",
+    drafted_by: "u-sami",
+    drafted_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    status: "Draft",
+    approved_by: null,
+    approved_at: null,
+    sent_at: null,
+    rejected_reason: null,
+    linked_shaping_id: shapingBlocked.id,
+  },
+];
+
+const seedDecisions: Decision[] = [
+  {
+    id: "DEC-005",
+    title: "Adopt Microsoft Entra (OIDC) over SAML for clinic SSO",
+    type: "Architectural",
+    status: "Decided",
+    context: "Clinics are on Microsoft 365. Two SSO protocols on the table: OIDC vs SAML.",
+    options_considered: "1) OIDC via Entra. 2) SAML via Entra. 3) Build our own.",
+    decision: "Use OIDC via Microsoft Entra — better DX, native multi-tenant.",
+    consequences: "We must keep a password fallback for non-Entra users.",
+    decided_by: "u-waseem",
+    decided_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+    linked_signal_id: sigForTechReview.id,
+    linked_shaping_id: shapingInTechReview.id,
+    superseded_by_id: null,
+  },
+  {
+    id: "DEC-006",
+    title: "Cap CSV import at 5,000 rows per upload",
+    type: "Product",
+    status: "Decided",
+    context: "Bulk patient import for new clinic onboarding.",
+    options_considered: "1) Unlimited streaming. 2) 5,000 cap. 3) 1,000 cap.",
+    decision: "5,000 rows per upload, async worker for >500.",
+    consequences: "Largest pilot clinic needs 2 uploads. Acceptable.",
+    decided_by: "u-bazil",
+    decided_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    linked_signal_id: sigForApproval.id,
+    linked_shaping_id: shapingForApproval.id,
+    superseded_by_id: null,
+  },
+  {
+    id: "DEC-007",
+    title: "Lock sprint scope after kickoff (Mondays 10am)",
+    type: "Process",
+    status: "Decided",
+    context: "Mid-sprint scope creep was eroding throughput.",
+    options_considered: "1) Hard lock + override flow. 2) Soft warn. 3) No lock.",
+    decision: "Soft warn at >85% capacity; OVR-NNN for any mid-sprint addition.",
+    consequences: "All overrides Shahid-visible, reviewed at sprint retro.",
+    decided_by: "u-alizar",
+    decided_at: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
+    linked_signal_id: null,
+    linked_shaping_id: null,
+    superseded_by_id: null,
+  },
+  {
+    id: "DEC-008",
+    title: "QA sign-off mandatory before Done transition",
+    type: "Process",
+    status: "Decided",
+    context: "Two regressions shipped in Sprint 4 from items marked Done without QA.",
+    options_considered: "1) Mandatory checkbox. 2) Trust-based. 3) Karim-only gate.",
+    decision: "Three-checkbox dev-complete gate (tests / docs / QA) before Done.",
+    consequences: "Adds ~10 min per ticket but prevents regressions.",
+    decided_by: "u-karim",
+    decided_at: new Date(SEED_EPOCH - 18 * 86400000).toISOString(),
+    linked_signal_id: null,
+    linked_shaping_id: null,
+    superseded_by_id: null,
+  },
+];
+
+const seedRetros: SprintRetro[] = [
+  {
+    id: "rt-" + uid(),
+    sprint_id: "s-3",
+    what_worked: "Tighter triage standup kept SLA breaches at zero.",
+    what_didnt: "Tech review queue backed up — Waseem doing all of it solo.",
+    one_change: "Add Ahmed as second tech reviewer.",
+    primary_theme: "Capacity",
+    created_by: "u-alizar",
+    created_at: new Date(SEED_EPOCH - 56 * 86400000).toISOString(),
+    escalated: false,
+  },
+  {
+    id: "rt-" + uid(),
+    sprint_id: "s-4",
+    what_worked: "Clinic comms approval gate prevented two confused emails.",
+    what_didnt: "Tech review still the bottleneck even with Ahmed on board.",
+    one_change: "Block work-in-progress: max 2 items per reviewer.",
+    primary_theme: "Capacity",
+    created_by: "u-alizar",
+    created_at: new Date(SEED_EPOCH - 42 * 86400000).toISOString(),
+    escalated: false,
+  },
+  {
+    id: "rt-" + uid(),
+    sprint_id: "s-5",
+    what_worked: "WIP limit kept reviewers focused.",
+    what_didnt: "Capacity still tight — 4 mid-sprint adds, all overrides.",
+    one_change: "Stop accepting Now-bucket items in week 2 of sprint.",
+    primary_theme: "Capacity",
+    created_by: "u-alizar",
+    created_at: new Date(SEED_EPOCH - 14 * 86400000).toISOString(),
+    escalated: true,
+  },
+];
+
+const seedAudit: AuditEntry[] = [
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 21 * 86400000).toISOString(),
+    actor_id: "u-sami",
+    entity_type: "signal",
+    entity_id: sigDone.id,
+    action: "Signal created",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 19 * 86400000).toISOString(),
+    actor_id: "u-bazil",
+    entity_type: "signal",
+    entity_id: sigDone.id,
+    action: "Triaged → Proceed",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 18 * 86400000).toISOString(),
+    actor_id: "u-waseem",
+    entity_type: "shaping",
+    entity_id: shapingDone.id,
+    action: "Tech review signed off",
+    after: "5 pts",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
+    actor_id: "u-alizar",
+    entity_type: "shaping",
+    entity_id: shapingDone.id,
+    action: "Approved",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    actor_id: "u-karim",
+    entity_type: "shaping",
+    entity_id: shapingDone.id,
+    action: "Dev-complete gate signed off (tests, docs, QA)",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+    actor_id: "u-bazil",
+    entity_type: "shaping",
+    entity_id: shapingDone.id,
+    action: "Delivery → Done",
+    before: "In QA",
+    after: "Done",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    actor_id: "u-alizar",
+    entity_type: "override",
+    entity_id: "OVR-003",
+    action: "Override logged: capacity exceeded",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+    actor_id: "u-bazil",
+    entity_type: "override",
+    entity_id: "OVR-004",
+    action: "Override logged: bypass tech review",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 86400000).toISOString(),
+    actor_id: "u-alizar",
+    entity_type: "override",
+    entity_id: "OVR-005",
+    action: "Override logged: scope added mid-sprint",
+  },
+  {
+    id: "au-" + uid(),
+    ts: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+    actor_id: "u-bazil",
+    entity_type: "shaping",
+    entity_id: shapingBlocked.id,
+    action: "Delivery → Blocked",
+    before: "In Progress",
+    after: "Blocked",
+  },
+];
+
+const seedNotifications: Notification[] = [
+  buildNotification({
+    trigger: "sla_breach",
+    title: "SLA breach: Patients cannot complete intake on Safari",
+    body: "T1 signal past SLA. Owner: Bazil.",
+    link_to: "/triage",
+    entity_id: seedSignals[0].id,
+    ts: new Date(SEED_EPOCH - 3600000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "blocked_over_1d",
+    title: "TFP-1045 blocked > 1 day",
+    body: "FertiWise lead form fix has been blocked since 13 Apr.",
+    link_to: "/delivery",
+    entity_id: shapingBlocked.id,
+    ts: new Date(SEED_EPOCH - 7200000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "comms_approval",
+    title: "Sami needs approval: Notes autosave email",
+    body: "Draft sitting in comms log awaiting PM sign-off.",
+    link_to: "/comms",
+    ts: new Date(SEED_EPOCH - 1800000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "override_logged",
+    title: "OVR-005 awaiting Shahid acknowledgement",
+    body: "Scope added mid-sprint: board KPI dashboard.",
+    link_to: "/overrides",
+    entity_id: "OVR-005",
+    ts: new Date(SEED_EPOCH - 86400000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "review_overdue",
+    title: "Outcome review pending: Coordinator dashboard load time",
+    body: "Item shipped 4 days ago — review still in Pending.",
+    link_to: "/review",
+    ts: new Date(SEED_EPOCH - 14400000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "retro_escalation",
+    title: "Capacity theme escalated (3 sprints)",
+    body: "Sprints 3, 4, 5 all flagged Capacity as primary theme.",
+    link_to: "/retros",
+    ts: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
+  }),
+];
+seedNotifications[5].read = true;
+
+// ============ Store ============
+
 type State = {
   currentUserId: string;
   users: User[];
@@ -540,6 +1036,13 @@ type State = {
   shaping: ShapingItem[];
   jiraEvents: JiraEvent[];
   reviews: Review[];
+  audit: AuditEntry[];
+  overrides: Override[];
+  goLives: GoLiveChecklist[];
+  comms: CommsItem[];
+  decisions: Decision[];
+  retros: SprintRetro[];
+  notifications: Notification[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -560,35 +1063,52 @@ type State = {
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
-  // Wave 2
   signOffTechReview: (id: string, reviewerId: string) => void;
   approveShaping: (id: string, approverId: string, notes: string) => void;
   requestChanges: (id: string, approverId: string, notes: string) => void;
-  pushToJira: (id: string) => string; // returns jira key
+  pushToJira: (id: string) => string;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
-  syncFromJira: () => number; // returns number of changes
-  // Wave 3 — Reviews
+  syncFromJira: () => number;
   startReview: (shapingId: string) => Review | null;
   updateReview: (id: string, patch: Partial<Review>) => void;
   scheduleReview: (id: string, when: string) => void;
   completeReview: (
     id: string,
-    data: {
-      outcome_rating: OutcomeRating;
-      what_worked: string;
-      what_didnt: string;
-      notes: string;
-    },
+    data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string },
   ) => void;
   logFollowOnSignal: (
     reviewId: string,
-    data: {
-      title: string;
-      description: string;
-      source: Signal["source"];
-      product: Signal["product"];
-    },
+    data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
   ) => Signal;
+  // Wave 4
+  toggleDevCompleteGate: (id: string, key: "tests_pass" | "docs_updated" | "qa_signed_off", value: boolean) => void;
+  signOffDevComplete: (id: string) => void;
+  toggleSprintLock: () => void;
+  logOverride: (data: {
+    kind: OverrideKind;
+    reason: string;
+    signal_id?: string | null;
+    shaping_id?: string | null;
+    displaced_shaping_ids?: string[];
+    displaced_pts?: number;
+    shahid_visible?: boolean;
+  }) => Override;
+  ackOverride: (id: string) => void;
+  upsertGoLive: (data: Partial<GoLiveChecklist> & { id?: string; shaping_id: string; product: Product; release_name: string; scheduled_for: string }) => GoLiveChecklist;
+  toggleGoLiveCriterion: (id: string, criterion: GoLiveCriterion, done: boolean, note?: string) => void;
+  toggleGoLiveWarRoom: (id: string) => void;
+  setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
+  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason">) => CommsItem;
+  submitCommsForApproval: (id: string) => void;
+  approveComms: (id: string) => void;
+  rejectComms: (id: string, reason: string) => void;
+  sendComms: (id: string) => void;
+  createDecision: (data: Omit<Decision, "id" | "decided_at" | "decided_by" | "status" | "superseded_by_id">) => Decision;
+  createRetro: (data: Omit<SprintRetro, "id" | "created_at" | "created_by" | "escalated">) => SprintRetro;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  pushNotification: (n: Omit<Notification, "id" | "ts" | "read" | "priority"> & { ts?: string }) => Notification;
+  audit_log: (entry: Omit<AuditEntry, "id" | "ts" | "actor_id">) => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -609,7 +1129,47 @@ export const useTfpStore = create<State>()(
       shaping: seedShaping,
       jiraEvents: seedJiraEvents,
       reviews: seedReviews,
+      audit: seedAudit,
+      overrides: seedOverrides,
+      goLives: seedGoLive,
+      comms: seedComms,
+      decisions: seedDecisions,
+      retros: seedRetros,
+      notifications: seedNotifications,
+
       setCurrentUser: (id) => set({ currentUserId: id }),
+
+      audit_log: (entry) => {
+        const a: AuditEntry = {
+          id: "au-" + uid(),
+          ts: new Date().toISOString(),
+          actor_id: get().currentUserId,
+          ...entry,
+        };
+        set({ audit: [a, ...get().audit] });
+      },
+
+      pushNotification: (n) => {
+        const note = buildNotification({
+          trigger: n.trigger,
+          title: n.title,
+          body: n.body,
+          link_to: n.link_to ?? null,
+          for_user_id: n.for_user_id ?? null,
+          entity_id: n.entity_id ?? null,
+          ts: n.ts,
+        });
+        set({ notifications: [note, ...get().notifications] });
+        return note;
+      },
+
+      markNotificationRead: (id) => {
+        set({ notifications: get().notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) });
+      },
+
+      markAllNotificationsRead: () => {
+        set({ notifications: get().notifications.map((n) => ({ ...n, read: true })) });
+      },
 
       createSignal: (data) => {
         const c = classifySignal({ source: data.source, description: data.description });
@@ -637,6 +1197,26 @@ export const useTfpStore = create<State>()(
           displacement_note: data.displacement_note,
         };
         set({ signals: [sig, ...get().signals] });
+        get().audit_log({ entity_type: "signal", entity_id: sig.id, action: "Signal created" });
+        // Notification triggers
+        if (sig.source === "Leadership") {
+          get().pushNotification({
+            trigger: "leadership_signal",
+            title: "Leadership signal logged",
+            body: sig.title,
+            link_to: "/triage",
+            entity_id: sig.id,
+          });
+        }
+        if (sig.issue_type === "Incident" || sig.tier === "T1") {
+          get().pushNotification({
+            trigger: "incident",
+            title: "Incident raised: " + sig.title,
+            body: `${sig.tier} · ${sig.product}`,
+            link_to: "/triage",
+            entity_id: sig.id,
+          });
+        }
         return sig;
       },
 
@@ -647,50 +1227,32 @@ export const useTfpStore = create<State>()(
           if (decision === "Proceed") {
             const sh = blankShaping(s.id, me);
             set({ shaping: [sh, ...get().shaping] });
-            return {
-              ...s,
-              status: "Proceed" as const,
-              owner_id: me,
-              shaping_item_id: sh.id,
-              triage_reason: null,
-              hold_until: null,
-            };
+            get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Proceed" });
+            return { ...s, status: "Proceed" as const, owner_id: me, shaping_item_id: sh.id, triage_reason: null, hold_until: null };
           }
           if (decision === "Hold") {
-            return {
-              ...s,
-              status: "Hold" as const,
-              owner_id: me,
-              triage_reason: reason ?? null,
-              hold_until: holdUntil ?? null,
-            };
+            get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Hold", after: reason ?? null });
+            return { ...s, status: "Hold" as const, owner_id: me, triage_reason: reason ?? null, hold_until: holdUntil ?? null };
           }
-          return {
-            ...s,
-            status: "Rejected" as const,
-            owner_id: me,
-            triage_reason: reason ?? null,
-          };
+          get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Rejected", after: reason ?? null });
+          return { ...s, status: "Rejected" as const, owner_id: me, triage_reason: reason ?? null };
         });
         set({ signals });
       },
 
       updateShaping: (id, patch) => {
         set({
-          shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, ...patch, updated_at: new Date().toISOString() } : s,
-          ),
+          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: new Date().toISOString() } : s)),
         });
       },
 
       setRoadmapBucket: (id, bucket, displacement) => {
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id
-              ? { ...s, roadmap_bucket: bucket, displacement, updated_at: new Date().toISOString() }
-              : s,
+            s.id === id ? { ...s, roadmap_bucket: bucket, displacement, updated_at: new Date().toISOString() } : s,
           ),
         });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Roadmap bucket set to ${bucket}` });
       },
 
       setComplexity: (id, c) => {
@@ -716,6 +1278,14 @@ export const useTfpStore = create<State>()(
               : s,
           ),
         });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
+        get().pushNotification({
+          trigger: "tech_review_ready",
+          title: "Ready for approval",
+          body: "Tech review signed off — awaiting Senior PM.",
+          link_to: "/shaping",
+          entity_id: id,
+        });
       },
 
       approveShaping: (id, approverId, notes) => {
@@ -734,6 +1304,7 @@ export const useTfpStore = create<State>()(
               : s,
           ),
         });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Approved" });
       },
 
       requestChanges: (id, approverId, notes) => {
@@ -752,13 +1323,12 @@ export const useTfpStore = create<State>()(
               : s,
           ),
         });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Changes requested" });
       },
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        if (!item || item.shaping_status !== "Approved" || item.jira_key) {
-          return item?.jira_key ?? "";
-        }
+        if (!item || item.shaping_status !== "Approved" || item.jira_key) return item?.jira_key ?? "";
         const key = nextJiraKey();
         const event: JiraEvent = {
           id: "je-" + uid(),
@@ -767,32 +1337,61 @@ export const useTfpStore = create<State>()(
           type: "issue.created",
           jira_key: key,
           shaping_id: id,
-          payload: {
-            summary: item.problem_what.slice(0, 80),
-            points: item.tech_estimate_pts ?? 0,
-            sprint: get().sprint.name,
-          },
+          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: get().sprint.name },
         };
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? {
-                  ...s,
-                  jira_key: key,
-                  delivery_status: "To Do",
-                  shaping_status: "In Delivery",
-                  updated_at: new Date().toISOString(),
-                }
+              ? { ...s, jira_key: key, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira as ${key}` });
+        // Soft-warn: capacity check
+        const sp = get().sprint;
+        const usable = Math.max(
+          0,
+          sp.gross_capacity_pts -
+            sp.leave_deduction_pts -
+            sp.interrupt_buffer_pts -
+            sp.qa_buffer_pts -
+            sp.uncertainty_buffer_pts -
+            sp.carryforward_estimate_pts -
+            sp.golive_deduction_pts,
+        );
+        const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
+        if (sp.status === "Locked" || newAlloc / Math.max(1, usable) > 0.85) {
+          get().pushNotification({
+            trigger: "scope_change",
+            title: "Sprint capacity > 85%",
+            body: `${key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
+            link_to: "/overrides",
+            entity_id: id,
+          });
+        }
+        set({ sprint: { ...sp, allocated_pts: newAlloc } });
         return key;
       },
 
       setDeliveryStatus: (id, next) => {
         const item = get().shaping.find((s) => s.id === id);
         if (!item || !item.jira_key) return;
+        // Dev-complete gate enforcement: cannot transition to Done unless gate is signed off.
+        if (next === "Done") {
+          const g = item.dev_complete;
+          if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off || !g.signed_off_at) {
+            // Fire a P2 notification but block the transition.
+            get().pushNotification({
+              trigger: "blocker_signoff",
+              title: "Dev-complete gate not signed off",
+              body: `${item.jira_key} cannot move to Done until tests, docs and QA are checked.`,
+              link_to: "/delivery",
+              entity_id: id,
+            });
+            return;
+          }
+        }
         const event: JiraEvent = {
           id: "je-" + uid(),
           ts: new Date().toISOString(),
@@ -802,7 +1401,6 @@ export const useTfpStore = create<State>()(
           shaping_id: id,
           payload: { from: item.delivery_status ?? "To Do", to: next },
         };
-        // Auto-create a Pending review the first time an item lands on Done.
         const wasDone = item.delivery_status === "Done";
         const nowDone = next === "Done";
         const reviews = get().reviews;
@@ -835,23 +1433,42 @@ export const useTfpStore = create<State>()(
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, delivery_status: next, updated_at: new Date().toISOString() }
+              ? {
+                  ...s,
+                  delivery_status: next,
+                  blocked_since: next === "Blocked" ? new Date().toISOString() : null,
+                  updated_at: new Date().toISOString(),
+                }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
           reviews: newReviews,
         });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Delivery → ${next}`,
+          before: item.delivery_status ?? null,
+          after: next,
+        });
+        if (next === "Blocked") {
+          get().pushNotification({
+            trigger: "blocker_signoff",
+            title: `${item.jira_key} marked Blocked`,
+            body: "Investigate and clear blocker; auto-escalates after 24h.",
+            link_to: "/delivery",
+            entity_id: id,
+          });
+        }
       },
 
       syncFromJira: () => {
-        // Simulate a pull: advance each non-Done, non-Blocked item one step ~50% of the time.
         const items = get().shaping.filter(
           (s) => s.jira_key && s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
         );
         const events: JiraEvent[] = [];
         const updates = new Map<string, DeliveryStatus>();
         items.forEach((s, i) => {
-          // deterministic-ish: every other item advances
           if (i % 2 !== 0) return;
           const idx = JIRA_FLOW.indexOf(s.delivery_status as DeliveryStatus);
           if (idx < 0 || idx >= JIRA_FLOW.length - 1) return;
@@ -870,9 +1487,7 @@ export const useTfpStore = create<State>()(
         if (updates.size === 0) return 0;
         set({
           shaping: get().shaping.map((s) =>
-            updates.has(s.id)
-              ? { ...s, delivery_status: updates.get(s.id)!, updated_at: new Date().toISOString() }
-              : s,
+            updates.has(s.id) ? { ...s, delivery_status: updates.get(s.id)!, updated_at: new Date().toISOString() } : s,
           ),
           jiraEvents: [...events, ...get().jiraEvents],
         });
@@ -908,24 +1523,13 @@ export const useTfpStore = create<State>()(
       },
 
       updateReview: (id, patch) => {
-        set({
-          reviews: get().reviews.map((r) =>
-            r.id === id ? { ...r, ...patch, updated_at: new Date().toISOString() } : r,
-          ),
-        });
+        set({ reviews: get().reviews.map((r) => (r.id === id ? { ...r, ...patch, updated_at: new Date().toISOString() } : r)) });
       },
 
       scheduleReview: (id, when) => {
         set({
           reviews: get().reviews.map((r) =>
-            r.id === id
-              ? {
-                  ...r,
-                  scheduled_for: when,
-                  status: "Scheduled",
-                  updated_at: new Date().toISOString(),
-                }
-              : r,
+            r.id === id ? { ...r, scheduled_for: when, status: "Scheduled", updated_at: new Date().toISOString() } : r,
           ),
         });
       },
@@ -934,16 +1538,11 @@ export const useTfpStore = create<State>()(
         set({
           reviews: get().reviews.map((r) =>
             r.id === id
-              ? {
-                  ...r,
-                  ...data,
-                  status: "Completed",
-                  completed_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                }
+              ? { ...r, ...data, status: "Completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }
               : r,
           ),
         });
+        get().audit_log({ entity_type: "review", entity_id: id, action: `Review completed: ${data.outcome_rating}` });
       },
 
       logFollowOnSignal: (reviewId, data) => {
@@ -970,8 +1569,275 @@ export const useTfpStore = create<State>()(
         });
         return sig;
       },
+
+      // ============ Wave 4 actions ============
+
+      toggleDevCompleteGate: (id, key, value) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  dev_complete: { ...s.dev_complete, [key]: value, signed_off_at: null, signed_off_by: null },
+                  updated_at: new Date().toISOString(),
+                }
+              : s,
+          ),
+        });
+      },
+
+      signOffDevComplete: (id) => {
+        const me = get().currentUserId;
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item) return;
+        const g = item.dev_complete;
+        if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off) return;
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  dev_complete: { ...s.dev_complete, signed_off_by: me, signed_off_at: new Date().toISOString() },
+                  updated_at: new Date().toISOString(),
+                }
+              : s,
+          ),
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off" });
+      },
+
+      toggleSprintLock: () => {
+        const sp = get().sprint;
+        const me = get().currentUserId;
+        const locked = sp.status === "Locked";
+        set({
+          sprint: {
+            ...sp,
+            status: locked ? "Active" : "Locked",
+            scope_locked_at: locked ? null : new Date().toISOString(),
+            scope_locked_by: locked ? null : me,
+          },
+        });
+        get().audit_log({
+          entity_type: "sprint",
+          entity_id: sp.id,
+          action: locked ? "Sprint scope unlocked" : "Sprint scope locked",
+        });
+      },
+
+      logOverride: (data) => {
+        const ovr: Override = {
+          id: nextOverrideId(),
+          kind: data.kind,
+          reason: data.reason,
+          signal_id: data.signal_id ?? null,
+          shaping_id: data.shaping_id ?? null,
+          sprint_id: get().sprint.id,
+          displaced_shaping_ids: data.displaced_shaping_ids ?? [],
+          displaced_pts: data.displaced_pts ?? 0,
+          raised_by: get().currentUserId,
+          raised_at: new Date().toISOString(),
+          ack_status: "Pending",
+          acknowledged_by: null,
+          acknowledged_at: null,
+          shahid_visible: data.shahid_visible ?? true,
+        };
+        set({ overrides: [ovr, ...get().overrides] });
+        get().audit_log({ entity_type: "override", entity_id: ovr.id, action: `Override logged: ${ovr.kind.toLowerCase()}` });
+        get().pushNotification({
+          trigger: "override_logged",
+          title: `${ovr.id} awaiting acknowledgement`,
+          body: ovr.reason.slice(0, 100),
+          link_to: "/overrides",
+          entity_id: ovr.id,
+        });
+        return ovr;
+      },
+
+      ackOverride: (id) => {
+        const me = get().currentUserId;
+        set({
+          overrides: get().overrides.map((o) =>
+            o.id === id
+              ? { ...o, ack_status: "Acknowledged", acknowledged_by: me, acknowledged_at: new Date().toISOString() }
+              : o,
+          ),
+        });
+        get().audit_log({ entity_type: "override", entity_id: id, action: "Override acknowledged" });
+      },
+
+      upsertGoLive: (data) => {
+        const existing = data.id ? get().goLives.find((g) => g.id === data.id) : null;
+        if (existing) {
+          const updated: GoLiveChecklist = { ...existing, ...data, updated_at: new Date().toISOString() } as GoLiveChecklist;
+          set({ goLives: get().goLives.map((g) => (g.id === existing.id ? updated : g)) });
+          return updated;
+        }
+        const fresh: GoLiveChecklist = {
+          id: "gl-" + uid(),
+          shaping_id: data.shaping_id,
+          product: data.product,
+          release_name: data.release_name,
+          scheduled_for: data.scheduled_for,
+          status: data.status ?? "Not Started",
+          war_room: data.war_room ?? false,
+          criteria: data.criteria ?? {
+            "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
+            "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
+            "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
+            "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
+            "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+          },
+          go_no_go_decision: null,
+          go_no_go_by: null,
+          go_no_go_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set({ goLives: [fresh, ...get().goLives] });
+        get().audit_log({ entity_type: "checklist", entity_id: fresh.id, action: `Go-live created for ${fresh.product}` });
+        return fresh;
+      },
+
+      toggleGoLiveCriterion: (id, criterion, done, note) => {
+        const me = get().currentUserId;
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  criteria: {
+                    ...g.criteria,
+                    [criterion]: {
+                      ...g.criteria[criterion],
+                      done,
+                      note: note ?? g.criteria[criterion].note,
+                      checked_by: done ? me : null,
+                      checked_at: done ? new Date().toISOString() : null,
+                    },
+                  },
+                  updated_at: new Date().toISOString(),
+                }
+              : g,
+          ),
+        });
+      },
+
+      toggleGoLiveWarRoom: (id) => {
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id ? { ...g, war_room: !g.war_room, updated_at: new Date().toISOString() } : g,
+          ),
+        });
+      },
+
+      setGoLiveDecision: (id, decision) => {
+        const me = get().currentUserId;
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  go_no_go_decision: decision,
+                  go_no_go_by: me,
+                  go_no_go_at: new Date().toISOString(),
+                  status: decision === "Go" ? "Live" : g.status,
+                  updated_at: new Date().toISOString(),
+                }
+              : g,
+          ),
+        });
+        get().audit_log({ entity_type: "checklist", entity_id: id, action: `Go/No-Go: ${decision}` });
+      },
+
+      createComms: (data) => {
+        const item: CommsItem = {
+          id: "cm-" + uid(),
+          ...data,
+          drafted_by: get().currentUserId,
+          drafted_at: new Date().toISOString(),
+          status: "Draft",
+          approved_by: null,
+          approved_at: null,
+          sent_at: null,
+          rejected_reason: null,
+        };
+        set({ comms: [item, ...get().comms] });
+        get().audit_log({ entity_type: "comms", entity_id: item.id, action: "Comms drafted" });
+        return item;
+      },
+
+      submitCommsForApproval: (id) => {
+        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Pending Approval" } : c)) });
+        get().pushNotification({
+          trigger: "comms_approval",
+          title: "Comms awaiting PM approval",
+          body: get().comms.find((c) => c.id === id)?.subject ?? "",
+          link_to: "/comms",
+          entity_id: id,
+        });
+      },
+
+      approveComms: (id) => {
+        const me = get().currentUserId;
+        set({
+          comms: get().comms.map((c) =>
+            c.id === id ? { ...c, status: "Approved", approved_by: me, approved_at: new Date().toISOString() } : c,
+          ),
+        });
+        get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms approved" });
+      },
+
+      rejectComms: (id, reason) => {
+        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Rejected", rejected_reason: reason } : c)) });
+      },
+
+      sendComms: (id) => {
+        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Sent", sent_at: new Date().toISOString() } : c)) });
+        get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms sent" });
+      },
+
+      createDecision: (data) => {
+        const dec: Decision = {
+          id: nextDecisionId(),
+          ...data,
+          status: "Decided",
+          decided_by: get().currentUserId,
+          decided_at: new Date().toISOString(),
+          superseded_by_id: null,
+        };
+        set({ decisions: [dec, ...get().decisions] });
+        get().audit_log({ entity_type: "decision", entity_id: dec.id, action: `Decision: ${dec.title}` });
+        return dec;
+      },
+
+      createRetro: (data) => {
+        const me = get().currentUserId;
+        const all = get().retros;
+        const recent = all.slice(0, 2);
+        const escalated = recent.length === 2 && recent.every((r) => r.primary_theme === data.primary_theme);
+        const retro: SprintRetro = {
+          id: "rt-" + uid(),
+          ...data,
+          created_by: me,
+          created_at: new Date().toISOString(),
+          escalated,
+        };
+        set({ retros: [retro, ...all] });
+        get().audit_log({ entity_type: "retro", entity_id: retro.id, action: `Retro logged (${data.primary_theme})` });
+        if (escalated) {
+          get().pushNotification({
+            trigger: "retro_escalation",
+            title: `${data.primary_theme} theme escalated (3 sprints)`,
+            body: data.one_change,
+            link_to: "/retros",
+            entity_id: retro.id,
+          });
+        }
+        return retro;
+      },
     }),
-    { name: "tfp-os-v3" },
+    { name: "tfp-os-v4" },
   ),
 );
 
@@ -995,13 +1861,7 @@ export function solutionComplete(s: ShapingItem): boolean {
   const required: Array<keyof ShapingItem> =
     s.solution_complexity === "Simple"
       ? ["solution_approach", "solution_criteria", "solution_effort"]
-      : [
-          "solution_approach",
-          "solution_criteria",
-          "solution_effort",
-          "solution_decisions",
-          "solution_risks",
-        ];
+      : ["solution_approach", "solution_criteria", "solution_effort", "solution_decisions", "solution_risks"];
   return required.every((k) => String(s[k] ?? "").trim().length > 0);
 }
 
@@ -1022,6 +1882,11 @@ export function canApprove(s: ShapingItem): boolean {
     solutionComplete(s) &&
     techReviewComplete(s)
   );
+}
+
+export function devCompleteReady(s: ShapingItem): boolean {
+  const g = s.dev_complete;
+  return g.tests_pass && g.docs_updated && g.qa_signed_off && !!g.signed_off_at;
 }
 
 export function usableCapacity(sp: Sprint): number {
