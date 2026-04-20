@@ -24,10 +24,17 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Download,
+  FileText,
   Gauge,
+  Printer,
   TrendingUp,
 } from "lucide-react";
+import { toast } from "sonner";
 import { TierBadge, StatusBadge } from "@/components/tfp/Badge";
+import { SignalTimelineDrawer } from "@/components/tfp/SignalTimelineDrawer";
+import { SprintUpdateModal } from "@/components/tfp/SprintUpdateModal";
+import { downloadCsv, signalsToCsv } from "@/lib/tfp/exports";
 
 export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
@@ -40,6 +47,8 @@ function LeadershipPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
   const sprint = useTfpStore((s) => s.sprint);
+  const [openSignalId, setOpenSignalId] = useState<string | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
 
   // ---------- KPI computation ----------
   const now = useMemo(() => new Date("2026-04-15T09:00:00.000Z").getTime(), []);
@@ -185,14 +194,48 @@ function LeadershipPage() {
     });
   }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now]);
 
+  function exportCsv() {
+    const csv = signalsToCsv(filteredSignals, shaping, USERS);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(`tfp-signals-${stamp}.csv`, csv);
+    toast.success("CSV exported", {
+      description: `${filteredSignals.length} signals downloaded.`,
+    });
+  }
+
   return (
     <div>
-      <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 6 · Leadership</p>
-        <h1 className="mt-1 font-display text-3xl">Portfolio Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live read-out of signals, throughput, capacity and outcomes across the TFP product surface.
-        </p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 6 · Leadership</p>
+          <h1 className="mt-1 font-display text-3xl">Portfolio Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Live read-out of signals, throughput, capacity and outcomes across the TFP product surface.
+          </p>
+        </div>
+        <div className="no-print flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setUpdateOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Sprint update
+          </button>
+          <button
+            onClick={exportCsv}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Print / PDF
+          </button>
+        </div>
       </header>
 
       {/* KPI tiles */}
@@ -411,7 +454,12 @@ function LeadershipPage() {
                   const owner = USERS.find((u) => u.id === s.owner_id);
                   const breach = (s.status === "New" || s.status === "In Review") && new Date(s.sla_due_at).getTime() < now;
                   return (
-                    <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
+                    <tr
+                      key={s.id}
+                      onClick={() => setOpenSignalId(s.id)}
+                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/30"
+                      title="View timeline"
+                    >
                       <td className="px-3 py-2"><div className="font-medium leading-tight">{s.title}</div><div className="text-[10px] text-muted-foreground">{s.id}</div></td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{s.source}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{s.product}</td>
@@ -430,6 +478,9 @@ function LeadershipPage() {
           </table>
         </div>
       </div>
+
+      <SignalTimelineDrawer signalId={openSignalId} onClose={() => setOpenSignalId(null)} />
+      <SprintUpdateModal open={updateOpen} onClose={() => setUpdateOpen(false)} />
     </div>
   );
 }
