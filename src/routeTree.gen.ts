@@ -14,10 +14,15 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
+import { Route as AppRetrosRouteImport } from './routes/_app.retros'
+import { Route as AppOverridesRouteImport } from './routes/_app.overrides'
 import { Route as AppLeadershipRouteImport } from './routes/_app.leadership'
 import { Route as AppIntakeRouteImport } from './routes/_app.intake'
 import { Route as AppHealthRouteImport } from './routes/_app.health'
+import { Route as AppGoliveRouteImport } from './routes/_app.golive'
 import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
+import { Route as AppDecisionsRouteImport } from './routes/_app.decisions'
+import { Route as AppCommsRouteImport } from './routes/_app.comms'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -43,6 +48,16 @@ const AppReviewRoute = AppReviewRouteImport.update({
   path: '/review',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRetrosRoute = AppRetrosRouteImport.update({
+  id: '/retros',
+  path: '/retros',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOverridesRoute = AppOverridesRouteImport.update({
+  id: '/overrides',
+  path: '/overrides',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppLeadershipRoute = AppLeadershipRouteImport.update({
   id: '/leadership',
   path: '/leadership',
@@ -58,27 +73,52 @@ const AppHealthRoute = AppHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGoliveRoute = AppGoliveRouteImport.update({
+  id: '/golive',
+  path: '/golive',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDeliveryRoute = AppDeliveryRouteImport.update({
   id: '/delivery',
   path: '/delivery',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDecisionsRoute = AppDecisionsRouteImport.update({
+  id: '/decisions',
+  path: '/decisions',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCommsRoute = AppCommsRouteImport.update({
+  id: '/comms',
+  path: '/comms',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/comms': typeof AppCommsRoute
+  '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
+  '/golive': typeof AppGoliveRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
+  '/overrides': typeof AppOverridesRoute
+  '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
 }
 export interface FileRoutesByTo {
+  '/comms': typeof AppCommsRoute
+  '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
+  '/golive': typeof AppGoliveRoute
   '/health': typeof AppHealthRoute
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
+  '/overrides': typeof AppOverridesRoute
+  '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
@@ -87,10 +127,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/_app/comms': typeof AppCommsRoute
+  '/_app/decisions': typeof AppDecisionsRoute
   '/_app/delivery': typeof AppDeliveryRoute
+  '/_app/golive': typeof AppGoliveRoute
   '/_app/health': typeof AppHealthRoute
   '/_app/intake': typeof AppIntakeRoute
   '/_app/leadership': typeof AppLeadershipRoute
+  '/_app/overrides': typeof AppOverridesRoute
+  '/_app/retros': typeof AppRetrosRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
@@ -100,19 +145,29 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/comms'
+    | '/decisions'
     | '/delivery'
+    | '/golive'
     | '/health'
     | '/intake'
     | '/leadership'
+    | '/overrides'
+    | '/retros'
     | '/review'
     | '/shaping'
     | '/triage'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/comms'
+    | '/decisions'
     | '/delivery'
+    | '/golive'
     | '/health'
     | '/intake'
     | '/leadership'
+    | '/overrides'
+    | '/retros'
     | '/review'
     | '/shaping'
     | '/triage'
@@ -120,10 +175,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/_app/comms'
+    | '/_app/decisions'
     | '/_app/delivery'
+    | '/_app/golive'
     | '/_app/health'
     | '/_app/intake'
     | '/_app/leadership'
+    | '/_app/overrides'
+    | '/_app/retros'
     | '/_app/review'
     | '/_app/shaping'
     | '/_app/triage'
@@ -171,6 +231,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReviewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/retros': {
+      id: '/_app/retros'
+      path: '/retros'
+      fullPath: '/retros'
+      preLoaderRoute: typeof AppRetrosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/overrides': {
+      id: '/_app/overrides'
+      path: '/overrides'
+      fullPath: '/overrides'
+      preLoaderRoute: typeof AppOverridesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/leadership': {
       id: '/_app/leadership'
       path: '/leadership'
@@ -192,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHealthRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/golive': {
+      id: '/_app/golive'
+      path: '/golive'
+      fullPath: '/golive'
+      preLoaderRoute: typeof AppGoliveRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/delivery': {
       id: '/_app/delivery'
       path: '/delivery'
@@ -199,14 +280,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDeliveryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/decisions': {
+      id: '/_app/decisions'
+      path: '/decisions'
+      fullPath: '/decisions'
+      preLoaderRoute: typeof AppDecisionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/comms': {
+      id: '/_app/comms'
+      path: '/comms'
+      fullPath: '/comms'
+      preLoaderRoute: typeof AppCommsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppCommsRoute: typeof AppCommsRoute
+  AppDecisionsRoute: typeof AppDecisionsRoute
   AppDeliveryRoute: typeof AppDeliveryRoute
+  AppGoliveRoute: typeof AppGoliveRoute
   AppHealthRoute: typeof AppHealthRoute
   AppIntakeRoute: typeof AppIntakeRoute
   AppLeadershipRoute: typeof AppLeadershipRoute
+  AppOverridesRoute: typeof AppOverridesRoute
+  AppRetrosRoute: typeof AppRetrosRoute
   AppReviewRoute: typeof AppReviewRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
@@ -214,10 +314,15 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppCommsRoute: AppCommsRoute,
+  AppDecisionsRoute: AppDecisionsRoute,
   AppDeliveryRoute: AppDeliveryRoute,
+  AppGoliveRoute: AppGoliveRoute,
   AppHealthRoute: AppHealthRoute,
   AppIntakeRoute: AppIntakeRoute,
   AppLeadershipRoute: AppLeadershipRoute,
+  AppOverridesRoute: AppOverridesRoute,
+  AppRetrosRoute: AppRetrosRoute,
   AppReviewRoute: AppReviewRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
