@@ -878,8 +878,100 @@ export const useTfpStore = create<State>()(
         });
         return updates.size;
       },
+
+      startReview: (shapingId) => {
+        const item = get().shaping.find((s) => s.id === shapingId);
+        if (!item || item.delivery_status !== "Done") return null;
+        const existing = get().reviews.find((r) => r.shaping_id === shapingId);
+        if (existing) return existing;
+        const review: Review = {
+          id: "rv-" + uid(),
+          shaping_id: shapingId,
+          signal_id: item.signal_id,
+          size: pickReviewSize(item),
+          status: "Pending",
+          pm_owner_id: item.pm_owner_id,
+          scheduled_for: null,
+          completed_at: null,
+          outcome_rating: null,
+          what_worked: "",
+          what_didnt: "",
+          follow_on_signals_created: [],
+          notes: "",
+          follow_on_draft_title: "",
+          follow_on_draft_description: "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set({ reviews: [review, ...get().reviews] });
+        return review;
+      },
+
+      updateReview: (id, patch) => {
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === id ? { ...r, ...patch, updated_at: new Date().toISOString() } : r,
+          ),
+        });
+      },
+
+      scheduleReview: (id, when) => {
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  scheduled_for: when,
+                  status: "Scheduled",
+                  updated_at: new Date().toISOString(),
+                }
+              : r,
+          ),
+        });
+      },
+
+      completeReview: (id, data) => {
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  ...data,
+                  status: "Completed",
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }
+              : r,
+          ),
+        });
+      },
+
+      logFollowOnSignal: (reviewId, data) => {
+        const sig = get().createSignal({
+          title: data.title,
+          description: data.description,
+          source: data.source,
+          product: data.product,
+          displacement_flag: false,
+          displacement_note: null,
+        });
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === reviewId
+              ? {
+                  ...r,
+                  follow_on_signals_created: [...r.follow_on_signals_created, sig.id],
+                  follow_on_draft_title: "",
+                  follow_on_draft_description: "",
+                  updated_at: new Date().toISOString(),
+                }
+              : r,
+          ),
+        });
+        return sig;
+      },
     }),
-    { name: "tfp-os-v2" },
+    { name: "tfp-os-v3" },
   ),
 );
 
