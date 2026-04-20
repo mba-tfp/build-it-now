@@ -802,6 +802,36 @@ export const useTfpStore = create<State>()(
           shaping_id: id,
           payload: { from: item.delivery_status ?? "To Do", to: next },
         };
+        // Auto-create a Pending review the first time an item lands on Done.
+        const wasDone = item.delivery_status === "Done";
+        const nowDone = next === "Done";
+        const reviews = get().reviews;
+        const alreadyHasReview = reviews.some((r) => r.shaping_id === id);
+        const newReviews =
+          nowDone && !wasDone && !alreadyHasReview
+            ? [
+                {
+                  id: "rv-" + uid(),
+                  shaping_id: id,
+                  signal_id: item.signal_id,
+                  size: pickReviewSize(item),
+                  status: "Pending" as const,
+                  pm_owner_id: item.pm_owner_id,
+                  scheduled_for: null,
+                  completed_at: null,
+                  outcome_rating: null,
+                  what_worked: "",
+                  what_didnt: "",
+                  follow_on_signals_created: [],
+                  notes: "",
+                  follow_on_draft_title: "",
+                  follow_on_draft_description: "",
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+                ...reviews,
+              ]
+            : reviews;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -809,6 +839,7 @@ export const useTfpStore = create<State>()(
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
+          reviews: newReviews,
         });
       },
 
