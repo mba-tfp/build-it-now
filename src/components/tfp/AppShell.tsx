@@ -8,7 +8,8 @@ const NAV: Array<{ to: string; label: string }> = [
   { to: "/triage", label: "Triage" },
   { to: "/shaping", label: "Shaping" },
   { to: "/delivery", label: "Delivery" },
-  { to: "/review", label: "Review" },
+  { to: "/review", label: "Reviews" },
+  { to: "/leadership", label: "Leadership" },
   { to: "/health", label: "Queue Health" },
 ];
 
