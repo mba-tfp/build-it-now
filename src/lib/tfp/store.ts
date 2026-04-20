@@ -10,7 +10,14 @@ import type {
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+let _uidCounter = 0;
+const uid = () => {
+  _uidCounter += 1;
+  return _uidCounter.toString(36).padStart(4, "0");
+};
+
+// Stable epoch for seed data so SSR and client render identical timestamps.
+const SEED_EPOCH = new Date("2026-04-15T09:00:00.000Z").getTime();
 
 export const USERS: User[] = [
   { id: "u-bazil", name: "Bazil", role: "PM" },
@@ -27,8 +34,8 @@ export const USERS: User[] = [
 const seedSprint: Sprint = {
   id: "s-6",
   name: "Sprint 6",
-  start_date: new Date(Date.now() - 4 * 86400000).toISOString(),
-  end_date: new Date(Date.now() + 10 * 86400000).toISOString(),
+  start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+  end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
   status: "Active",
   gross_capacity_pts: 60,
   leave_deduction_pts: 5,
@@ -51,7 +58,7 @@ function buildSeedSignal(args: {
   hold_until?: string | null;
   triage_reason?: string | null;
 }): Signal {
-  const created = new Date(Date.now() - args.daysAgo * 86400000);
+  const created = new Date(SEED_EPOCH - args.daysAgo * 86400000);
   const c = classifySignal({ source: args.source, description: args.description });
   return {
     id: "sig-" + uid(),
@@ -121,7 +128,7 @@ const seedSignals: Signal[] = [
     daysAgo: 4,
     status: "Hold",
     owner: "u-bazil",
-    hold_until: new Date(Date.now() + 5 * 86400000).toISOString(),
+    hold_until: new Date(SEED_EPOCH + 5 * 86400000).toISOString(),
     triage_reason: "Waiting on SMTP provider investigation",
   }),
   buildSeedSignal({
@@ -161,8 +168,8 @@ const seedShaping: ShapingItem[] = [
     solution_decisions: "",
     solution_questions: "",
     solution_risks: "",
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    updated_at: new Date(Date.now() - 86400000).toISOString(),
+    created_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+    updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
   },
 ];
 
