@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useTfpStore, daysSince } from "@/lib/tfp/store";
-import { slaState } from "@/lib/tfp/format";
+import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { Product, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { cn } from "@/lib/utils";

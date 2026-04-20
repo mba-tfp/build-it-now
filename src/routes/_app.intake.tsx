@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useTfpStore } from "@/lib/tfp/store";
 import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
+import { fmtDateTime } from "@/lib/tfp/format";
 import type { IssueType, Product, Source, Tier } from "@/lib/tfp/types";
 import { Pill, StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { CheckCircle2, Sparkles } from "lucide-react";
