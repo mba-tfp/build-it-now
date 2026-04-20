@@ -185,3 +185,42 @@
     box-shadow: var(--shadow-card);
   }
 }
+
+/* ============= Print: leadership PDF view =============
+ * Triggered by `window.print()` from the Leadership page. Hides chrome
+ * (header, nav, footer, action buttons) and lets the dashboard flow as
+ * a printable / save-as-PDF document.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html, body {
+    background: white !important;
+    color: black !important;
+  }
+  /* Hide app chrome & non-print UI */
+  header.sticky,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .tfp-card {
+    box-shadow: none !important;
+    border: 1px solid #d4d4d4 !important;
+    break-inside: avoid;
+  }
+  .print-page-break {
+    break-before: page;
+  }
+  /* Avoid huge max-heights cropping table data when printing */
+  .max-h-\[480px\] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
