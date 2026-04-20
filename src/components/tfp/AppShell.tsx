@@ -83,7 +83,7 @@ export function AppShell() {
       </main>
 
       <footer className="border-t border-border bg-surface/40 py-4 text-center text-[11px] text-muted-foreground">
-        The Fertility Partners · Internal Use Only · Wave 1 preview · No backend yet
+        The Fertility Partners · Internal Use Only · Mock data — backend not yet wired
       </footer>
     </div>
   );

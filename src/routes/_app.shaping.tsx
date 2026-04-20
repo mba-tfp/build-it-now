@@ -1,9 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
+  canApprove,
   completenessScore,
   daysSince,
+  solutionComplete,
+  techReviewComplete,
   usableCapacity,
+  USERS,
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
@@ -11,8 +15,9 @@ import type {
   RoadmapBucket,
   ShapingItem,
 } from "@/lib/tfp/types";
+import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Lock, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
@@ -65,6 +70,8 @@ function ShapingPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map(({ sh, sig }) => {
             if (!sig) return null;
+            // Hide items that have moved to delivery — they live on the Delivery board
+            if (sh.shaping_status === "In Delivery") return null;
             const stale = daysSince(sh.created_at);
             const borderCls =
               stale > 12
@@ -137,7 +144,6 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
           const done = sh.current_step > n;
           const active = sh.current_step === n;
           const future = !done && !active;
-          const wave2 = n >= 4;
           return (
             <li
               key={label}
@@ -146,7 +152,6 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
                 done && "border-[var(--color-status-proceed)]/40 bg-[var(--color-status-proceed)]/5 text-[var(--color-status-proceed)]",
                 active && "border-primary/50 bg-primary/5 text-primary",
                 future && "border-border text-muted-foreground",
-                wave2 && "opacity-60",
               )}
             >
               <div className="flex items-center gap-1.5">
@@ -162,7 +167,6 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
                 </span>
                 <span className="font-medium">{label}</span>
               </div>
-              {wave2 && <p className="mt-1 text-[10px] uppercase tracking-wider">Wave 2</p>}
             </li>
           );
         })}
@@ -171,11 +175,8 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
       {sh.current_step === 1 && <ProblemBrief item={sh} />}
       {sh.current_step === 2 && <RoadmapFit item={sh} />}
       {sh.current_step === 3 && <SolutionBrief item={sh} />}
-      {sh.current_step >= 4 && (
-        <div className="tfp-card p-8 text-center text-sm text-muted-foreground">
-          Tech Review and Approval ship in <strong className="text-foreground">Wave 2</strong>.
-        </div>
-      )}
+      {sh.current_step === 4 && <TechReview item={sh} />}
+      {sh.current_step === 5 && <Approval item={sh} />}
     </div>
   );
 }
@@ -406,6 +407,7 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const c = item.solution_complexity;
   const fields = c ? COMPLEX_FIELDS[c] : [];
+  const ready = solutionComplete(item);
 
   return (
     <div className="tfp-card p-5">
@@ -456,13 +458,295 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
           ← Back
         </button>
         <button
-          disabled={!c}
-          onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "Shaped" })}
+          disabled={!ready}
+          onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
         >
           Send to Tech Review
         </button>
       </div>
+    </div>
+  );
+}
+
+function TechReview({ item }: { item: ShapingItem }) {
+  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
+  const isTechLead = me.role === "Tech Lead";
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const signOff = useTfpStore((s) => s.signOffTechReview);
+
+  const ready =
+    item.tech_review_notes.trim().length > 0 &&
+    typeof item.tech_estimate_pts === "number" &&
+    (item.tech_estimate_pts ?? 0) > 0;
+
+  if (item.tech_signed_off_at) {
+    const reviewer = USERS.find((u) => u.id === item.tech_reviewer_id);
+    return (
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="tfp-card p-5">
+          <div className="flex items-center gap-2 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
+            <ShieldCheck className="h-4 w-4" />
+            Signed off by {reviewer?.name ?? "Tech Lead"} on {fmtDateTime(item.tech_signed_off_at)}.
+          </div>
+          <dl className="mt-5 space-y-4 text-sm">
+            <ReadField label="Review notes" value={item.tech_review_notes} />
+            <ReadField label="Concerns" value={item.tech_concerns || "None"} />
+            <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
+          </dl>
+          <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
+            <button
+              onClick={() => updateShaping(item.id, { current_step: 3 })}
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={() => updateShaping(item.id, { current_step: 5 })}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+            >
+              Continue to Approval →
+            </button>
+          </div>
+        </div>
+        <RoleHint required="Tech Lead" current={me.role} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="tfp-card p-5">
+        <h3 className="font-display text-lg">Tech Review</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A Tech Lead reviews the shaped proposal, confirms the approach, estimates effort, and signs off.
+        </p>
+
+        <fieldset disabled={!isTechLead} className="mt-5 space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Review notes</label>
+            <textarea
+              value={item.tech_review_notes}
+              onChange={(e) => updateShaping(item.id, { tech_review_notes: e.target.value })}
+              rows={4}
+              placeholder="Approach feedback, suggested changes, dependencies…"
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Concerns / risks (optional)</label>
+            <textarea
+              value={item.tech_concerns}
+              onChange={(e) => updateShaping(item.id, { tech_concerns: e.target.value })}
+              rows={2}
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+            />
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="w-32">
+              <label className="mb-1 block text-sm font-medium">Estimate (pts)</label>
+              <input
+                type="number"
+                min={1}
+                max={40}
+                value={item.tech_estimate_pts ?? ""}
+                onChange={(e) =>
+                  updateShaping(item.id, {
+                    tech_estimate_pts: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Final estimate that propagates to Sprint capacity.
+            </p>
+          </div>
+        </fieldset>
+
+        <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
+          <button
+            onClick={() => updateShaping(item.id, { current_step: 3 })}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Back
+          </button>
+          <button
+            disabled={!isTechLead || !ready}
+            onClick={() => signOff(item.id, me.id)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+          >
+            <ShieldCheck className="h-4 w-4" /> Sign off
+          </button>
+        </div>
+      </div>
+
+      <RoleHint required="Tech Lead" current={me.role} />
+    </div>
+  );
+}
+
+function Approval({ item }: { item: ShapingItem }) {
+  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
+  const isSeniorPM = me.role === "Senior PM";
+  const approve = useTfpStore((s) => s.approveShaping);
+  const requestChanges = useTfpStore((s) => s.requestChanges);
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const pushToJira = useTfpStore((s) => s.pushToJira);
+
+  const [notes, setNotes] = useState(item.approval_notes);
+  const gates = useMemo(
+    () => [
+      { ok: completenessScore(item) >= 5, label: "Problem brief complete (5/6 fields)" },
+      { ok: !!item.roadmap_bucket, label: "Roadmap bucket selected" },
+      { ok: solutionComplete(item), label: "Solution brief complete" },
+      { ok: techReviewComplete(item), label: "Tech Review signed off" },
+    ],
+    [item],
+  );
+  const allGatesPass = gates.every((g) => g.ok);
+  const eligible = canApprove(item);
+
+  if (item.shaping_status === "Approved" || item.jira_key) {
+    const approver = USERS.find((u) => u.id === item.approver_id);
+    return (
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="tfp-card p-5">
+          <div className="flex items-center gap-2 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
+            <Check className="h-4 w-4" />
+            Approved by {approver?.name ?? "Senior PM"}
+            {item.approved_at && ` on ${fmtDateTime(item.approved_at)}`}.
+          </div>
+          {item.approval_notes && (
+            <ReadField label="Approval notes" value={item.approval_notes} className="mt-5" />
+          )}
+          <div className="mt-6 border-t border-border pt-5">
+            {item.jira_key ? (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Pushed to Jira as</span>
+                <span className="font-mono font-semibold text-foreground">{item.jira_key}</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => pushToJira(item.id)}
+                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+              >
+                Push to Jira
+              </button>
+            )}
+          </div>
+        </div>
+        <RoleHint required="Senior PM" current={me.role} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="tfp-card p-5">
+        <h3 className="font-display text-lg">Final Approval</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Senior PM approval is required before this item can be pushed to Jira and enter delivery.
+        </p>
+
+        <div className="mt-5 rounded-md border border-border bg-muted/40 p-4">
+          <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Approval gates</p>
+          <ul className="space-y-1.5 text-sm">
+            {gates.map((g) => (
+              <li key={g.label} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "grid h-4 w-4 place-items-center rounded-full text-[10px]",
+                    g.ok
+                      ? "bg-[var(--color-status-proceed)] text-white"
+                      : "bg-muted-foreground/30 text-muted-foreground",
+                  )}
+                >
+                  {g.ok ? <Check className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+                </span>
+                <span className={g.ok ? "text-foreground" : "text-muted-foreground"}>{g.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <fieldset disabled={!isSeniorPM || !allGatesPass} className="mt-5">
+          <label className="mb-1 block text-sm font-medium">Approval notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Optional context for the team…"
+            className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          />
+        </fieldset>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+          <button
+            onClick={() => updateShaping(item.id, { current_step: 4 })}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Back
+          </button>
+          <div className="flex gap-2">
+            <button
+              disabled={!isSeniorPM}
+              onClick={() => requestChanges(item.id, me.id, notes)}
+              className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 px-4 py-2 text-sm font-medium text-[var(--color-status-hold)] transition hover:bg-[var(--color-status-hold)]/10 disabled:opacity-40"
+            >
+              Request changes
+            </button>
+            <button
+              disabled={!eligible || !isSeniorPM}
+              onClick={() => approve(item.id, me.id, notes)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+            >
+              <Check className="h-4 w-4" /> Approve
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <RoleHint required="Senior PM" current={me.role} />
+    </div>
+  );
+}
+
+function RoleHint({ required, current }: { required: string; current: string }) {
+  const ok = required === current;
+  return (
+    <aside className="lg:sticky lg:top-24 lg:self-start">
+      <div className="tfp-card p-5">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Required role</p>
+        <p className="mt-2 font-display text-xl">{required}</p>
+        <p
+          className={cn(
+            "mt-2 text-xs",
+            ok ? "text-[var(--color-status-proceed)]" : "text-[var(--color-status-hold)]",
+          )}
+        >
+          {ok
+            ? `You are signed in as ${current} — you can sign off here.`
+            : `You're viewing as ${current}. Switch user (top-right) to a ${required} to act on this step.`}
+        </p>
+      </div>
+    </aside>
+  );
+}
+
+function ReadField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">{value}</dd>
     </div>
   );
 }

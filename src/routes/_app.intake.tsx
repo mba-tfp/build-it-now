@@ -88,7 +88,7 @@ function SignalIntakePage() {
           <h2 className="font-display text-2xl">Signal logged</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             ID <span className="font-mono text-foreground">{sig?.id}</span> · SLA due{" "}
-            {sig && new Date(sig.sla_due_at).toLocaleString()}
+            {sig && fmtDateTime(sig.sla_due_at)}
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             {sig && <TierBadge tier={sig.tier} />}
@@ -272,7 +272,7 @@ function SignalIntakePage() {
                   </div>
                 </Row>
                 <Row label="Due by">
-                  <span className="text-sm text-foreground">{sla.toLocaleString()}</span>
+                  <span className="text-sm text-foreground">{fmtDateTime(sla.toISOString())}</span>
                 </Row>
                 {classification.labels.length > 0 && (
                   <Row label="Labels">
