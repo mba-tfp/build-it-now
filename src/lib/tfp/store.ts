@@ -243,7 +243,6 @@ const shapingInTechReview: ShapingItem = {
   solution_questions: "Which clinics first? Confirm Entra app registration owner.",
   solution_risks:
     "Multi-tenant edge cases; need a fallback for users with personal Microsoft accounts.",
-  sigForTechReview_link: undefined as never,
   created_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
