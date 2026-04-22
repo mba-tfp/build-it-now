@@ -253,11 +253,66 @@ export function useRoadmapStore() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+// ---------- Undo / Redo history ----------
+
+const HISTORY_LIMIT = 50;
+type HistoryStacks = { past: Roadmap[]; future: Roadmap[] };
+const historyByRoadmap = new Map<string, HistoryStacks>();
+
+function getHistory(id: string): HistoryStacks {
+  if (!historyByRoadmap.has(id)) historyByRoadmap.set(id, { past: [], future: [] });
+  return historyByRoadmap.get(id)!;
+}
+
+function pushHistory(prev: Roadmap) {
+  const h = getHistory(prev.id);
+  h.past.push(JSON.parse(JSON.stringify(prev)));
+  if (h.past.length > HISTORY_LIMIT) h.past.shift();
+  // Any new edit clears the redo stack
+  h.future = [];
+}
+
+export function canUndo(): boolean {
+  const id = snapshotCache.activeId;
+  return getHistory(id).past.length > 0;
+}
+
+export function canRedo(): boolean {
+  const id = snapshotCache.activeId;
+  return getHistory(id).future.length > 0;
+}
+
+export function undo() {
+  const snap = refreshSnapshot();
+  if (!snap.active) return;
+  const h = getHistory(snap.active.id);
+  const prev = h.past.pop();
+  if (!prev) return;
+  h.future.push(JSON.parse(JSON.stringify(snap.active)));
+  writeRoadmap(prev);
+  refreshSnapshot();
+  notify();
+}
+
+export function redo() {
+  const snap = refreshSnapshot();
+  if (!snap.active) return;
+  const h = getHistory(snap.active.id);
+  const next = h.future.pop();
+  if (!next) return;
+  h.past.push(JSON.parse(JSON.stringify(snap.active)));
+  writeRoadmap(next);
+  refreshSnapshot();
+  notify();
+}
+
 // ---------- Mutations ----------
 
 function commit(updater: (rm: Roadmap) => Roadmap | void) {
   const snap = refreshSnapshot();
   if (!snap.active) return;
+  // Snapshot for undo BEFORE applying the change.
+  pushHistory(snap.active);
   const next = { ...snap.active };
   const result = updater(next);
   const final = result ?? next;
@@ -469,4 +524,88 @@ export const roadmapActions = {
       );
     });
   },
+
+  /**
+   * Bulk-import items. Streams (products) and Sub-Streams (sections) are
+   * matched by name and auto-created if missing. Returns count of items added.
+   */
+  importItems(rows: Array<Partial<RoadmapItem> & { stream_name?: string; sub_stream_name?: string }>): {
+    added: number;
+    streamsCreated: number;
+    sectionsCreated: number;
+  } {
+    let added = 0;
+    let streamsCreated = 0;
+    let sectionsCreated = 0;
+    commit((rm) => {
+      const products = [...rm.products];
+      for (const row of rows) {
+        const streamName = (row.stream_name ?? "").trim() || "Imported";
+        const subName = (row.sub_stream_name ?? "").trim() || "Imported";
+        let product = products.find((p) => p.name.toLowerCase() === streamName.toLowerCase());
+        if (!product) {
+          product = {
+            id: uid("p"),
+            name: streamName,
+            locked: false,
+            sections: [],
+          };
+          products.push(product);
+          streamsCreated++;
+        }
+        let section = product.sections.find((s) => s.name.toLowerCase() === subName.toLowerCase());
+        if (!section) {
+          section = { id: uid("sec"), name: subName, visible_external: true };
+          product.sections = [...product.sections, section];
+          sectionsCreated++;
+        }
+        rm.items.push({
+          id: uid(),
+          title: (row.title ?? "Untitled").toString(),
+          description: (row.description ?? "").toString(),
+          product_id: product.id,
+          section_id: section.id,
+          months: Array.isArray(row.months) ? row.months : [],
+          status: (row.status as RoadmapItem["status"]) ?? "Todo",
+          priority: (row.priority as RoadmapItem["priority"]) ?? "Medium",
+          owner: (row.owner ?? "").toString(),
+          color_tag: (row.color_tag ?? "#6366f1").toString(),
+          notes: (row.notes ?? "").toString(),
+          clinic: (row.clinic ?? "").toString(),
+          internal_only: !!row.internal_only,
+          shaping_id: null,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        });
+        added++;
+      }
+      rm.products = products;
+    });
+    return { added, streamsCreated, sectionsCreated };
+  },
 };
+
+// ---------- UI preferences (persisted, per roadmap) ----------
+
+const UI_PREFS_KEY = (id: string) => `tfp.roadmap.ui.${id}`;
+
+export function readUiPrefs<T>(roadmapId: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(UI_PREFS_KEY(roadmapId));
+    if (!raw) return fallback;
+    return { ...fallback, ...(JSON.parse(raw) as Partial<T>) } as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeUiPrefs<T>(roadmapId: string, prefs: T) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(UI_PREFS_KEY(roadmapId), JSON.stringify(prefs));
+  } catch {
+    /* quota / serialization errors are non-fatal */
+  }
+}
+

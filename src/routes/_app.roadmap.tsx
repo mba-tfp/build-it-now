@@ -1,11 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Plus, Settings as SettingsIcon, Calendar, ListIcon, GitBranch } from "lucide-react";
-import { useRoadmapStore, roadmapActions } from "@/lib/roadmap/store";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  Settings as SettingsIcon,
+  Calendar,
+  GitBranch,
+  Upload,
+  Undo2,
+  Redo2,
+} from "lucide-react";
+import {
+  useRoadmapStore,
+  roadmapActions,
+  readUiPrefs,
+  writeUiPrefs,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+} from "@/lib/roadmap/store";
 import type { GroupByField, Roadmap, RoadmapItem } from "@/lib/roadmap/types";
 import { useTfpStore } from "@/lib/tfp/store";
 import type { Product as TfpProduct, ShapingItem, Signal } from "@/lib/tfp/types";
-import { bucketFor } from "@/lib/roadmap/timeline";
 import { RoadmapSwitcher } from "@/components/roadmap/RoadmapSwitcher";
 import { SummaryStats } from "@/components/roadmap/SummaryStats";
 import { FiltersBar, EMPTY_FILTERS, type Filters } from "@/components/roadmap/FiltersBar";
@@ -13,6 +29,7 @@ import { TimelineGrid } from "@/components/roadmap/TimelineGrid";
 import { ListView } from "@/components/roadmap/ListView";
 import { ItemModal } from "@/components/roadmap/ItemModal";
 import { SettingsView } from "@/components/roadmap/SettingsView";
+import { ImportModal } from "@/components/roadmap/ImportModal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/roadmap")({
@@ -24,9 +41,47 @@ type ModalState =
   | { mode: "edit"; itemId: string }
   | null;
 
+// Persisted UI preferences shape
+type RoadmapUiPrefs = {
+  view: "timeline" | "list";
+  filters: Filters;
+  groupBy: GroupByField[];
+  collapsedYears: number[];
+  collapsedQuarters: string[];
+  collapsedStreams: string[];
+  tab: "planning" | "delivery";
+};
+
+const DEFAULT_PREFS: RoadmapUiPrefs = {
+  view: "timeline",
+  filters: EMPTY_FILTERS,
+  groupBy: ["product"],
+  collapsedYears: [],
+  collapsedQuarters: [],
+  collapsedStreams: [],
+  tab: "planning",
+};
+
 function RoadmapPage() {
   const snap = useRoadmapStore();
+  const activeId = snap.activeId;
+  // Hydrate persisted tab choice on first mount per roadmap.
   const [tab, setTab] = useState<"planning" | "delivery">("planning");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const prefs = readUiPrefs<RoadmapUiPrefs>(activeId, DEFAULT_PREFS);
+    setTab(prefs.tab);
+    setHydrated(true);
+  }, [activeId]);
+
+  // Persist tab whenever it changes (after hydration).
+  useEffect(() => {
+    if (!hydrated || !activeId) return;
+    const prefs = readUiPrefs<RoadmapUiPrefs>(activeId, DEFAULT_PREFS);
+    writeUiPrefs(activeId, { ...prefs, tab });
+  }, [tab, hydrated, activeId]);
 
   // Loading guard for SSR/first paint
   if (!snap.active) {
@@ -85,17 +140,69 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
 // ============= Planning Tab =============
 
 function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
+  const roadmapId = roadmap.id;
+  const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<"timeline" | "list">("timeline");
   const [showSettings, setShowSettings] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [groupBy, setGroupBy] = useState<GroupByField[]>(["product"]);
   const [modal, setModal] = useState<ModalState>(null);
 
   // Collapsed state for timeline
-  const allYears = Array.from(new Set([roadmap.config.start_year, roadmap.config.start_year + 1]));
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set());
   const [collapsedQuarters, setCollapsedQuarters] = useState<Set<string>>(new Set());
   const [collapsedStreams, setCollapsedStreams] = useState<Set<string>>(new Set());
+
+  // Re-render trigger for canUndo/canRedo (they read from store snapshot).
+  const storeVersion = useRoadmapStore().version;
+
+  // Hydrate persisted UI prefs once per active roadmap.
+  useEffect(() => {
+    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    setView(prefs.view);
+    setFilters(prefs.filters);
+    setGroupBy(prefs.groupBy);
+    setCollapsedYears(new Set(prefs.collapsedYears));
+    setCollapsedQuarters(new Set(prefs.collapsedQuarters));
+    setCollapsedStreams(new Set(prefs.collapsedStreams));
+    setHydrated(true);
+  }, [roadmapId]);
+
+  // Persist whenever any pref changes (after hydration).
+  useEffect(() => {
+    if (!hydrated) return;
+    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    writeUiPrefs<RoadmapUiPrefs>(roadmapId, {
+      ...existing,
+      view,
+      filters,
+      groupBy,
+      collapsedYears: Array.from(collapsedYears),
+      collapsedQuarters: Array.from(collapsedQuarters),
+      collapsedStreams: Array.from(collapsedStreams),
+    });
+  }, [hydrated, roadmapId, view, filters, groupBy, collapsedYears, collapsedQuarters, collapsedStreams]);
+
+  // Keyboard shortcuts for undo/redo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
 
   function toggleYear(y: number) {
     setCollapsedYears((s) => {
@@ -208,6 +315,13 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
             <Plus className="h-3.5 w-3.5" /> Add item
           </button>
           <button
+            onClick={() => setShowImport(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent"
+            title="Import items from CSV or JSON"
+          >
+            <Upload className="h-3.5 w-3.5" /> Import
+          </button>
+          <button
             onClick={() => setShowSettings((s) => !s)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm",
@@ -216,6 +330,28 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
           >
             <SettingsIcon className="h-3.5 w-3.5" /> Settings
           </button>
+
+          {/* Undo / Redo */}
+          <div className="ml-1 flex overflow-hidden rounded-md border border-input">
+            <button
+              onClick={undo}
+              disabled={!canUndo()}
+              title="Undo (⌘Z / Ctrl+Z)"
+              className="grid h-8 w-8 place-items-center bg-surface text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo()}
+              title="Redo (⇧⌘Z / Ctrl+Y)"
+              className="grid h-8 w-8 place-items-center border-l border-input bg-surface text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {/* Force re-eval of canUndo/canRedo when store changes */}
+          <span className="hidden">{storeVersion}</span>
         </div>
         <p className="text-xs text-muted-foreground">
           {filteredItems.length} of {roadmap.items.length} items
@@ -272,8 +408,7 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
         />
       )}
 
-      {/* Suppress unused-variable warning */}
-      <div className="hidden">{allYears.length}</div>
+      {showImport && <ImportModal onClose={() => setShowImport(false)} />}
     </div>
   );
 }
@@ -359,5 +494,3 @@ function DeliveryTab() {
 
 // Suppress: roadmapActions referenced from ItemModal/Settings/etc. Keep import for future hooks.
 void roadmapActions;
-// Bucket helper available if linking planning items to shaping bucket auto-derivation later.
-void bucketFor;
