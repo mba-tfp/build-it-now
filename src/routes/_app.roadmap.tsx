@@ -1,11 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Plus, Settings as SettingsIcon, Calendar, ListIcon, GitBranch } from "lucide-react";
-import { useRoadmapStore, roadmapActions } from "@/lib/roadmap/store";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  Settings as SettingsIcon,
+  Calendar,
+  GitBranch,
+  Upload,
+  Undo2,
+  Redo2,
+} from "lucide-react";
+import {
+  useRoadmapStore,
+  roadmapActions,
+  readUiPrefs,
+  writeUiPrefs,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+} from "@/lib/roadmap/store";
 import type { GroupByField, Roadmap, RoadmapItem } from "@/lib/roadmap/types";
 import { useTfpStore } from "@/lib/tfp/store";
 import type { Product as TfpProduct, ShapingItem, Signal } from "@/lib/tfp/types";
-import { bucketFor } from "@/lib/roadmap/timeline";
 import { RoadmapSwitcher } from "@/components/roadmap/RoadmapSwitcher";
 import { SummaryStats } from "@/components/roadmap/SummaryStats";
 import { FiltersBar, EMPTY_FILTERS, type Filters } from "@/components/roadmap/FiltersBar";
@@ -13,6 +29,7 @@ import { TimelineGrid } from "@/components/roadmap/TimelineGrid";
 import { ListView } from "@/components/roadmap/ListView";
 import { ItemModal } from "@/components/roadmap/ItemModal";
 import { SettingsView } from "@/components/roadmap/SettingsView";
+import { ImportModal } from "@/components/roadmap/ImportModal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/roadmap")({
@@ -23,6 +40,27 @@ type ModalState =
   | { mode: "create"; productId?: string; sectionId?: string; months?: string[] }
   | { mode: "edit"; itemId: string }
   | null;
+
+// Persisted UI preferences shape
+type RoadmapUiPrefs = {
+  view: "timeline" | "list";
+  filters: Filters;
+  groupBy: GroupByField[];
+  collapsedYears: number[];
+  collapsedQuarters: string[];
+  collapsedStreams: string[];
+  tab: "planning" | "delivery";
+};
+
+const DEFAULT_PREFS: RoadmapUiPrefs = {
+  view: "timeline",
+  filters: EMPTY_FILTERS,
+  groupBy: ["product"],
+  collapsedYears: [],
+  collapsedQuarters: [],
+  collapsedStreams: [],
+  tab: "planning",
+};
 
 function RoadmapPage() {
   const snap = useRoadmapStore();
