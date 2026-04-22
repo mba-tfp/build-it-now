@@ -261,13 +261,27 @@ function OverviewTab() {
       </div>
 
       <div className="tfp-card flex max-h-[80vh] flex-col">
-        <div className="border-b border-border p-4">
-          <h3 className="font-display text-lg">Alerts ({alerts.length})</h3>
-          <p className="text-xs text-muted-foreground">Sorted P1 → P4.</p>
+        <div className="flex items-start justify-between gap-2 border-b border-border p-4">
+          <div>
+            <h3 className="font-display text-lg">Alerts ({sortedAlerts.length})</h3>
+            <p className="text-xs text-muted-foreground">
+              {alertSort.key ? `Sorted by ${alertSort.key} ${alertSort.dir}.` : "Sorted P1 → P4."}
+            </p>
+          </div>
+          <SortMenu
+            tableId="health-alerts"
+            sort={alertSort}
+            onChange={setAlertSort}
+            options={[
+              { key: "severity", label: "Severity" },
+              { key: "triggered_at", label: "Triggered at" },
+              { key: "system", label: "System" },
+            ]}
+          />
         </div>
         <div className="flex-1 space-y-2 overflow-y-auto p-3">
-          {alerts.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">All clear.</p>}
-          {alerts.map((a, i) => {
+          {sortedAlerts.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">All clear.</p>}
+          {sortedAlerts.map((a, i) => {
             const Icon = a.priority === "P1" ? AlertCircle : a.priority === "P2" ? AlertTriangle : Info;
             const tone =
               a.priority === "P1"
