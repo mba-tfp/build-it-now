@@ -107,71 +107,71 @@ function ShapingPage() {
         </div>
       ) : (
         <ScrollTable className="border border-border bg-surface/40 p-3">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {sorted.map(({ sh, sig }) => {
-            if (!sig) return null;
-            // Hide items that have moved to delivery — they live on the Delivery board
-            if (sh.shaping_status === "In Delivery") return null;
-            const stale = daysSince(sh.created_at);
-            const hoursSinceStart = sh.shaping_started_at
-              ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
-              : 0;
-            const isBug = sig.issue_type === "Bug";
-            const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
-            const borderCls = overdue
-              ? "border-destructive/60 ring-1 ring-destructive/30"
-              : sh.fast_track
-                ? "border-[var(--color-status-hold)]/60"
-                : stale > 12
-                  ? "border-destructive/40"
-                  : stale > 6
-                    ? "border-[var(--color-status-hold)]/50"
-                    : "border-border";
-            return (
-              <button
-                key={sh.id}
-                onClick={() => setOpenId(sh.id)}
-                className={cn(
-                  "tfp-card text-left transition hover:-translate-y-0.5 hover:shadow-lg",
-                  "border",
-                  borderCls,
-                )}
-              >
-                <div className="p-5">
-                  <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>{sig.product}</span>
-                    <span className="flex items-center gap-1.5">
-                      {sh.fast_track && (
-                        <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
-                          Fast-track
-                        </span>
-                      )}
-                      {overdue && (
-                        <span className="rounded-full bg-destructive/15 px-2 py-0.5 font-medium text-destructive">
-                          Overdue
-                        </span>
-                      )}
-                      <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
-                    </span>
-                  </div>
-                  <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
-                  <div className="mt-4">
-                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                      <span>{sh.fast_track ? "Fast-track" : `Step ${sh.current_step} of 5`}</span>
-                      <span>{stale}d in stage</span>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {sorted.map(({ sh, sig }) => {
+              if (!sig) return null;
+              // Hide items that have moved to delivery — they live on the Delivery board
+              if (sh.shaping_status === "In Delivery") return null;
+              const stale = daysSince(sh.created_at);
+              const hoursSinceStart = sh.shaping_started_at
+                ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
+                : 0;
+              const isBug = sig.issue_type === "Bug";
+              const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
+              const borderCls = overdue
+                ? "border-destructive/60 ring-1 ring-destructive/30"
+                : sh.fast_track
+                  ? "border-[var(--color-status-hold)]/60"
+                  : stale > 12
+                    ? "border-destructive/40"
+                    : stale > 6
+                      ? "border-[var(--color-status-hold)]/50"
+                      : "border-border";
+              return (
+                <button
+                  key={sh.id}
+                  onClick={() => setOpenId(sh.id)}
+                  className={cn(
+                    "tfp-card text-left transition hover:-translate-y-0.5 hover:shadow-lg",
+                    "border",
+                    borderCls,
+                  )}
+                >
+                  <div className="p-5">
+                    <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{sig.product}</span>
+                      <span className="flex items-center gap-1.5">
+                        {sh.fast_track && (
+                          <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
+                            Fast-track
+                          </span>
+                        )}
+                        {overdue && (
+                          <span className="rounded-full bg-destructive/15 px-2 py-0.5 font-medium text-destructive">
+                            Overdue
+                          </span>
+                        )}
+                        <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
+                      </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: sh.fast_track ? "50%" : `${(sh.current_step / 5) * 100}%` }}
-                      />
+                    <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
+                    <div className="mt-4">
+                      <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                        <span>{sh.fast_track ? "Fast-track" : `Step ${sh.current_step} of 5`}</span>
+                        <span>{stale}d in stage</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: sh.fast_track ? "50%" : `${(sh.current_step / 5) * 100}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              );
+            })}
+          </div>
         </ScrollTable>
       )}
     </div>
