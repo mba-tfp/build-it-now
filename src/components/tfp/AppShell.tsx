@@ -114,9 +114,12 @@ export function AppShell() {
       <footer className="border-t border-border bg-surface/40 py-4 text-center text-[11px] text-muted-foreground">
         The Fertility Partners · Internal Use Only · Mock data — backend not yet wired
       </footer>
+
+      {showOnboarding && <OnboardingModal onClose={() => setOnboardingDismissed(true)} />}
     </div>
   );
 }
+// keep below: NotificationsBell
 
 function NotificationsBell() {
   const notifications = useTfpStore((s) => s.notifications);
