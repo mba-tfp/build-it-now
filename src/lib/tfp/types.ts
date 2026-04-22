@@ -413,6 +413,7 @@ export type TechDebtReview = {
 export type ClinicFeedbackRecord = {
   clinic_id: string;
   ts: number;
+  desc_key?: string;
 };
 
 // ============ Round 5: feature flags, help center, workflow builder ============
