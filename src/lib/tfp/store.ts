@@ -1707,7 +1707,17 @@ export const useTfpStore = create<State>()(
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        if (!item || item.shaping_status !== "Approved" || item.jira_key) return item?.jira_key ?? "";
+        // B10: cannot push without Tech Approval (Approved status implies tech sign-off).
+        if (!item) return "";
+        if (item.shaping_status !== "Approved") {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off + PM approval first.`);
+            });
+          }
+          return item.jira_key ?? "";
+        }
+        if (item.jira_key) return item.jira_key;
         const key = nextJiraKey();
         const event: JiraEvent = {
           id: "je-" + uid(),
@@ -2029,18 +2039,46 @@ export const useTfpStore = create<State>()(
         if (!item) return;
         const g = item.dev_complete;
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
+        const now = new Date().toISOString();
+        // B5: auto-advance to Done when sign-off completes the gate.
+        const nextDelivery: DeliveryStatus = "Done";
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
               ? {
                   ...s,
-                  dev_complete: { ...s.dev_complete, signed_off_by: me, signed_off_at: new Date().toISOString() },
-                  updated_at: new Date().toISOString(),
+                  dev_complete: { ...s.dev_complete, signed_off_by: me, signed_off_at: now },
+                  delivery_status: nextDelivery,
+                  updated_at: now,
                 }
               : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off" });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
+        // Auto-create a Pending review if none exists yet.
+        const reviews = get().reviews;
+        if (!reviews.some((r) => r.shaping_id === id)) {
+          const review: Review = {
+            id: "rv-" + uid(),
+            shaping_id: id,
+            signal_id: item.signal_id,
+            size: pickReviewSize(item),
+            status: "Pending",
+            pm_owner_id: item.pm_owner_id,
+            scheduled_for: null,
+            completed_at: null,
+            outcome_rating: null,
+            what_worked: "",
+            what_didnt: "",
+            follow_on_signals_created: [],
+            notes: "",
+            follow_on_draft_title: "",
+            follow_on_draft_description: "",
+            created_at: now,
+            updated_at: now,
+          };
+          set({ reviews: [review, ...reviews] });
+        }
       },
 
       toggleSprintLock: () => {
@@ -2228,6 +2266,18 @@ export const useTfpStore = create<State>()(
 
       approveComms: (id) => {
         const me = get().currentUserId;
+        const item = get().comms.find((c) => c.id === id);
+        if (!item) return;
+        // B6: separation of duties — drafter cannot self-approve.
+        if (item.drafted_by === me) {
+          if (typeof window !== "undefined") {
+            // Lazy import to avoid bundling toast in pure-state path.
+            import("sonner").then(({ toast }) => {
+              toast.error("You cannot approve your own comms. Ask another PM to review.");
+            });
+          }
+          return;
+        }
         set({
           comms: get().comms.map((c) =>
             c.id === id ? { ...c, status: "Approved", approved_by: me, approved_at: new Date().toISOString() } : c,
@@ -2241,6 +2291,17 @@ export const useTfpStore = create<State>()(
       },
 
       sendComms: (id) => {
+        const item = get().comms.find((c) => c.id === id);
+        if (!item) return;
+        // B7: only Approved comms can be sent.
+        if (item.status !== "Approved") {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`Cannot send — current status is ${item.status}. Approve first.`);
+            });
+          }
+          return;
+        }
         set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Sent", sent_at: new Date().toISOString() } : c)) });
         get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms sent" });
       },
