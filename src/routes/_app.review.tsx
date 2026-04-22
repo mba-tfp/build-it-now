@@ -174,50 +174,50 @@ function ReviewsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <ScrollTable className="border border-border bg-surface/40 p-2">
-        <div className="space-y-2">
-          {filtered.length === 0 ? (
-            <div className="tfp-card p-8 text-center text-sm text-muted-foreground">
-              No reviews in this view yet.
-            </div>
-          ) : (
-            filtered.map((r) => {
-              const sh = shaping.find((s) => s.id === r.shaping_id);
-              const sig = signals.find((s) => s.id === r.signal_id);
-              const isActive = activeId === r.id;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => setActiveId(r.id)}
-                  className={cn(
-                    "tfp-card w-full p-3 text-left transition hover:border-primary/40",
-                    isActive && "border-primary ring-1 ring-primary/30",
-                  )}
-                >
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium", SIZE_TONE[r.size])}>
-                      {r.size}
-                    </span>
-                    <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium", STATUS_TONE[r.status])}>
-                      {r.status}
-                    </span>
-                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                      {sh?.jira_key}
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-sm font-medium leading-snug">{sig?.title}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {sig?.product} · {r.scheduled_for ? `Scheduled ${fmtDate(r.scheduled_for)}` : `Created ${fmtDate(r.created_at)}`}
-                  </p>
-                  {r.outcome_rating && (
-                    <span className={cn("mt-2 inline-flex rounded px-1.5 py-0.5 text-[10px]", RATING_TONE[r.outcome_rating])}>
-                      Outcome · {r.outcome_rating}
-                    </span>
-                  )}
-                </button>
-              );
-            })
-          )}
-        </div>
+          <div className="space-y-2">
+            {filtered.length === 0 ? (
+              <div className="tfp-card p-8 text-center text-sm text-muted-foreground">
+                No reviews in this view yet.
+              </div>
+            ) : (
+              filtered.map((r) => {
+                const sh = shaping.find((s) => s.id === r.shaping_id);
+                const sig = signals.find((s) => s.id === r.signal_id);
+                const isActive = activeId === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => setActiveId(r.id)}
+                    className={cn(
+                      "tfp-card w-full p-3 text-left transition hover:border-primary/40",
+                      isActive && "border-primary ring-1 ring-primary/30",
+                    )}
+                  >
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium", SIZE_TONE[r.size])}>
+                        {r.size}
+                      </span>
+                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium", STATUS_TONE[r.status])}>
+                        {r.status}
+                      </span>
+                      <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                        {sh?.jira_key}
+                      </span>
+                    </div>
+                    <p className="line-clamp-2 text-sm font-medium leading-snug">{sig?.title}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {sig?.product} · {r.scheduled_for ? `Scheduled ${fmtDate(r.scheduled_for)}` : `Created ${fmtDate(r.created_at)}`}
+                    </p>
+                    {r.outcome_rating && (
+                      <span className={cn("mt-2 inline-flex rounded px-1.5 py-0.5 text-[10px]", RATING_TONE[r.outcome_rating])}>
+                        Outcome · {r.outcome_rating}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </ScrollTable>
 
         <div>
