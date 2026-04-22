@@ -1,4 +1,4 @@
-import type { AuditEntry, Override, Review, ShapingItem, Signal, Sprint, User } from "./types";
+import type { AuditEntry, GoLiveChecklist, Override, Review, ShapingItem, Signal, Sprint, User } from "./types";
 import { fmtDate, fmtDateTime } from "./format";
 import { usableCapacity } from "./store";
 
@@ -177,4 +177,80 @@ export function auditFor(audit: AuditEntry[], opts: { signalId?: string; shaping
     if (opts.shapingId && a.entity_type === "shaping" && a.entity_id === opts.shapingId) return true;
     return false;
   });
+}
+
+// ============= Quarterly Summary =============
+
+export function buildQuarterlySummary(args: {
+  now: Date;
+  sprints: Sprint[];
+  shaping: ShapingItem[];
+  signals: Signal[];
+  overrides: Override[];
+  goLives: GoLiveChecklist[];
+}): string {
+  const { now, sprints, shaping, signals, overrides, goLives } = args;
+  const q = Math.floor(now.getMonth() / 3) + 1;
+  const year = now.getFullYear();
+  const qStart = new Date(year, (q - 1) * 3, 1);
+  const qEnd = new Date(year, q * 3, 0, 23, 59, 59);
+  const inQ = (iso: string) => {
+    const t = new Date(iso).getTime();
+    return t >= qStart.getTime() && t <= qEnd.getTime();
+  };
+  const qSprints = sprints.filter((s) => inQ(s.start_date));
+  const done = shaping.filter((s) => s.delivery_status === "Done");
+  const doneByProduct = new Map<string, ShapingItem[]>();
+  done.forEach((s) => {
+    const sig = signals.find((x) => x.id === s.signal_id);
+    const p = sig?.product ?? "Unknown";
+    if (!doneByProduct.has(p)) doneByProduct.set(p, []);
+    doneByProduct.get(p)!.push(s);
+  });
+  const golivesQ = goLives.filter((g) => g.status === "Live" && inQ(g.scheduled_for));
+  const ovrQ = overrides.filter((o) => inQ(o.raised_at));
+  const incidents = signals.filter((s) => s.issue_type === "Incident" && inQ(s.created_at));
+  const upcoming = shaping.filter((s) => (s.roadmap_bucket === "Now" || s.roadmap_bucket === "Next") && s.shaping_status === "Approved");
+  const upcomingByProduct = new Map<string, ShapingItem[]>();
+  upcoming.forEach((s) => {
+    const sig = signals.find((x) => x.id === s.signal_id);
+    const p = sig?.product ?? "Unknown";
+    if (!upcomingByProduct.has(p)) upcomingByProduct.set(p, []);
+    upcomingByProduct.get(p)!.push(s);
+  });
+
+  const lines: string[] = [];
+  lines.push(`# 📊 Q${q} ${year} — TFP Product Quarterly Summary`);
+  lines.push(`**Period:** ${fmtDate(qStart.toISOString())} → ${fmtDate(qEnd.toISOString())} · **Sprints:** ${qSprints.length}`);
+  lines.push("");
+  lines.push("## ✅ Delivery");
+  if (doneByProduct.size === 0) lines.push("_No items completed this quarter._");
+  doneByProduct.forEach((items, product) => {
+    lines.push(`### ${product} (${items.length})`);
+    items.forEach((it) => lines.push(`- ${it.jira_key ?? "—"} · ${signals.find((s) => s.id === it.signal_id)?.title ?? "(untitled)"}`));
+  });
+  lines.push("");
+  lines.push("## 🚀 Go-lives completed");
+  if (golivesQ.length === 0) lines.push("_None._");
+  else golivesQ.forEach((g) => lines.push(`- ${g.release_name} (${g.product})`));
+  lines.push("");
+  lines.push("## 🧪 Quality");
+  const avgCarryFwd = qSprints.length === 0 ? 0 : Math.round(qSprints.reduce((a, s) => a + s.carryforward_estimate_pts, 0) / qSprints.length);
+  lines.push(`- Avg carry-forward: ${avgCarryFwd} pts/sprint`);
+  lines.push(`- P0/P1 incidents: ${incidents.filter((s) => s.tier === "T1" || s.tier === "T2").length}`);
+  lines.push("");
+  lines.push("## 🔁 Overrides");
+  lines.push(`- ${ovrQ.length} logged this quarter`);
+  ovrQ.slice(0, 5).forEach((o) => lines.push(`  - ${o.id} · ${o.kind} — ${o.reason.slice(0, 80)}`));
+  lines.push("");
+  lines.push("## 🔭 Next quarter preview");
+  if (upcomingByProduct.size === 0) lines.push("_No approved items in Now/Next._");
+  upcomingByProduct.forEach((items, product) => {
+    lines.push(`### ${product}`);
+    items.forEach((it) => lines.push(`- ${signals.find((s) => s.id === it.signal_id)?.title ?? "(untitled)"} (${it.roadmap_bucket})`));
+  });
+  lines.push("");
+  lines.push("---");
+  lines.push(`_Generated from TFP OS · ${fmtDateTime(now.toISOString())}_`);
+  return lines.join("\n");
 }

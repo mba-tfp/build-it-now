@@ -4,8 +4,9 @@ import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { Activity, Bell } from "lucide-react";
+import { Activity, Bell, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
+import { OnboardingModal } from "./OnboardingModal";
 
 const NAV: Array<{ to: string; label: string }> = [
   { to: "/intake", label: "Intake" },

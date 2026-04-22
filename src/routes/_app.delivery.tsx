@@ -282,6 +282,66 @@ function BoardTable({
           })}
         </tbody>
       </table>
+      <DevCompleteRail rows={rows} />
+    </div>
+  );
+}
+
+function DevCompleteRail({ rows }: { rows: Array<{ sh: ShapingItem; sig: { title: string; product: string } | undefined }> }) {
+  const inFlight = rows.filter((r) => r.sh.delivery_status && r.sh.delivery_status !== "Done" && r.sh.delivery_status !== "To Do");
+  const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
+  const signOff = useTfpStore((s) => s.signOffDevComplete);
+
+  if (inFlight.length === 0) return null;
+
+  return (
+    <div className="border-t border-border bg-muted/10 p-4">
+      <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Dev Complete gate</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        All three boxes must be checked before an item can transition to Done.
+      </p>
+      <div className="space-y-2">
+        {inFlight.map(({ sh, sig }) => {
+          const g = sh.dev_complete;
+          const allChecked = g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed;
+          return (
+            <div key={sh.id} className="rounded-md border border-border bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="font-mono">{sh.jira_key}</span>
+                <span className="text-muted-foreground">{sig?.title}</span>
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={g.merged_to_main} onChange={(e) => toggleGate(sh.id, "merged_to_main", e.target.checked)} />
+                  Code merged to main branch
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={g.deployed_to_staging} onChange={(e) => toggleGate(sh.id, "deployed_to_staging", e.target.checked)} />
+                  Deployed to staging environment
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={g.smoke_test_passed} onChange={(e) => toggleGate(sh.id, "smoke_test_passed", e.target.checked)} />
+                  Basic smoke test passed by dev
+                </label>
+                {!g.signed_off_at ? (
+                  <button
+                    disabled={!allChecked}
+                    onClick={() => signOff(sh.id)}
+                    className="ml-auto rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground disabled:opacity-40"
+                  >
+                    Sign off gate
+                  </button>
+                ) : (
+                  <span className="ml-auto text-[var(--color-status-proceed)]">✓ Gate signed off</span>
+                )}
+              </div>
+              {!allChecked && (
+                <p className="mt-2 text-[11px] text-muted-foreground">All three checkboxes required to move to Done.</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

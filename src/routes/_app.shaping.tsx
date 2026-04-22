@@ -47,6 +47,17 @@ function ShapingPage() {
     return <ShapingWorkspace itemId={open.sh.id} onBack={() => setOpenId(null)} />;
   }
 
+  // Sort: overdue (>72h timebox + bug + non-fast-track non-approved) → fast-track → others
+  const sorted = [...cards].sort((a, b) => {
+    const ah = a.sh.shaping_started_at ? (Date.now() - new Date(a.sh.shaping_started_at).getTime()) / 3600000 : 0;
+    const bh = b.sh.shaping_started_at ? (Date.now() - new Date(b.sh.shaping_started_at).getTime()) / 3600000 : 0;
+    const aOverdue = a.sig?.issue_type === "Bug" && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
+    const bOverdue = b.sig?.issue_type === "Bug" && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
+    if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+    if (a.sh.fast_track !== b.sh.fast_track) return a.sh.fast_track ? -1 : 1;
+    return 0;
+  });
+
   return (
     <div>
       <header className="mb-6">
@@ -68,17 +79,25 @@ function ShapingPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map(({ sh, sig }) => {
+          {sorted.map(({ sh, sig }) => {
             if (!sig) return null;
             // Hide items that have moved to delivery — they live on the Delivery board
             if (sh.shaping_status === "In Delivery") return null;
             const stale = daysSince(sh.created_at);
-            const borderCls =
-              stale > 12
-                ? "border-destructive/40"
-                : stale > 6
-                  ? "border-[var(--color-status-hold)]/50"
-                  : "border-border";
+            const hoursSinceStart = sh.shaping_started_at
+              ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
+              : 0;
+            const isBug = sig.issue_type === "Bug";
+            const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
+            const borderCls = overdue
+              ? "border-destructive/60 ring-1 ring-destructive/30"
+              : sh.fast_track
+                ? "border-[var(--color-status-hold)]/60"
+                : stale > 12
+                  ? "border-destructive/40"
+                  : stale > 6
+                    ? "border-[var(--color-status-hold)]/50"
+                    : "border-border";
             return (
               <button
                 key={sh.id}
@@ -92,18 +111,30 @@ function ShapingPage() {
                 <div className="p-5">
                   <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{sig.product}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
+                    <span className="flex items-center gap-1.5">
+                      {sh.fast_track && (
+                        <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
+                          Fast-track
+                        </span>
+                      )}
+                      {overdue && (
+                        <span className="rounded-full bg-destructive/15 px-2 py-0.5 font-medium text-destructive">
+                          Overdue
+                        </span>
+                      )}
+                      <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
+                    </span>
                   </div>
                   <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                   <div className="mt-4">
                     <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                      <span>Step {sh.current_step} of 5</span>
+                      <span>{sh.fast_track ? "Fast-track" : `Step ${sh.current_step} of 5`}</span>
                       <span>{stale}d in stage</span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full bg-primary"
-                        style={{ width: `${(sh.current_step / 5) * 100}%` }}
+                        style={{ width: sh.fast_track ? "50%" : `${(sh.current_step / 5) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -121,6 +152,14 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
   const sh = useTfpStore((s) => s.shaping.find((x) => x.id === itemId))!;
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === sh.signal_id))!;
 
+  // Bug timebox tracking (P2/P3 standard shaping)
+  const isBug = sig.issue_type === "Bug";
+  const hoursSinceStart = sh.shaping_started_at
+    ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
+    : 0;
+  const showTimebox48 = isBug && !sh.fast_track && hoursSinceStart >= 48 && hoursSinceStart < 72 && sh.shaping_status !== "Approved" && sh.shaping_status !== "In Delivery";
+  const showTimebox72 = isBug && !sh.fast_track && hoursSinceStart >= 72 && sh.shaping_status !== "Approved" && sh.shaping_status !== "In Delivery";
+
   return (
     <div>
       <button
@@ -137,46 +176,147 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
         <h1 className="mt-1 font-display text-3xl leading-tight">{sig.title}</h1>
       </header>
 
-      {/* Stepper */}
-      <ol className="mb-8 grid grid-cols-5 gap-2">
-        {STEPS.map((label, i) => {
-          const n = (i + 1) as 1 | 2 | 3 | 4 | 5;
-          const done = sh.current_step > n;
-          const active = sh.current_step === n;
-          const future = !done && !active;
-          return (
-            <li
-              key={label}
-              className={cn(
-                "rounded-md border px-3 py-2 text-xs",
-                done && "border-[var(--color-status-proceed)]/40 bg-[var(--color-status-proceed)]/5 text-[var(--color-status-proceed)]",
-                active && "border-primary/50 bg-primary/5 text-primary",
-                future && "border-border text-muted-foreground",
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                <span
+      {showTimebox48 && (
+        <div className="mb-4 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3 text-sm text-[var(--color-status-hold)]">
+          ⏱ 48h elapsed — 72h timebox applies to P2/P3 bugs.
+        </div>
+      )}
+      {showTimebox72 && (
+        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
+          ⏱ Timebox breached ({Math.floor(hoursSinceStart)}h) — escalate or descope.
+        </div>
+      )}
+
+      {sh.fast_track ? (
+        <FastTrack item={sh} />
+      ) : (
+        <>
+          {/* Stepper */}
+          <ol className="mb-8 grid grid-cols-5 gap-2">
+            {STEPS.map((label, i) => {
+              const n = (i + 1) as 1 | 2 | 3 | 4 | 5;
+              const done = sh.current_step > n;
+              const active = sh.current_step === n;
+              const future = !done && !active;
+              return (
+                <li
+                  key={label}
                   className={cn(
-                    "grid h-5 w-5 place-items-center rounded-full text-[10px] font-medium",
-                    done && "bg-[var(--color-status-proceed)] text-white",
-                    active && "bg-primary text-primary-foreground",
-                    future && "bg-muted text-muted-foreground",
+                    "rounded-md border px-3 py-2 text-xs",
+                    done && "border-[var(--color-status-proceed)]/40 bg-[var(--color-status-proceed)]/5 text-[var(--color-status-proceed)]",
+                    active && "border-primary/50 bg-primary/5 text-primary",
+                    future && "border-border text-muted-foreground",
                   )}
                 >
-                  {done ? <Check className="h-3 w-3" /> : n}
-                </span>
-                <span className="font-medium">{label}</span>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "grid h-5 w-5 place-items-center rounded-full text-[10px] font-medium",
+                        done && "bg-[var(--color-status-proceed)] text-white",
+                        active && "bg-primary text-primary-foreground",
+                        future && "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {done ? <Check className="h-3 w-3" /> : n}
+                    </span>
+                    <span className="font-medium">{label}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
 
-      {sh.current_step === 1 && <ProblemBrief item={sh} />}
-      {sh.current_step === 2 && <RoadmapFit item={sh} />}
-      {sh.current_step === 3 && <SolutionBrief item={sh} />}
-      {sh.current_step === 4 && <TechReview item={sh} />}
-      {sh.current_step === 5 && <Approval item={sh} />}
+          {sh.current_step === 1 && <ProblemBrief item={sh} />}
+          {sh.current_step === 2 && <RoadmapFit item={sh} />}
+          {sh.current_step === 3 && <SolutionBrief item={sh} />}
+          {sh.current_step === 4 && <TechReview item={sh} />}
+          {sh.current_step === 5 && <Approval item={sh} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FastTrack({ item }: { item: ShapingItem }) {
+  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const approveFastTrack = useTfpStore((s) => s.approveFastTrack);
+  const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id))!;
+  const owner = USERS.find((u) => u.id === item.pm_owner_id);
+
+  const [rootCause, setRootCause] = useState(item.fast_track_root_cause);
+  const ready = rootCause.trim().length >= 30;
+  const hasRootCause = item.fast_track_root_cause.trim().length >= 30;
+  const isPM = me.role === "PM" || me.role === "Senior PM";
+  const isApproved = item.shaping_status === "Approved" || item.shaping_status === "In Delivery" || !!item.jira_key;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-4">
+        <div className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-4 text-sm text-[var(--color-status-hold)]">
+          <p className="font-medium">⚡ {sig.tier === "T1" ? "P0" : "P1"} Fast Track — Root cause only required</p>
+          <p className="mt-1 text-xs opacity-90">
+            Bugs at this severity bypass the full 5-step pipeline. Owner: {owner?.name ?? "—"} ({owner?.role}).
+          </p>
+        </div>
+
+        <div className="tfp-card p-5">
+          <label className="mb-1 block text-sm font-medium">
+            Root cause — what is broken and why?
+            <span className="ml-1 text-destructive">*</span>
+          </label>
+          <p className="mb-2 text-xs text-muted-foreground">Min 30 chars. Plain language summary for the PM.</p>
+          <textarea
+            value={rootCause}
+            onChange={(e) => setRootCause(e.target.value)}
+            onBlur={() => updateShaping(item.id, { fast_track_root_cause: rootCause })}
+            disabled={isApproved}
+            rows={5}
+            className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          />
+          <div className="mt-1 text-right text-xs text-muted-foreground">
+            {rootCause.trim().length}/30
+          </div>
+
+          {!isApproved && (
+            <div className="mt-4 flex justify-end">
+              <button
+                disabled={!ready}
+                onClick={() => updateShaping(item.id, { fast_track_root_cause: rootCause })}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+              >
+                Save root cause
+              </button>
+            </div>
+          )}
+        </div>
+
+        {hasRootCause && !isApproved && (
+          <div className="tfp-card p-5">
+            <p className="text-sm font-medium">PM approval</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Approving will create the Jira ticket and move this to delivery immediately.
+            </p>
+            <button
+              disabled={!isPM}
+              onClick={() => approveFastTrack(item.id, me.id)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+            >
+              <Check className="h-4 w-4" /> Approve & push to Jira
+            </button>
+            {!isPM && <p className="mt-2 text-xs text-muted-foreground">Switch to a PM to approve.</p>}
+          </div>
+        )}
+
+        {isApproved && (
+          <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
+            <Check className="mr-1 inline h-4 w-4" /> Fast-track approved
+            {item.jira_key && <span className="ml-2 font-mono">{item.jira_key}</span>}
+          </div>
+        )}
+      </div>
+
+      <RoleHint required="PM" current={me.role} />
     </div>
   );
 }
@@ -469,16 +609,23 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
   );
 }
 
+const CONCURRENT_KEYWORDS = ["accuro", "phelix", "integration", "api", "webhook", "sync"];
+
 function TechReview({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
   const isTechLead = me.role === "Tech Lead";
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const signOff = useTfpStore((s) => s.signOffTechReview);
+  const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id));
+
+  const haystack = `${sig?.description ?? ""} ${item.solution_approach}`.toLowerCase();
+  const needsConcurrentCheck = CONCURRENT_KEYWORDS.some((k) => haystack.includes(k));
 
   const ready =
     item.tech_review_notes.trim().length > 0 &&
     typeof item.tech_estimate_pts === "number" &&
-    (item.tech_estimate_pts ?? 0) > 0;
+    (item.tech_estimate_pts ?? 0) > 0 &&
+    (!needsConcurrentCheck || item.tech_concurrent_access_checked);
 
   if (item.tech_signed_off_at) {
     const reviewer = USERS.find((u) => u.id === item.tech_reviewer_id);
@@ -493,6 +640,9 @@ function TechReview({ item }: { item: ShapingItem }) {
             <ReadField label="Review notes" value={item.tech_review_notes} />
             <ReadField label="Concerns" value={item.tech_concerns || "None"} />
             <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
+            {needsConcurrentCheck && (
+              <ReadField label="Concurrent access" value={item.tech_concurrent_access_checked ? "Reviewed and documented" : "Not checked"} />
+            )}
           </dl>
           <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
             <button
@@ -562,7 +712,32 @@ function TechReview({ item }: { item: ShapingItem }) {
               Final estimate that propagates to Sprint capacity.
             </p>
           </div>
+
+          {needsConcurrentCheck && (
+            <div className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={item.tech_concurrent_access_checked}
+                  onChange={(e) => updateShaping(item.id, { tech_concurrent_access_checked: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium text-[var(--color-status-hold)]">Concurrent access behaviour reviewed and documented</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Detected integration keywords (Accuro/Phelix/API/webhook/sync). Confirm concurrent-access edge cases are handled.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
         </fieldset>
+
+        {needsConcurrentCheck && !item.tech_concurrent_access_checked && (
+          <p className="mt-3 text-xs text-destructive">
+            Concurrent access review required for integration items.
+          </p>
+        )}
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
           <button
