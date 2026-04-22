@@ -317,9 +317,10 @@ function SubStreamRow({
             onDragLeave={() => setDragOverKey(null)}
             onDrop={(e) => onDropCell(e, m.key)}
             onDoubleClick={() => onCreateItem(productId, sectionId, [m.key])}
+            title={`${m.monthLabel} ${m.year} — drop to snap here, double-click to add`}
             className={cn(
-              "min-h-[60px] border-r border-border last:border-r-0",
-              dragOverKey === m.key && "bg-primary/5",
+              "min-h-[60px] border-r border-border last:border-r-0 transition",
+              dragOverKey === m.key && "bg-primary/15 ring-2 ring-inset ring-primary/40",
             )}
           />
         ))}
