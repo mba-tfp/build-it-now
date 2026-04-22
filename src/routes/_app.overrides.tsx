@@ -5,6 +5,9 @@ import type { OverrideKind } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Check, Eye, EyeOff, Plus, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/overrides")({
   component: OverridesPage,
@@ -40,13 +43,23 @@ function OverridesPage() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Acknowledged">("All");
   const [composing, setComposing] = useState(false);
 
+  type SortKey = "raised_at" | "kind" | "ack_status" | "displaced_pts";
+  const { sort, setSort } = useSortMenu<SortKey>("overrides", { key: "raised_at", dir: "desc" });
+
   const filtered = useMemo(() => {
-    return overrides.filter((o) => {
+    const base = overrides.filter((o) => {
       if (showOnlyShahid && !o.shahid_visible) return false;
       if (statusFilter !== "All" && o.ack_status !== statusFilter) return false;
       return true;
     });
-  }, [overrides, showOnlyShahid, statusFilter]);
+    return sortRows(base, sort, (o, k) => {
+      if (k === "raised_at") return new Date(o.raised_at).getTime();
+      if (k === "kind") return o.kind;
+      if (k === "ack_status") return o.ack_status;
+      if (k === "displaced_pts") return o.displaced_pts ?? 0;
+      return null;
+    });
+  }, [overrides, showOnlyShahid, statusFilter, sort]);
 
   const pending = overrides.filter((o) => o.ack_status === "Pending").length;
   const usable = usableCapacity(sprint);
@@ -75,13 +88,26 @@ function OverridesPage() {
         <Pill active={statusFilter === "All"} onClick={() => setStatusFilter("All")}>All ({overrides.length})</Pill>
         <Pill active={statusFilter === "Pending"} onClick={() => setStatusFilter("Pending")}>Pending ({pending})</Pill>
         <Pill active={statusFilter === "Acknowledged"} onClick={() => setStatusFilter("Acknowledged")}>Acknowledged</Pill>
-        <button
-          onClick={() => setShowOnlyShahid((v) => !v)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1 text-xs hover:bg-accent/40"
-        >
-          {showOnlyShahid ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          {showOnlyShahid ? "Showing Shahid-visible only" : "Show all"}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <SortMenu
+            tableId="overrides"
+            sort={sort}
+            onChange={setSort}
+            options={[
+              { key: "raised_at", label: "Date raised" },
+              { key: "kind", label: "Kind" },
+              { key: "ack_status", label: "Ack status" },
+              { key: "displaced_pts", label: "Displaced pts" },
+            ]}
+          />
+          <button
+            onClick={() => setShowOnlyShahid((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1 text-xs hover:bg-accent/40"
+          >
+            {showOnlyShahid ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            {showOnlyShahid ? "Showing Shahid-visible only" : "Show all"}
+          </button>
+        </div>
       </section>
 
       {composing && <ComposeOverride onDone={() => setComposing(false)} log={log} />}
@@ -107,81 +133,82 @@ function OverridesPage() {
         )}
       </div>
 
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="tfp-card p-12 text-center text-sm text-muted-foreground">
-            Nothing to show with current filters.
-          </div>
-        ) : (
-          filtered.map((o) => {
-            const sig = signals.find((s) => s.id === o.signal_id);
-            const sh = shaping.find((s) => s.id === o.shaping_id);
-            const raisedBy = USERS.find((u) => u.id === o.raised_by);
-            const ackedBy = o.acknowledged_by ? USERS.find((u) => u.id === o.acknowledged_by) : null;
-            const displaced = o.displaced_shaping_ids.map((id) => {
-              const s = shaping.find((x) => x.id === id);
-              const sg = signals.find((x) => x.id === s?.signal_id);
-              return sg?.title ?? "(missing)";
-            });
-            return (
-              <div key={o.id} className="tfp-card p-4">
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="flex flex-col items-start gap-1">
-                    <span className="font-mono text-sm font-semibold">{o.id}</span>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", KIND_TONE[o.kind])}>
-                      {o.kind}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-[300px]">
-                    <p className="text-sm">{o.reason}</p>
-                    {sig && (
-                      <Link to="/triage" className="mt-1 block text-xs text-primary hover:underline">
-                        Linked signal: {sig.title}
-                      </Link>
-                    )}
-                    {displaced.length > 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Displaced: {displaced.join(", ")} · {o.displaced_pts} pts
+      <ScrollTable className="border border-border bg-surface/40">
+        <div className="space-y-3 p-3">
+          {filtered.length === 0 ? (
+            <div className="tfp-card p-12 text-center text-sm text-muted-foreground">
+              Nothing to show with current filters.
+            </div>
+          ) : (
+            filtered.map((o) => {
+              const sig = signals.find((s) => s.id === o.signal_id);
+              const raisedBy = USERS.find((u) => u.id === o.raised_by);
+              const ackedBy = o.acknowledged_by ? USERS.find((u) => u.id === o.acknowledged_by) : null;
+              const displaced = o.displaced_shaping_ids.map((id) => {
+                const s = shaping.find((x) => x.id === id);
+                const sg = signals.find((x) => x.id === s?.signal_id);
+                return sg?.title ?? "(missing)";
+              });
+              return (
+                <div key={o.id} className="tfp-card p-4">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="font-mono text-sm font-semibold">{o.id}</span>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", KIND_TONE[o.kind])}>
+                        {o.kind}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-[300px]">
+                      <p className="text-sm">{o.reason}</p>
+                      {sig && (
+                        <Link to="/triage" className="mt-1 block text-xs text-primary hover:underline">
+                          Linked signal: {sig.title}
+                        </Link>
+                      )}
+                      {displaced.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Displaced: {displaced.join(", ")} · {o.displaced_pts} pts
+                        </p>
+                      )}
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Raised by {raisedBy?.name} · {fmtDateTime(o.raised_at)}
+                        {o.shahid_visible && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 font-medium uppercase tracking-wider text-accent-foreground">Shahid-visible</span>}
                       </p>
-                    )}
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      Raised by {raisedBy?.name} · {fmtDateTime(o.raised_at)}
-                      {o.shahid_visible && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 font-medium uppercase tracking-wider text-accent-foreground">Shahid-visible</span>}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex flex-col items-end gap-2">
-                    {o.ack_status === "Acknowledged" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-status-proceed)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-proceed)]">
-                        <Check className="h-3 w-3" /> Acknowledged
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[var(--color-status-hold)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
-                        Pending
-                      </span>
-                    )}
-                    {ackedBy && (
-                      <span className="text-[10px] text-muted-foreground">
-                        by {ackedBy.name} · {fmtDateTime(o.acknowledged_at!)}
-                      </span>
-                    )}
-                    {o.ack_status === "Pending" && meUser.role === "Leadership" && (
-                      <button
-                        onClick={() => ack(o.id)}
-                        className="rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-                      >
-                        Acknowledge
-                      </button>
-                    )}
-                    {o.ack_status === "Pending" && meUser.role !== "Leadership" && (
-                      <span className="text-[10px] text-muted-foreground">awaiting Shahid</span>
-                    )}
+                    </div>
+                    <div className="ml-auto flex flex-col items-end gap-2">
+                      {o.ack_status === "Acknowledged" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-status-proceed)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-proceed)]">
+                          <Check className="h-3 w-3" /> Acknowledged
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[var(--color-status-hold)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
+                          Pending
+                        </span>
+                      )}
+                      {ackedBy && (
+                        <span className="text-[10px] text-muted-foreground">
+                          by {ackedBy.name} · {fmtDateTime(o.acknowledged_at!)}
+                        </span>
+                      )}
+                      {o.ack_status === "Pending" && meUser.role === "Leadership" && (
+                        <button
+                          onClick={() => ack(o.id)}
+                          className="rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+                        >
+                          Acknowledge
+                        </button>
+                      )}
+                      {o.ack_status === "Pending" && meUser.role !== "Leadership" && (
+                        <span className="text-[10px] text-muted-foreground">awaiting Shahid</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollTable>
     </div>
   );
 }

@@ -5,6 +5,10 @@ import type { CommsChannel, CommsStatus, CommsType, Product } from "@/lib/tfp/ty
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { Check, Mail, MessageSquare, Phone, Plus, Radio, Send, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
+
 
 export const Route = createFileRoute("/_app/comms")({
   component: CommsPage,
@@ -43,10 +47,19 @@ function CommsPage() {
   const [composing, setComposing] = useState(false);
   const [filter, setFilter] = useState<CommsStatus | "All">("All");
 
-  const filtered = useMemo(
-    () => comms.filter((c) => filter === "All" || c.status === filter),
-    [comms, filter],
-  );
+  type SortKey = "drafted_at" | "status" | "product" | "channel";
+  const { sort, setSort } = useSortMenu<SortKey>("comms", { key: "drafted_at", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const base = comms.filter((c) => filter === "All" || c.status === filter);
+    return sortRows(base, sort, (c, k) => {
+      if (k === "drafted_at") return new Date(c.drafted_at).getTime();
+      if (k === "status") return c.status;
+      if (k === "product") return c.product;
+      if (k === "channel") return c.channel;
+      return null;
+    });
+  }, [comms, filter, sort]);
 
   const counts: Record<CommsStatus | "All", number> = {
     All: comms.length,
@@ -78,7 +91,7 @@ function CommsPage() {
         </button>
       </header>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {(["All", "Draft", "Pending Approval", "Approved", "Sent", "Rejected"] as const).map((s) => (
           <button
             key={s}
@@ -91,11 +104,24 @@ function CommsPage() {
             {s} ({counts[s]})
           </button>
         ))}
+        <SortMenu
+          className="ml-auto"
+          tableId="comms"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "drafted_at", label: "Drafted" },
+            { key: "status", label: "Status" },
+            { key: "product", label: "Product" },
+            { key: "channel", label: "Channel" },
+          ]}
+        />
       </div>
 
       {composing && <Compose create={create} onDone={() => setComposing(false)} />}
 
-      <div className="space-y-3">
+      <ScrollTable className="border border-border bg-surface/40">
+        <div className="space-y-3 p-3">
         {filtered.length === 0 && (
           <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No comms in this state.</div>
         )}
@@ -175,7 +201,8 @@ function CommsPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      </ScrollTable>
     </div>
   );
 }
