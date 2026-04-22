@@ -182,15 +182,22 @@ function OverviewTab() {
     });
   }, [shaping, signals]);
 
-  const alerts: Array<{ priority: "P1" | "P2" | "P3" | "P4"; title: string; body: string }> = [];
-  slaBreaches.forEach((s) => alerts.push({ priority: "P1", title: `SLA breach: ${s.title}`, body: `${s.tier} signal · ${s.product}` }));
-  blocked.forEach((s) => alerts.push({ priority: "P2", title: `${s.jira_key} blocked`, body: `Blocked since ${s.blocked_since ? fmtDateTime(s.blocked_since) : "—"}` }));
-  pendingOverrides.forEach((o) => alerts.push({ priority: "P2", title: `${o.id} pending acknowledgement`, body: o.kind }));
-  if (usedPct > 85) alerts.push({ priority: "P2", title: `Sprint at ${usedPct}% capacity`, body: "New scope must declare displacement." });
-  stuck.forEach((s) => alerts.push({ priority: "P3", title: `Shaping stuck >12d`, body: s.problem_what.slice(0, 80) || s.id }));
-  pendingComms.forEach((c) => alerts.push({ priority: "P3", title: `Comms awaiting approval: ${c.subject}`, body: c.audience }));
-  overdueReviews.forEach((r) => alerts.push({ priority: "P3", title: "Review pending", body: r.size + " review for " + r.shaping_id }));
-  stale.forEach((s) => alerts.push({ priority: "P4", title: "Shaping stale (>6d)", body: s.problem_what.slice(0, 80) || s.id }));
+  type AlertRow = {
+    priority: "P1" | "P2" | "P3" | "P4";
+    title: string;
+    body: string;
+    triggered_at: string;
+    system: string;
+  };
+  const alerts: AlertRow[] = [];
+  slaBreaches.forEach((s) => alerts.push({ priority: "P1", title: `SLA breach: ${s.title}`, body: `${s.tier} signal · ${s.product}`, triggered_at: s.sla_due_at, system: s.product }));
+  blocked.forEach((s) => alerts.push({ priority: "P2", title: `${s.jira_key} blocked`, body: `Blocked since ${s.blocked_since ? fmtDateTime(s.blocked_since) : "—"}`, triggered_at: s.blocked_since ?? s.updated_at, system: "Delivery" }));
+  pendingOverrides.forEach((o) => alerts.push({ priority: "P2", title: `${o.id} pending acknowledgement`, body: o.kind, triggered_at: o.raised_at, system: "Overrides" }));
+  if (usedPct > 85) alerts.push({ priority: "P2", title: `Sprint at ${usedPct}% capacity`, body: "New scope must declare displacement.", triggered_at: sprint.start_date, system: "Sprint" });
+  stuck.forEach((s) => alerts.push({ priority: "P3", title: `Shaping stuck >12d`, body: s.problem_what.slice(0, 80) || s.id, triggered_at: s.created_at, system: "Shaping" }));
+  pendingComms.forEach((c) => alerts.push({ priority: "P3", title: `Comms awaiting approval: ${c.subject}`, body: c.audience, triggered_at: c.drafted_at ?? c.created_at, system: "Comms" }));
+  overdueReviews.forEach((r) => alerts.push({ priority: "P3", title: "Review pending", body: r.size + " review for " + r.shaping_id, triggered_at: r.created_at, system: "Reviews" }));
+  stale.forEach((s) => alerts.push({ priority: "P4", title: "Shaping stale (>6d)", body: s.problem_what.slice(0, 80) || s.id, triggered_at: s.created_at, system: "Shaping" }));
   // Dependency Change deadline alerts
   const nowMs = Date.now();
   shaping.forEach((sh) => {
@@ -200,12 +207,27 @@ function OverviewTab() {
     if (days < 0 || days > 14) return;
     const sys = sh.dependency_system ?? "External system";
     if (days <= 7) {
-      alerts.push({ priority: "P1", title: `${sys} API change due in ${days}d — shaping not approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval." });
+      alerts.push({ priority: "P1", title: `${sys} API change due in ${days}d — shaping not approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval.", triggered_at: sh.dependency_deadline, system: sys });
     } else {
-      alerts.push({ priority: "P2", title: `${sys} API change due in ${days}d — shaping not yet approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval." });
+      alerts.push({ priority: "P2", title: `${sys} API change due in ${days}d — shaping not yet approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval.", triggered_at: sh.dependency_deadline, system: sys });
     }
   });
-  alerts.sort((a, b) => a.priority.localeCompare(b.priority));
+
+  type AlertSortKey = "severity" | "triggered_at" | "system";
+  const { sort: alertSort, setSort: setAlertSort } = useSortMenu<AlertSortKey>("health-alerts", { key: "severity", dir: "desc" });
+
+  const sortedAlerts = useMemo(() => {
+    if (alertSort.key && alertSort.dir) {
+      return sortRows(alerts, alertSort, (a, k) => {
+        if (k === "severity") return ({ P1: 4, P2: 3, P3: 2, P4: 1 } as const)[a.priority];
+        if (k === "triggered_at") return new Date(a.triggered_at).getTime();
+        if (k === "system") return a.system;
+        return null;
+      });
+    }
+    // Default: P1 → P4 (priority lex sort)
+    return [...alerts].sort((a, b) => a.priority.localeCompare(b.priority));
+  }, [alerts, alertSort]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[1fr_400px]">
