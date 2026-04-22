@@ -1378,6 +1378,9 @@ export const useTfpStore = create<State>()(
       monitoringAlerts: seedMonitoring,
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
+      flags: DEFAULT_FLAGS,
+      helpArticles: SEED_HELP,
+      workflows: [],
 
       setCurrentUser: (id) => set({ currentUserId: id }),
 
@@ -1401,7 +1404,10 @@ export const useTfpStore = create<State>()(
           entity_id: n.entity_id ?? null,
           ts: n.ts,
         });
-        set({ notifications: [note, ...get().notifications] });
+        // B12: cap notifications at 200 most-recent
+        const existing = get().notifications;
+        const next = [note, ...existing].slice(0, 200);
+        set({ notifications: next });
         return note;
       },
 
