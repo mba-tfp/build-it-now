@@ -8,7 +8,7 @@ import { Check, Mail, MessageSquare, Phone, Plus, Radio, Send, X } from "lucide-
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
-import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_app/comms")({
   component: CommsPage,
