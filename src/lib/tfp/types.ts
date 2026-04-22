@@ -414,3 +414,52 @@ export type ClinicFeedbackRecord = {
   clinic_id: string;
   ts: number;
 };
+
+// ============ Round 5: feature flags, help center, workflow builder ============
+
+export type FeatureFlags = {
+  attachmentsEnabled: boolean;
+  helpCenterEnabled: boolean;
+  workflowBuilderEnabled: boolean;
+  multiSelectIntake: boolean;
+  auditVerbose: boolean;
+  adminPanelEnabled: boolean;
+};
+
+export type HelpArticle = {
+  id: string;
+  slug: string;
+  title: string;
+  section: string;
+  body_markdown: string;
+  updated_at: string;
+  updated_by: string;
+};
+
+export type WorkflowNodeKind = "trigger" | "decision" | "action" | "stage";
+
+export type WorkflowNode = {
+  id: string;
+  kind: WorkflowNodeKind;
+  label: string;
+  config: Record<string, string>;
+  x: number;
+  y: number;
+};
+
+export type WorkflowEdge = {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+};
+
+export type Workflow = {
+  id: string;
+  name: string;
+  active: boolean;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  created_at: string;
+  updated_at: string;
+};
