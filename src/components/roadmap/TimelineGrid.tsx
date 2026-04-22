@@ -242,6 +242,8 @@ function SubStreamRow({
   items,
   visibleMonths,
   gridTemplateColumns,
+  showSnapGrid,
+  onAnnounce,
   onOpenItem,
   onCreateItem,
 }: {
@@ -252,6 +254,8 @@ function SubStreamRow({
   items: RoadmapItem[];
   visibleMonths: MonthCell[];
   gridTemplateColumns: string;
+  showSnapGrid: boolean;
+  onAnnounce: (msg: string) => void;
   onOpenItem: (id: string) => void;
   onCreateItem: (productId: string, sectionId: string, months?: string[]) => void;
 }) {
