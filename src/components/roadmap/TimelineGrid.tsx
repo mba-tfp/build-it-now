@@ -46,6 +46,7 @@ export function TimelineGrid({
   toggleStream,
   onOpenItem,
   onCreateItem,
+  showSnapGrid = false,
 }: Props) {
   const allMonths = useMemo(() => buildMonths(roadmap.config), [roadmap.config]);
 
