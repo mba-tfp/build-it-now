@@ -1607,7 +1607,65 @@ export const useTfpStore = create<State>()(
         }
       },
 
-      syncFromJira: () => {
+      setBlocked: (id, description) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.jira_key) return;
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  delivery_status: "Blocked",
+                  blocked_since: now,
+                  blocker_description: description,
+                  updated_at: now,
+                }
+              : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: "Marked Blocked",
+          after: description.slice(0, 80),
+        });
+        get().pushNotification({
+          trigger: "blocker_signoff",
+          title: `${item.jira_key} marked Blocked`,
+          body: description.slice(0, 120),
+          link_to: "/delivery",
+          entity_id: id,
+        });
+      },
+
+      unblock: (id, next) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item) return;
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? { ...s, delivery_status: next, blocked_since: null, blocker_description: "", updated_at: now }
+              : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Unblocked → ${next}`,
+        });
+      },
+
+      setDeliveryAssignee: (id, userId) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, delivery_assignee_id: userId, updated_at: new Date().toISOString() } : s,
+          ),
+        });
+      },
+
+
         const items = get().shaping.filter(
           (s) => s.jira_key && s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
         );
