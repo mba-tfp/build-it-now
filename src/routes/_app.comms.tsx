@@ -109,12 +109,20 @@ function CommsPage() {
             <div key={c.id} className="tfp-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex-1 min-w-[300px]">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     <h3 className="font-medium">{c.subject}</h3>
                     <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS_TONE[c.status])}>
                       {c.status}
                     </span>
+                    <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                      {c.comms_type}
+                    </span>
+                    {!c.requires_pm_approval && c.status === "Draft" && (
+                      <span className="rounded-full bg-[var(--color-status-proceed)]/10 px-2 py-0.5 text-[11px] text-[var(--color-status-proceed)]">
+                        No approval required
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {c.product} · {c.channel} · {c.audience}
@@ -131,9 +139,14 @@ function CommsPage() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {c.status === "Draft" && c.drafted_by === me && (
+                  {c.status === "Draft" && c.drafted_by === me && c.requires_pm_approval && (
                     <button onClick={() => submit(c.id)} className="rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground">
                       Submit for approval
+                    </button>
+                  )}
+                  {c.status === "Draft" && c.drafted_by === me && !c.requires_pm_approval && (
+                    <button onClick={() => send(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-proceed)] px-2.5 py-1 text-xs text-white hover:opacity-90">
+                      <Send className="h-3 w-3" /> Send directly
                     </button>
                   )}
                   {c.status === "Pending Approval" && canApprove && (

@@ -1,4 +1,4 @@
-import type { AuditEntry, Override, Review, ShapingItem, Signal, Sprint, User } from "./types";
+import type { AuditEntry, GoLiveChecklist, Override, Review, ShapingItem, Signal, Sprint, User } from "./types";
 import { fmtDate, fmtDateTime } from "./format";
 import { usableCapacity } from "./store";
 
