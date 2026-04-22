@@ -106,6 +106,7 @@ function ShapingPage() {
           </Link>
         </div>
       ) : (
+        <ScrollTable className="border border-border bg-surface/40 p-3">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {sorted.map(({ sh, sig }) => {
             if (!sig) return null;
@@ -171,6 +172,7 @@ function ShapingPage() {
             );
           })}
         </div>
+        </ScrollTable>
       )}
     </div>
   );
