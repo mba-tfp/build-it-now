@@ -140,17 +140,69 @@ function TabButton({ active, onClick, icon, children }: { active: boolean; onCli
 // ============= Planning Tab =============
 
 function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
+  const roadmapId = roadmap.id;
+  const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<"timeline" | "list">("timeline");
   const [showSettings, setShowSettings] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [groupBy, setGroupBy] = useState<GroupByField[]>(["product"]);
   const [modal, setModal] = useState<ModalState>(null);
 
   // Collapsed state for timeline
-  const allYears = Array.from(new Set([roadmap.config.start_year, roadmap.config.start_year + 1]));
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set());
   const [collapsedQuarters, setCollapsedQuarters] = useState<Set<string>>(new Set());
   const [collapsedStreams, setCollapsedStreams] = useState<Set<string>>(new Set());
+
+  // Re-render trigger for canUndo/canRedo (they read from store snapshot).
+  const storeVersion = useRoadmapStore().version;
+
+  // Hydrate persisted UI prefs once per active roadmap.
+  useEffect(() => {
+    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    setView(prefs.view);
+    setFilters(prefs.filters);
+    setGroupBy(prefs.groupBy);
+    setCollapsedYears(new Set(prefs.collapsedYears));
+    setCollapsedQuarters(new Set(prefs.collapsedQuarters));
+    setCollapsedStreams(new Set(prefs.collapsedStreams));
+    setHydrated(true);
+  }, [roadmapId]);
+
+  // Persist whenever any pref changes (after hydration).
+  useEffect(() => {
+    if (!hydrated) return;
+    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    writeUiPrefs<RoadmapUiPrefs>(roadmapId, {
+      ...existing,
+      view,
+      filters,
+      groupBy,
+      collapsedYears: Array.from(collapsedYears),
+      collapsedQuarters: Array.from(collapsedQuarters),
+      collapsedStreams: Array.from(collapsedStreams),
+    });
+  }, [hydrated, roadmapId, view, filters, groupBy, collapsedYears, collapsedQuarters, collapsedStreams]);
+
+  // Keyboard shortcuts for undo/redo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
 
   function toggleYear(y: number) {
     setCollapsedYears((s) => {
