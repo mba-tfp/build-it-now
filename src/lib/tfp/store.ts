@@ -1420,7 +1420,7 @@ export const useTfpStore = create<State>()(
         }
       },
 
-
+      updateShaping: (id, patch) => {
         set({
           shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: new Date().toISOString() } : s)),
         });
