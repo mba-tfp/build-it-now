@@ -121,6 +121,8 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     jira_key: null,
     delivery_status: null,
     blocked_since: null,
+    blocker_description: "",
+    delivery_assignee_id: null,
     dev_complete: {
       merged_to_main: false,
       deployed_to_staging: false,
