@@ -315,6 +315,13 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
             <Plus className="h-3.5 w-3.5" /> Add item
           </button>
           <button
+            onClick={() => setShowImport(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent"
+            title="Import items from CSV or JSON"
+          >
+            <Upload className="h-3.5 w-3.5" /> Import
+          </button>
+          <button
             onClick={() => setShowSettings((s) => !s)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm",
@@ -323,6 +330,28 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
           >
             <SettingsIcon className="h-3.5 w-3.5" /> Settings
           </button>
+
+          {/* Undo / Redo */}
+          <div className="ml-1 flex overflow-hidden rounded-md border border-input">
+            <button
+              onClick={undo}
+              disabled={!canUndo()}
+              title="Undo (⌘Z / Ctrl+Z)"
+              className="grid h-8 w-8 place-items-center bg-surface text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo()}
+              title="Redo (⇧⌘Z / Ctrl+Y)"
+              className="grid h-8 w-8 place-items-center border-l border-input bg-surface text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {/* Force re-eval of canUndo/canRedo when store changes */}
+          <span className="hidden">{storeVersion}</span>
         </div>
         <p className="text-xs text-muted-foreground">
           {filteredItems.length} of {roadmap.items.length} items
