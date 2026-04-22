@@ -118,6 +118,8 @@ export type ShapingItem = {
   jira_key: string | null;
   delivery_status: DeliveryStatus | null;
   blocked_since: string | null;
+  blocker_description: string;
+  delivery_assignee_id: string | null;
   dev_complete: DevCompleteGate;
   // Bug fast-track + timebox (spec)
   fast_track: boolean;
