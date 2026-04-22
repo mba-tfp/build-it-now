@@ -91,7 +91,7 @@ function CommsPage() {
         </button>
       </header>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {(["All", "Draft", "Pending Approval", "Approved", "Sent", "Rejected"] as const).map((s) => (
           <button
             key={s}
@@ -104,11 +104,24 @@ function CommsPage() {
             {s} ({counts[s]})
           </button>
         ))}
+        <SortMenu
+          className="ml-auto"
+          tableId="comms"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "drafted_at", label: "Drafted" },
+            { key: "status", label: "Status" },
+            { key: "product", label: "Product" },
+            { key: "channel", label: "Channel" },
+          ]}
+        />
       </div>
 
       {composing && <Compose create={create} onDone={() => setComposing(false)} />}
 
-      <div className="space-y-3">
+      <ScrollTable className="border border-border bg-surface/40">
+        <div className="space-y-3 p-3">
         {filtered.length === 0 && (
           <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No comms in this state.</div>
         )}
