@@ -2,10 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useTfpStore, daysSince } from "@/lib/tfp/store";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
-import type { Product, SignalStatus, Source, Tier } from "@/lib/tfp/types";
+import type { IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { cn } from "@/lib/utils";
-import { Search, X } from "lucide-react";
+import { Pencil, Save, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/triage")({
   component: TriageQueuePage,
@@ -24,10 +24,25 @@ const PRODUCTS: Array<Product | "All"> = [
 ];
 const TIERS: Array<Tier | "All"> = ["All", "T1", "T2", "T3", "T4"];
 
+const ALL_STATUSES: SignalStatus[] = ["New", "In Review", "Proceed", "Hold", "Rejected"];
+const ALL_SOURCES: Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
+const ALL_PRODUCTS: Product[] = ["Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"];
+const ALL_TIERS: Tier[] = ["T1", "T2", "T3", "T4"];
+const ALL_TYPES: IssueType[] = [
+  "Feature",
+  "Bug",
+  "Enhancement",
+  "Leadership Input",
+  "Support",
+  "Incident",
+  "Dependency Change",
+];
+
 function TriageQueuePage() {
   const signals = useTfpStore((s) => s.signals);
   const users = useTfpStore((s) => s.users);
   const triageDecision = useTfpStore((s) => s.triageDecision);
+  const updateSignal = useTfpStore((s) => s.updateSignal);
   const navigate = useNavigate();
 
   const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("All");
@@ -50,6 +65,8 @@ function TriageQueuePage() {
   const open = signals.find((s) => s.id === openId);
   const breaches = signals.filter((s) => s.status === "New" && slaState(s.sla_due_at) === "breach").length;
 
+  const stop = (e: React.MouseEvent | React.ChangeEvent) => e.stopPropagation();
+
   return (
     <div>
       <header className="mb-6 flex items-end justify-between gap-4">
@@ -57,7 +74,7 @@ function TriageQueuePage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 2</p>
           <h1 className="mt-1 font-display text-3xl">Triage Queue</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            All signals, sorted by SLA. Click a row to make a triage decision.
+            Click a row to make a triage decision. Status, Tier, Type, and Owner can be edited inline.
           </p>
         </div>
         {breaches > 0 && (
@@ -117,12 +134,35 @@ function TriageQueuePage() {
                   <td className="px-3 py-2.5 font-medium">{s.title}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.product}</td>
-                  <td className="px-3 py-2.5">
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{s.issue_type}</span>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <InlineSelect
+                      value={s.issue_type}
+                      options={ALL_TYPES}
+                      onChange={(v) => updateSignal(s.id, { issue_type: v as IssueType })}
+                    />
                   </td>
-                  <td className="px-3 py-2.5"><TierBadge tier={s.tier} /></td>
-                  <td className="px-3 py-2.5"><StatusBadge status={s.status} /></td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{owner?.name ?? "—"}</td>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <InlineSelect
+                      value={s.tier}
+                      options={ALL_TIERS}
+                      onChange={(v) => updateSignal(s.id, { tier: v as Tier })}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <InlineSelect
+                      value={s.status}
+                      options={ALL_STATUSES}
+                      onChange={(v) => updateSignal(s.id, { status: v as SignalStatus })}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <InlineSelect
+                      value={s.owner_id ?? ""}
+                      options={["", ...users.map((u) => u.id)]}
+                      labels={["—", ...users.map((u) => u.name)]}
+                      onChange={(v) => updateSignal(s.id, { owner_id: v === "" ? null : v })}
+                    />
+                  </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{daysSince(s.created_at)}d</td>
                   <td className={cn(
                     "px-3 py-2.5 text-xs",
@@ -169,6 +209,36 @@ function TriageQueuePage() {
   );
 }
 
+function InlineSelect({
+  value,
+  options,
+  labels,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  labels?: string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        e.stopPropagation();
+        onChange(e.target.value);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs hover:border-input focus:border-input focus:outline-none focus:ring-1 focus:ring-ring"
+    >
+      {options.map((o, i) => (
+        <option key={o || `__empty_${i}`} value={o}>
+          {labels?.[i] ?? o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function FilterSelect<T extends string>({
   label,
   value,
@@ -211,6 +281,7 @@ function TriagePanel({
 }) {
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
   const users = useTfpStore((s) => s.users);
+  const updateSignal = useTfpStore((s) => s.updateSignal);
   const owner = users.find((u) => u.id === sig.created_by);
   const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
   const [reason, setReason] = useState("");
@@ -218,31 +289,154 @@ function TriagePanel({
     new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
   );
 
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Partial<Signal>>({});
+
+  const startEdit = () => {
+    setDraft({
+      title: sig.title,
+      description: sig.description,
+      source: sig.source,
+      product: sig.product,
+      issue_type: sig.issue_type,
+      tier: sig.tier,
+      status: sig.status,
+      owner_id: sig.owner_id,
+    });
+    setEditing(true);
+  };
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft({});
+  };
+  const saveEdit = () => {
+    updateSignal(sig.id, draft);
+    setEditing(false);
+    setDraft({});
+  };
+
   return (
     <>
       <div onClick={onClose} className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
       <aside className="fixed right-0 top-0 z-50 h-screen w-full max-w-[520px] overflow-y-auto bg-surface shadow-2xl">
         <div className="sticky top-0 flex items-center justify-between border-b border-border bg-surface/90 px-5 py-3 backdrop-blur">
           <span className="font-mono text-xs text-muted-foreground">{sig.id}</span>
-          <button onClick={onClose} className="rounded p-1 hover:bg-muted">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!editing ? (
+              <button
+                onClick={startEdit}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-muted"
+                title="Edit details"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+            ) : (
+              <>
+                <button onClick={cancelEdit} className="rounded px-2 py-1 text-xs hover:bg-muted">
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:opacity-90"
+                >
+                  <Save className="h-3.5 w-3.5" /> Save
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="rounded p-1 hover:bg-muted">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4 px-5 py-4">
-          <div>
-            <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <TierBadge tier={sig.tier} />
-              <StatusBadge status={sig.status} />
-              <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
-              <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
-            </div>
-          </div>
+          {!editing ? (
+            <>
+              <div>
+                <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <TierBadge tier={sig.tier} />
+                  <StatusBadge status={sig.status} />
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
+                  <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
+                </div>
+              </div>
 
-          <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90">
-            {sig.description}
-          </div>
+              <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                {sig.description}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3 rounded-lg border border-border bg-surface-2 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Edit details</p>
+              <EditField label="Title">
+                <input
+                  value={draft.title ?? ""}
+                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                />
+              </EditField>
+              <EditField label="Description">
+                <textarea
+                  value={draft.description ?? ""}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  rows={4}
+                  className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                />
+              </EditField>
+              <div className="grid grid-cols-2 gap-3">
+                <EditField label="Source">
+                  <SelectInput
+                    value={draft.source ?? sig.source}
+                    options={ALL_SOURCES}
+                    onChange={(v) => setDraft({ ...draft, source: v as Source })}
+                  />
+                </EditField>
+                <EditField label="Product">
+                  <SelectInput
+                    value={draft.product ?? sig.product}
+                    options={ALL_PRODUCTS}
+                    onChange={(v) => setDraft({ ...draft, product: v as Product })}
+                  />
+                </EditField>
+                <EditField label="Type">
+                  <SelectInput
+                    value={draft.issue_type ?? sig.issue_type}
+                    options={ALL_TYPES}
+                    onChange={(v) => setDraft({ ...draft, issue_type: v as IssueType })}
+                  />
+                </EditField>
+                <EditField label="Tier" hint="Changing tier resets SLA">
+                  <SelectInput
+                    value={draft.tier ?? sig.tier}
+                    options={ALL_TIERS}
+                    onChange={(v) => setDraft({ ...draft, tier: v as Tier })}
+                  />
+                </EditField>
+                <EditField label="Status" hint="Bypasses normal triage flow">
+                  <SelectInput
+                    value={draft.status ?? sig.status}
+                    options={ALL_STATUSES}
+                    onChange={(v) => setDraft({ ...draft, status: v as SignalStatus })}
+                  />
+                </EditField>
+                <EditField label="Owner">
+                  <select
+                    value={draft.owner_id ?? ""}
+                    onChange={(e) =>
+                      setDraft({ ...draft, owner_id: e.target.value === "" ? null : e.target.value })
+                    }
+                    className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                  >
+                    <option value="">— Unassigned —</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </EditField>
+              </div>
+            </div>
+          )}
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
             <Detail label="Logged by" value={owner?.name ?? "—"} />
@@ -261,7 +455,7 @@ function TriagePanel({
             )}
           </dl>
 
-          {sig.status === "New" || sig.status === "In Review" ? (
+          {!editing && (sig.status === "New" || sig.status === "In Review") ? (
             <div className="rounded-lg border border-border bg-surface-2 p-4">
               <p className="mb-3 text-[11px] uppercase tracking-wider text-muted-foreground">
                 Triage decision
@@ -334,14 +528,56 @@ function TriagePanel({
                 </div>
               )}
             </div>
-          ) : (
+          ) : !editing ? (
             <div className="rounded-md border border-border bg-surface-2 p-3 text-sm text-muted-foreground">
-              Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>.
+              Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>. Use Edit to change details or status.
             </div>
-          )}
+          ) : null}
         </div>
       </aside>
     </>
+  );
+}
+
+function EditField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block text-xs text-muted-foreground">
+      <span className="flex items-center justify-between">
+        <span>{label}</span>
+        {hint && <span className="text-[10px] text-muted-foreground/70">{hint}</span>}
+      </span>
+      <div className="mt-1">{children}</div>
+    </label>
+  );
+}
+
+function SelectInput({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>{o}</option>
+      ))}
+    </select>
   );
 }
 
