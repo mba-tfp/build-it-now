@@ -54,6 +54,20 @@ function TriageQueuePage() {
   const [tierF, setTierF] = useState<(typeof TIERS)[number]>("All");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [bypass, setBypass] = useState<{ signalId: string; patch: Partial<Signal>; from: SignalStatus; to: SignalStatus } | null>(null);
+
+  // Wrapper that surfaces toasts + opens the bypass confirm dialog when needed.
+  function tryUpdate(signalId: string, patch: Partial<Signal>) {
+    const sig = signals.find((s) => s.id === signalId);
+    if (!sig) return;
+    if (patch.status && patch.status !== sig.status && !isAllowedStatusTransition(sig.status, patch.status)) {
+      setBypass({ signalId, patch, from: sig.status, to: patch.status });
+      return;
+    }
+    const res = updateSignal(signalId, patch);
+    if (res.ok) toast.success("Saved");
+    else toast.error(res.error ?? "Couldn't save");
+  }
 
   const filtered = useMemo(() => {
     return signals
