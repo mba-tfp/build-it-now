@@ -5,6 +5,10 @@ import type { CommsChannel, CommsStatus, CommsType, Product } from "@/lib/tfp/ty
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { Check, Mail, MessageSquare, Phone, Plus, Radio, Send, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/comms")({
   component: CommsPage,
