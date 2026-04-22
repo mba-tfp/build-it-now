@@ -1,9 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useTfpStore, daysSince } from "@/lib/tfp/store";
+import { toast } from "sonner";
+import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { Pencil, Save, Search, X } from "lucide-react";
 
