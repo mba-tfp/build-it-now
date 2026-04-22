@@ -218,6 +218,7 @@ function ReviewsPage() {
             })
           )}
         </div>
+        </ScrollTable>
 
         <div>
           {active ? (
