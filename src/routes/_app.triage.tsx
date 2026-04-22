@@ -155,21 +155,21 @@ function TriageQueuePage() {
                     <InlineSelect
                       value={s.issue_type}
                       options={ALL_TYPES}
-                      onChange={(v) => updateSignal(s.id, { issue_type: v as IssueType })}
+                      onChange={(v) => tryUpdate(s.id, { issue_type: v as IssueType })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <InlineSelect
                       value={s.tier}
                       options={ALL_TIERS}
-                      onChange={(v) => updateSignal(s.id, { tier: v as Tier })}
+                      onChange={(v) => tryUpdate(s.id, { tier: v as Tier })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <InlineSelect
                       value={s.status}
                       options={ALL_STATUSES}
-                      onChange={(v) => updateSignal(s.id, { status: v as SignalStatus })}
+                      onChange={(v) => tryUpdate(s.id, { status: v as SignalStatus })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
@@ -177,7 +177,7 @@ function TriageQueuePage() {
                       value={s.owner_id ?? ""}
                       options={["", ...users.map((u) => u.id)]}
                       labels={["—", ...users.map((u) => u.name)]}
-                      onChange={(v) => updateSignal(s.id, { owner_id: v === "" ? null : v })}
+                      onChange={(v) => tryUpdate(s.id, { owner_id: v === "" ? null : v })}
                     />
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{daysSince(s.created_at)}d</td>
