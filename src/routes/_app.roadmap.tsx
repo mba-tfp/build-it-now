@@ -14,10 +14,13 @@ import {
   roadmapActions,
   readUiPrefs,
   writeUiPrefs,
+  readPrefsScope,
+  writePrefsScope,
   undo,
   redo,
   canUndo,
   canRedo,
+  type PrefsScope,
 } from "@/lib/roadmap/store";
 import type { GroupByField, Roadmap, RoadmapItem } from "@/lib/roadmap/types";
 import { useTfpStore } from "@/lib/tfp/store";
