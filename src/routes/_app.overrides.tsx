@@ -88,13 +88,26 @@ function OverridesPage() {
         <Pill active={statusFilter === "All"} onClick={() => setStatusFilter("All")}>All ({overrides.length})</Pill>
         <Pill active={statusFilter === "Pending"} onClick={() => setStatusFilter("Pending")}>Pending ({pending})</Pill>
         <Pill active={statusFilter === "Acknowledged"} onClick={() => setStatusFilter("Acknowledged")}>Acknowledged</Pill>
-        <button
-          onClick={() => setShowOnlyShahid((v) => !v)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1 text-xs hover:bg-accent/40"
-        >
-          {showOnlyShahid ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-          {showOnlyShahid ? "Showing Shahid-visible only" : "Show all"}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <SortMenu
+            tableId="overrides"
+            sort={sort}
+            onChange={setSort}
+            options={[
+              { key: "raised_at", label: "Date raised" },
+              { key: "kind", label: "Kind" },
+              { key: "ack_status", label: "Ack status" },
+              { key: "displaced_pts", label: "Displaced pts" },
+            ]}
+          />
+          <button
+            onClick={() => setShowOnlyShahid((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1 text-xs hover:bg-accent/40"
+          >
+            {showOnlyShahid ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            {showOnlyShahid ? "Showing Shahid-visible only" : "Show all"}
+          </button>
+        </div>
       </section>
 
       {composing && <ComposeOverride onDone={() => setComposing(false)} log={log} />}
