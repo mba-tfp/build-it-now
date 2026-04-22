@@ -133,81 +133,82 @@ function OverridesPage() {
         )}
       </div>
 
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <div className="tfp-card p-12 text-center text-sm text-muted-foreground">
-            Nothing to show with current filters.
-          </div>
-        ) : (
-          filtered.map((o) => {
-            const sig = signals.find((s) => s.id === o.signal_id);
-            const sh = shaping.find((s) => s.id === o.shaping_id);
-            const raisedBy = USERS.find((u) => u.id === o.raised_by);
-            const ackedBy = o.acknowledged_by ? USERS.find((u) => u.id === o.acknowledged_by) : null;
-            const displaced = o.displaced_shaping_ids.map((id) => {
-              const s = shaping.find((x) => x.id === id);
-              const sg = signals.find((x) => x.id === s?.signal_id);
-              return sg?.title ?? "(missing)";
-            });
-            return (
-              <div key={o.id} className="tfp-card p-4">
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="flex flex-col items-start gap-1">
-                    <span className="font-mono text-sm font-semibold">{o.id}</span>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", KIND_TONE[o.kind])}>
-                      {o.kind}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-[300px]">
-                    <p className="text-sm">{o.reason}</p>
-                    {sig && (
-                      <Link to="/triage" className="mt-1 block text-xs text-primary hover:underline">
-                        Linked signal: {sig.title}
-                      </Link>
-                    )}
-                    {displaced.length > 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Displaced: {displaced.join(", ")} · {o.displaced_pts} pts
+      <ScrollTable className="border border-border bg-surface/40">
+        <div className="space-y-3 p-3">
+          {filtered.length === 0 ? (
+            <div className="tfp-card p-12 text-center text-sm text-muted-foreground">
+              Nothing to show with current filters.
+            </div>
+          ) : (
+            filtered.map((o) => {
+              const sig = signals.find((s) => s.id === o.signal_id);
+              const raisedBy = USERS.find((u) => u.id === o.raised_by);
+              const ackedBy = o.acknowledged_by ? USERS.find((u) => u.id === o.acknowledged_by) : null;
+              const displaced = o.displaced_shaping_ids.map((id) => {
+                const s = shaping.find((x) => x.id === id);
+                const sg = signals.find((x) => x.id === s?.signal_id);
+                return sg?.title ?? "(missing)";
+              });
+              return (
+                <div key={o.id} className="tfp-card p-4">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="font-mono text-sm font-semibold">{o.id}</span>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", KIND_TONE[o.kind])}>
+                        {o.kind}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-[300px]">
+                      <p className="text-sm">{o.reason}</p>
+                      {sig && (
+                        <Link to="/triage" className="mt-1 block text-xs text-primary hover:underline">
+                          Linked signal: {sig.title}
+                        </Link>
+                      )}
+                      {displaced.length > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Displaced: {displaced.join(", ")} · {o.displaced_pts} pts
+                        </p>
+                      )}
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Raised by {raisedBy?.name} · {fmtDateTime(o.raised_at)}
+                        {o.shahid_visible && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 font-medium uppercase tracking-wider text-accent-foreground">Shahid-visible</span>}
                       </p>
-                    )}
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      Raised by {raisedBy?.name} · {fmtDateTime(o.raised_at)}
-                      {o.shahid_visible && <span className="ml-2 rounded-sm bg-accent px-1.5 py-0.5 font-medium uppercase tracking-wider text-accent-foreground">Shahid-visible</span>}
-                    </p>
-                  </div>
-                  <div className="ml-auto flex flex-col items-end gap-2">
-                    {o.ack_status === "Acknowledged" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-status-proceed)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-proceed)]">
-                        <Check className="h-3 w-3" /> Acknowledged
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[var(--color-status-hold)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
-                        Pending
-                      </span>
-                    )}
-                    {ackedBy && (
-                      <span className="text-[10px] text-muted-foreground">
-                        by {ackedBy.name} · {fmtDateTime(o.acknowledged_at!)}
-                      </span>
-                    )}
-                    {o.ack_status === "Pending" && meUser.role === "Leadership" && (
-                      <button
-                        onClick={() => ack(o.id)}
-                        className="rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-                      >
-                        Acknowledge
-                      </button>
-                    )}
-                    {o.ack_status === "Pending" && meUser.role !== "Leadership" && (
-                      <span className="text-[10px] text-muted-foreground">awaiting Shahid</span>
-                    )}
+                    </div>
+                    <div className="ml-auto flex flex-col items-end gap-2">
+                      {o.ack_status === "Acknowledged" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-status-proceed)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-proceed)]">
+                          <Check className="h-3 w-3" /> Acknowledged
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[var(--color-status-hold)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
+                          Pending
+                        </span>
+                      )}
+                      {ackedBy && (
+                        <span className="text-[10px] text-muted-foreground">
+                          by {ackedBy.name} · {fmtDateTime(o.acknowledged_at!)}
+                        </span>
+                      )}
+                      {o.ack_status === "Pending" && meUser.role === "Leadership" && (
+                        <button
+                          onClick={() => ack(o.id)}
+                          className="rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+                        >
+                          Acknowledge
+                        </button>
+                      )}
+                      {o.ack_status === "Pending" && meUser.role !== "Leadership" && (
+                        <span className="text-[10px] text-muted-foreground">awaiting Shahid</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollTable>
     </div>
   );
 }
