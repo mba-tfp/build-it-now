@@ -85,7 +85,7 @@ const seedSprint: Sprint = {
   allocated_pts: 34,
 };
 
-function blankShaping(signalId: string, ownerId: string): ShapingItem {
+function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: boolean }): ShapingItem {
   const now = new Date().toISOString();
   return {
     id: "sh-" + uid(),
@@ -113,6 +113,7 @@ function blankShaping(signalId: string, ownerId: string): ShapingItem {
     tech_estimate_pts: null,
     tech_concerns: "",
     tech_signed_off_at: null,
+    tech_concurrent_access_checked: false,
     approver_id: null,
     approval_decision: null,
     approval_notes: "",
@@ -121,12 +122,17 @@ function blankShaping(signalId: string, ownerId: string): ShapingItem {
     delivery_status: null,
     blocked_since: null,
     dev_complete: {
-      tests_pass: false,
-      docs_updated: false,
-      qa_signed_off: false,
+      merged_to_main: false,
+      deployed_to_staging: false,
+      smoke_test_passed: false,
       signed_off_by: null,
       signed_off_at: null,
     },
+    fast_track: opts?.fastTrack ?? false,
+    fast_track_root_cause: "",
+    shaping_started_at: now,
+    timebox_escalated_at: null,
+    tech_debt_reviewed_at: null,
     created_at: now,
     updated_at: now,
   };
@@ -528,9 +534,9 @@ const shapingDone: ShapingItem = {
   jira_key: "TFP-1031",
   delivery_status: "Done",
   dev_complete: {
-    tests_pass: true,
-    docs_updated: true,
-    qa_signed_off: true,
+    merged_to_main: true,
+    deployed_to_staging: true,
+    smoke_test_passed: true,
     signed_off_by: "u-karim",
     signed_off_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   },
@@ -694,21 +700,21 @@ const seedGoLive: GoLiveChecklist[] = [
     status: "In Progress",
     war_room: false,
     criteria: {
-      "Code merged & deployed to staging": {
+      "Clinic staff trained": {
         done: true,
-        note: "Deployed 2026-04-13.",
-        checked_by: "u-ahmed",
+        note: "Trained 2026-04-13.",
+        checked_by: "u-sami",
         checked_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
       },
-      "QA sign-off complete": { done: false, note: "Karim running regression.", checked_by: null, checked_at: null },
-      "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
-      "Rollback plan documented": {
+      "Data migrated and verified": { done: false, note: "Verifying notes backfill.", checked_by: null, checked_at: null },
+      "UAT completed by clinic contact": { done: false, note: "Awaiting clinic sign-off.", checked_by: null, checked_at: null },
+      "Rollback plan confirmed and tested": {
         done: true,
         note: "Feature flag toggle in admin.",
         checked_by: "u-waseem",
         checked_at: new Date(SEED_EPOCH - 86400000).toISOString(),
       },
-      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+      "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
     },
     go_no_go_decision: null,
     go_no_go_by: null,
@@ -725,11 +731,11 @@ const seedGoLive: GoLiveChecklist[] = [
     status: "Not Started",
     war_room: true,
     criteria: {
-      "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
-      "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
-      "Clinic comms sent": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
-      "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
-      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+      "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
+      "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
+      "UAT completed by clinic contact": { done: false, note: "Pilot clinic scheduled.", checked_by: null, checked_at: null },
+      "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
+      "Go-live comms sent to clinic staff": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
     },
     go_no_go_decision: null,
     go_no_go_by: null,
@@ -1404,7 +1410,7 @@ export const useTfpStore = create<State>()(
         // Dev-complete gate enforcement: cannot transition to Done unless gate is signed off.
         if (next === "Done") {
           const g = item.dev_complete;
-          if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off || !g.signed_off_at) {
+          if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed || !g.signed_off_at) {
             // Fire a P2 notification but block the transition.
             get().pushNotification({
               trigger: "blocker_signoff",
@@ -1615,7 +1621,7 @@ export const useTfpStore = create<State>()(
         const item = get().shaping.find((s) => s.id === id);
         if (!item) return;
         const g = item.dev_complete;
-        if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off) return;
+        if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -1706,11 +1712,11 @@ export const useTfpStore = create<State>()(
           status: data.status ?? "Not Started",
           war_room: data.war_room ?? false,
           criteria: data.criteria ?? {
-            "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
-            "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
-            "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
-            "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
-            "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+            "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
+            "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
+            "UAT completed by clinic contact": { done: false, note: "", checked_by: null, checked_at: null },
+            "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
+            "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
           },
           go_no_go_decision: null,
           go_no_go_by: null,
@@ -1910,7 +1916,7 @@ export function canApprove(s: ShapingItem): boolean {
 
 export function devCompleteReady(s: ShapingItem): boolean {
   const g = s.dev_complete;
-  return g.tests_pass && g.docs_updated && g.qa_signed_off && !!g.signed_off_at;
+  return g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed && !!g.signed_off_at;
 }
 
 export function usableCapacity(sp: Sprint): number {
