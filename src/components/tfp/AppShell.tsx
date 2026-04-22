@@ -27,10 +27,6 @@ const NAV: Array<{ to: string; label: string }> = [
 
 export function AppShell() {
   const location = useLocation();
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const setCurrentUser = useTfpStore((s) => s.setCurrentUser);
   const users = useTfpStore((s) => s.users);
