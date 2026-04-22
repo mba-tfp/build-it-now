@@ -3,13 +3,20 @@ import { persist } from "zustand/middleware";
 import type {
   AuditEntityType,
   AuditEntry,
+  Clinic,
+  ClinicFeedbackRecord,
+  ClinicStatus,
   CommsItem,
+  CommsType,
   Complexity,
   Decision,
   DeliveryStatus,
   GoLiveChecklist,
   GoLiveCriterion,
   JiraEvent,
+  MonitoringAlert,
+  MonitoringSeverity,
+  MonitoringSystem,
   Notification,
   NotificationTrigger,
   OutcomeRating,
@@ -25,6 +32,7 @@ import type {
   Source,
   Sprint,
   SprintRetro,
+  TechDebtReview,
   User,
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
@@ -39,16 +47,24 @@ const uid = () => {
 // Stable epoch for seed data so SSR and client render identical timestamps.
 const SEED_EPOCH = new Date("2026-04-15T09:00:00.000Z").getTime();
 
+const blankUser = (id: string, name: string, role: User["role"]): User => ({
+  id,
+  name,
+  role,
+  onboarding_completed: false,
+  onboarding_progress: {},
+});
+
 export const USERS: User[] = [
-  { id: "u-bazil", name: "Bazil", role: "PM" },
-  { id: "u-alizar", name: "Alizar", role: "Senior PM" },
-  { id: "u-sami", name: "Sami", role: "Associate PM" },
-  { id: "u-karim", name: "Abdul Karim", role: "QA Scrum Master" },
-  { id: "u-waseem", name: "Waseem", role: "Tech Lead" },
-  { id: "u-ahmed", name: "M. Ahmed", role: "Tech Lead" },
-  { id: "u-farooq", name: "Farooq", role: "Developer" },
-  { id: "u-zeeshan", name: "Zeeshan", role: "Developer" },
-  { id: "u-shahid", name: "Shahid", role: "Leadership" },
+  blankUser("u-bazil", "Bazil", "PM"),
+  blankUser("u-alizar", "Alizar", "Senior PM"),
+  blankUser("u-sami", "Sami", "Associate PM"),
+  blankUser("u-karim", "Abdul Karim", "QA Scrum Master"),
+  blankUser("u-waseem", "Waseem", "Tech Lead"),
+  blankUser("u-ahmed", "M. Ahmed", "Tech Lead"),
+  blankUser("u-farooq", "Farooq", "Developer"),
+  blankUser("u-zeeshan", "Zeeshan", "Developer"),
+  blankUser("u-shahid", "Shahid", "Leadership"),
 ];
 
 const seedSprint: Sprint = {
@@ -69,7 +85,7 @@ const seedSprint: Sprint = {
   allocated_pts: 34,
 };
 
-function blankShaping(signalId: string, ownerId: string): ShapingItem {
+function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: boolean }): ShapingItem {
   const now = new Date().toISOString();
   return {
     id: "sh-" + uid(),
@@ -97,6 +113,7 @@ function blankShaping(signalId: string, ownerId: string): ShapingItem {
     tech_estimate_pts: null,
     tech_concerns: "",
     tech_signed_off_at: null,
+    tech_concurrent_access_checked: false,
     approver_id: null,
     approval_decision: null,
     approval_notes: "",
@@ -105,12 +122,17 @@ function blankShaping(signalId: string, ownerId: string): ShapingItem {
     delivery_status: null,
     blocked_since: null,
     dev_complete: {
-      tests_pass: false,
-      docs_updated: false,
-      qa_signed_off: false,
+      merged_to_main: false,
+      deployed_to_staging: false,
+      smoke_test_passed: false,
       signed_off_by: null,
       signed_off_at: null,
     },
+    fast_track: opts?.fastTrack ?? false,
+    fast_track_root_cause: "",
+    shaping_started_at: now,
+    timebox_escalated_at: null,
+    tech_debt_reviewed_at: null,
     created_at: now,
     updated_at: now,
   };
@@ -512,9 +534,9 @@ const shapingDone: ShapingItem = {
   jira_key: "TFP-1031",
   delivery_status: "Done",
   dev_complete: {
-    tests_pass: true,
-    docs_updated: true,
-    qa_signed_off: true,
+    merged_to_main: true,
+    deployed_to_staging: true,
+    smoke_test_passed: true,
     signed_off_by: "u-karim",
     signed_off_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   },
@@ -678,21 +700,21 @@ const seedGoLive: GoLiveChecklist[] = [
     status: "In Progress",
     war_room: false,
     criteria: {
-      "Code merged & deployed to staging": {
+      "Clinic staff trained": {
         done: true,
-        note: "Deployed 2026-04-13.",
-        checked_by: "u-ahmed",
+        note: "Trained 2026-04-13.",
+        checked_by: "u-sami",
         checked_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
       },
-      "QA sign-off complete": { done: false, note: "Karim running regression.", checked_by: null, checked_at: null },
-      "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
-      "Rollback plan documented": {
+      "Data migrated and verified": { done: false, note: "Verifying notes backfill.", checked_by: null, checked_at: null },
+      "UAT completed by clinic contact": { done: false, note: "Awaiting clinic sign-off.", checked_by: null, checked_at: null },
+      "Rollback plan confirmed and tested": {
         done: true,
         note: "Feature flag toggle in admin.",
         checked_by: "u-waseem",
         checked_at: new Date(SEED_EPOCH - 86400000).toISOString(),
       },
-      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+      "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
     },
     go_no_go_decision: null,
     go_no_go_by: null,
@@ -709,11 +731,11 @@ const seedGoLive: GoLiveChecklist[] = [
     status: "Not Started",
     war_room: true,
     criteria: {
-      "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
-      "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
-      "Clinic comms sent": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
-      "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
-      "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+      "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
+      "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
+      "UAT completed by clinic contact": { done: false, note: "Pilot clinic scheduled.", checked_by: null, checked_at: null },
+      "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
+      "Go-live comms sent to clinic staff": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
     },
     go_no_go_decision: null,
     go_no_go_by: null,
@@ -739,6 +761,8 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingInQA.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -755,6 +779,8 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingInDelivery.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -771,6 +797,8 @@ const seedComms: CommsItem[] = [
     sent_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
     rejected_reason: null,
     linked_shaping_id: shapingDone.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -787,6 +815,63 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingBlocked.id,
+    comms_type: "Incident update",
+    requires_pm_approval: true,
+  },
+];
+
+// ============ New entity seeds ============
+
+const ACTIVE_CLINIC_NAMES = [
+  "OFC", "RCC", "Procrea QC", "GF Waterloo", "GF Vaughan", "GF Newmarket",
+  "GF Twin Waters", "Heartland", "Aurora", "Kelowna", "Ovo", "Olive", "Grace",
+];
+
+const seedClinics: Clinic[] = ACTIVE_CLINIC_NAMES.map((name, i) => ({
+  id: "cl-" + (i + 1).toString().padStart(3, "0"),
+  name,
+  status: "Active" as ClinicStatus,
+  product: (["Otto-Onboard", "Otto Notes", "Otto Pulse"] as Product[])[i % 3],
+  clinic_contact_name: `${name} Lead`,
+  clinic_contact_email: `lead@${name.toLowerCase().replace(/\s+/g, "")}.example`,
+  go_live_date: new Date(SEED_EPOCH - (60 + i * 5) * 86400000).toISOString(),
+  offboarded_at: null,
+  offboarded_by_id: null,
+  offboard_reason: null,
+}));
+
+const seedMonitoring: MonitoringAlert[] = [
+  {
+    id: "mon-" + uid(),
+    system: "Phelix AI",
+    integration: "Notes sync webhook",
+    severity: "P2",
+    message: "Webhook delivery latency > 30s on 3 events.",
+    detected_at: new Date(SEED_EPOCH - 6 * 3600000).toISOString(),
+    signal_id: null,
+    deduplicated: false,
+  },
+  {
+    id: "mon-" + uid(),
+    system: "Accuro",
+    integration: "Patient roster nightly sync",
+    severity: "P1",
+    message: "Sync failed: connection refused for 4 retries.",
+    detected_at: new Date(SEED_EPOCH - 18 * 3600000).toISOString(),
+    signal_id: null,
+    deduplicated: true,
+  },
+];
+
+const seedTechDebtReviews: TechDebtReview[] = [
+  {
+    id: "tdr-" + uid(),
+    reviewed_by_id: "u-bazil",
+    reviewed_at: new Date(SEED_EPOCH - 80 * 86400000).toISOString(),
+    quarter: "Q1 2026",
+    items_scheduled: 3,
+    items_deferred: 5,
+    notes: "Sprint 2-3 absorbed scheduled items; deferred items revisited next quarter.",
   },
 ];
 
@@ -1032,6 +1117,7 @@ type State = {
   currentUserId: string;
   users: User[];
   sprint: Sprint;
+  sprints: Sprint[];
   signals: Signal[];
   shaping: ShapingItem[];
   jiraEvents: JiraEvent[];
@@ -1043,6 +1129,10 @@ type State = {
   decisions: Decision[];
   retros: SprintRetro[];
   notifications: Notification[];
+  clinics: Clinic[];
+  monitoringAlerts: MonitoringAlert[];
+  techDebtReviews: TechDebtReview[];
+  clinicFeedbackLog: ClinicFeedbackRecord[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -1066,6 +1156,7 @@ type State = {
   signOffTechReview: (id: string, reviewerId: string) => void;
   approveShaping: (id: string, approverId: string, notes: string) => void;
   requestChanges: (id: string, approverId: string, notes: string) => void;
+  approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   syncFromJira: () => number;
@@ -1080,8 +1171,7 @@ type State = {
     reviewId: string,
     data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
   ) => Signal;
-  // Wave 4
-  toggleDevCompleteGate: (id: string, key: "tests_pass" | "docs_updated" | "qa_signed_off", value: boolean) => void;
+  toggleDevCompleteGate: (id: string, key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", value: boolean) => void;
   signOffDevComplete: (id: string) => void;
   toggleSprintLock: () => void;
   logOverride: (data: {
@@ -1098,7 +1188,7 @@ type State = {
   toggleGoLiveCriterion: (id: string, criterion: GoLiveCriterion, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
-  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason">) => CommsItem;
+  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason" | "requires_pm_approval"> & { requires_pm_approval?: boolean }) => CommsItem;
   submitCommsForApproval: (id: string) => void;
   approveComms: (id: string) => void;
   rejectComms: (id: string, reason: string) => void;
@@ -1117,6 +1207,21 @@ type State = {
     ts?: string;
   }) => Notification;
   audit_log: (entry: Omit<AuditEntry, "id" | "ts" | "actor_id">) => void;
+  // Clinics
+  offboardClinic: (clinicId: string, reason: string) => void;
+  // Sprints
+  createSprint: (data: { name: string; start_date: string; end_date: string; gross_capacity_pts: number; notes?: string }) => Sprint;
+  // Tech debt
+  markTechDebtReviewed: (shapingId: string) => void;
+  recordTechDebtReview: (data: Omit<TechDebtReview, "id" | "reviewed_by_id" | "reviewed_at">) => TechDebtReview;
+  // Monitoring
+  simulateMonitoringAlert: (data: { system: MonitoringSystem; integration: string; severity: MonitoringSeverity; message: string }) => MonitoringAlert;
+  // Public clinic feedback
+  submitClinicFeedback: (data: { clinic_id: string; clinic_name: string; reporter_name: string; description: string; urgent: boolean }) => { ok: true; signal_id: string } | { ok: false; reason: string };
+  // Onboarding
+  completeOnboardingItem: (userId: string, itemId: string) => void;
+  completeOnboarding: (userId: string) => void;
+  resetOnboarding: (userId: string) => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -1133,6 +1238,7 @@ export const useTfpStore = create<State>()(
       currentUserId: "u-bazil",
       users: USERS,
       sprint: seedSprint,
+      sprints: [seedSprint],
       signals: seedSignals,
       shaping: seedShaping,
       jiraEvents: seedJiraEvents,
@@ -1144,6 +1250,10 @@ export const useTfpStore = create<State>()(
       decisions: seedDecisions,
       retros: seedRetros,
       notifications: seedNotifications,
+      clinics: seedClinics,
+      monitoringAlerts: seedMonitoring,
+      techDebtReviews: seedTechDebtReviews,
+      clinicFeedbackLog: [],
 
       setCurrentUser: (id) => set({ currentUserId: id }),
 
@@ -1388,7 +1498,7 @@ export const useTfpStore = create<State>()(
         // Dev-complete gate enforcement: cannot transition to Done unless gate is signed off.
         if (next === "Done") {
           const g = item.dev_complete;
-          if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off || !g.signed_off_at) {
+          if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed || !g.signed_off_at) {
             // Fire a P2 notification but block the transition.
             get().pushNotification({
               trigger: "blocker_signoff",
@@ -1599,7 +1709,7 @@ export const useTfpStore = create<State>()(
         const item = get().shaping.find((s) => s.id === id);
         if (!item) return;
         const g = item.dev_complete;
-        if (!g.tests_pass || !g.docs_updated || !g.qa_signed_off) return;
+        if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -1690,11 +1800,11 @@ export const useTfpStore = create<State>()(
           status: data.status ?? "Not Started",
           war_room: data.war_room ?? false,
           criteria: data.criteria ?? {
-            "Code merged & deployed to staging": { done: false, note: "", checked_by: null, checked_at: null },
-            "QA sign-off complete": { done: false, note: "", checked_by: null, checked_at: null },
-            "Clinic comms sent": { done: false, note: "", checked_by: null, checked_at: null },
-            "Rollback plan documented": { done: false, note: "", checked_by: null, checked_at: null },
-            "On-call coverage confirmed": { done: false, note: "", checked_by: null, checked_at: null },
+            "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
+            "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
+            "UAT completed by clinic contact": { done: false, note: "", checked_by: null, checked_at: null },
+            "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
+            "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
           },
           go_no_go_decision: null,
           go_no_go_by: null,
@@ -1759,9 +1869,20 @@ export const useTfpStore = create<State>()(
       },
 
       createComms: (data) => {
+        const autoApproval: Record<CommsType, boolean> = {
+          "Delay notification": false,
+          "Incident update": true,
+          "Incident all-clear": true,
+          "Go-live update": false,
+          Postponement: true,
+          "Scope change": true,
+        };
+        const requires_pm_approval =
+          data.requires_pm_approval ?? autoApproval[data.comms_type];
         const item: CommsItem = {
           id: "cm-" + uid(),
           ...data,
+          requires_pm_approval,
           drafted_by: get().currentUserId,
           drafted_at: new Date().toISOString(),
           status: "Draft",
@@ -1844,8 +1965,163 @@ export const useTfpStore = create<State>()(
         }
         return retro;
       },
+
+      // ============ Wave 5: stubs (full implementations pending follow-up) ============
+      approveFastTrack: (id, approverId) => {
+        get().approveShaping(id, approverId, "Fast-track approved");
+        get().pushToJira(id);
+      },
+      offboardClinic: (clinicId, reason) => {
+        const me = get().currentUserId;
+        const clinic = get().clinics.find((c) => c.id === clinicId);
+        if (!clinic) return;
+        set({
+          clinics: get().clinics.map((c) =>
+            c.id === clinicId
+              ? { ...c, status: "Offboarded", offboarded_at: new Date().toISOString(), offboarded_by_id: me, offboard_reason: reason }
+              : c,
+          ),
+        });
+        get().audit_log({ entity_type: "clinic", entity_id: clinicId, action: `Clinic offboarded: ${clinic.name}` });
+      },
+      createSprint: (data) => {
+        const sp: Sprint = {
+          id: "s-" + uid(),
+          name: data.name,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          status: "Planning",
+          scope_locked_at: null,
+          scope_locked_by: null,
+          gross_capacity_pts: data.gross_capacity_pts,
+          leave_deduction_pts: 0,
+          interrupt_buffer_pts: 0,
+          qa_buffer_pts: 0,
+          uncertainty_buffer_pts: 0,
+          golive_deduction_pts: 0,
+          carryforward_estimate_pts: 0,
+          allocated_pts: 0,
+          notes: data.notes,
+        };
+        set({ sprints: [...get().sprints, sp] });
+        get().audit_log({ entity_type: "sprint", entity_id: sp.id, action: `Sprint created: ${sp.name}` });
+        return sp;
+      },
+      markTechDebtReviewed: (shapingId) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === shapingId ? { ...s, tech_debt_reviewed_at: new Date().toISOString() } : s,
+          ),
+        });
+      },
+      recordTechDebtReview: (data) => {
+        const tdr: TechDebtReview = {
+          id: "tdr-" + uid(),
+          reviewed_by_id: get().currentUserId,
+          reviewed_at: new Date().toISOString(),
+          ...data,
+        };
+        set({ techDebtReviews: [tdr, ...get().techDebtReviews] });
+        return tdr;
+      },
+      simulateMonitoringAlert: (data) => {
+        const alert: MonitoringAlert = {
+          id: "mon-" + uid(),
+          system: data.system,
+          integration: data.integration,
+          severity: data.severity,
+          message: data.message,
+          detected_at: new Date().toISOString(),
+          signal_id: null,
+          deduplicated: false,
+        };
+        const existing = get().signals.find(
+          (s) => s.issue_type === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
+        );
+        if (existing) {
+          alert.deduplicated = true;
+          alert.signal_id = existing.id;
+          set({
+            monitoringAlerts: [alert, ...get().monitoringAlerts],
+            signals: get().signals.map((s) =>
+              s.id === existing.id
+                ? { ...s, description: s.description + `\n\nAlert repeated at ${new Date().toISOString()}` }
+                : s,
+            ),
+          });
+        } else {
+          const sig = get().createSignal({
+            title: `[MONITORING] ${data.system} — ${data.integration}`,
+            description: `${data.severity}: ${data.message}`,
+            source: "Internal",
+            product: "Platform",
+            issue_type_override: "Incident",
+            tier_override: "T1",
+            displacement_flag: false,
+            displacement_note: null,
+          });
+          alert.signal_id = sig.id;
+          set({ monitoringAlerts: [alert, ...get().monitoringAlerts] });
+        }
+        get().pushNotification({
+          trigger: "monitoring_alert",
+          title: `${data.severity} monitoring alert: ${data.system}`,
+          body: data.message,
+          link_to: "/health",
+          entity_id: alert.id,
+        });
+        return alert;
+      },
+      submitClinicFeedback: (data) => {
+        const oneHourAgo = Date.now() - 3600000;
+        const recent = get().clinicFeedbackLog.filter(
+          (r) => r.clinic_id === data.clinic_id && r.ts > oneHourAgo,
+        );
+        if (recent.length >= 5) {
+          return { ok: false, reason: "rate_limited" };
+        }
+        const sig = get().createSignal({
+          title: `[Clinic Form] ${data.reporter_name}: ${data.description.slice(0, 60)}`,
+          description: `[Clinic Form] [${data.reporter_name}] [${data.clinic_name}]\n\n${data.description}`,
+          source: "Clinic",
+          product: "Platform",
+          issue_type_override: data.urgent ? "Bug" : "Enhancement",
+          tier_override: data.urgent ? "T2" : "T3",
+          displacement_flag: false,
+          displacement_note: null,
+        });
+        set({ clinicFeedbackLog: [...get().clinicFeedbackLog, { clinic_id: data.clinic_id, ts: Date.now() }] });
+        get().pushNotification({
+          trigger: "clinic_feedback",
+          title: `Clinic feedback from ${data.clinic_name}`,
+          body: data.description.slice(0, 100),
+          link_to: "/triage",
+          for_user_id: "u-sami",
+          entity_id: sig.id,
+        });
+        return { ok: true, signal_id: sig.id };
+      },
+      completeOnboardingItem: (userId, itemId) => {
+        set({
+          users: get().users.map((u) =>
+            u.id === userId ? { ...u, onboarding_progress: { ...u.onboarding_progress, [itemId]: true } } : u,
+          ),
+        });
+      },
+      completeOnboarding: (userId) => {
+        set({
+          users: get().users.map((u) => (u.id === userId ? { ...u, onboarding_completed: true } : u)),
+        });
+      },
+      resetOnboarding: (userId) => {
+        set({
+          users: get().users.map((u) =>
+            u.id === userId ? { ...u, onboarding_completed: false, onboarding_progress: {} } : u,
+          ),
+        });
+      },
     }),
-    { name: "tfp-os-v4" },
+    { name: "tfp-os-v5" },
   ),
 );
 
@@ -1894,7 +2170,7 @@ export function canApprove(s: ShapingItem): boolean {
 
 export function devCompleteReady(s: ShapingItem): boolean {
   const g = s.dev_complete;
-  return g.tests_pass && g.docs_updated && g.qa_signed_off && !!g.signed_off_at;
+  return g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed && !!g.signed_off_at;
 }
 
 export function usableCapacity(sp: Sprint): number {

@@ -20,6 +20,10 @@ const PRIORITY_BY_TRIGGER: Record<NotificationTrigger, NotificationPriority> = {
   retro_escalation: "P2",
   override_logged: "P2",
   shaping_stuck: "P3",
+  monitoring_alert: "P1",
+  fast_track_review: "P2",
+  timebox_breach: "P2",
+  clinic_feedback: "P3",
 };
 
 export function buildNotification(args: {
@@ -66,4 +70,8 @@ export const TRIGGER_LABEL: Record<NotificationTrigger, string> = {
   retro_escalation: "Retro escalation",
   override_logged: "Override logged",
   shaping_stuck: "Shaping stuck",
+  monitoring_alert: "Monitoring alert",
+  fast_track_review: "Fast-track review",
+  timebox_breach: "Timebox breach",
+  clinic_feedback: "Clinic feedback",
 };

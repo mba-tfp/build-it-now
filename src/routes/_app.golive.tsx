@@ -11,11 +11,11 @@ export const Route = createFileRoute("/_app/golive")({
 });
 
 const CRITERIA: GoLiveCriterion[] = [
-  "Code merged & deployed to staging",
-  "QA sign-off complete",
-  "Clinic comms sent",
-  "Rollback plan documented",
-  "On-call coverage confirmed",
+  "Clinic staff trained",
+  "Data migrated and verified",
+  "UAT completed by clinic contact",
+  "Rollback plan confirmed and tested",
+  "Go-live comms sent to clinic staff",
 ];
 
 function GoLivePage() {

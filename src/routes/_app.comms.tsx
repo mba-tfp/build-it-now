@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import type { CommsChannel, CommsStatus, Product } from "@/lib/tfp/types";
+import type { CommsChannel, CommsStatus, CommsType, Product } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { Check, Mail, MessageSquare, Phone, Plus, Radio, Send, X } from "lucide-react";
@@ -182,6 +182,16 @@ function Compose({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [linkedShaping, setLinkedShaping] = useState("");
+  const [commsType, setCommsType] = useState<CommsType>("Go-live update");
+
+  const COMMS_TYPES: CommsType[] = [
+    "Delay notification",
+    "Incident update",
+    "Incident all-clear",
+    "Go-live update",
+    "Postponement",
+    "Scope change",
+  ];
 
   return (
     <div className="mb-6 tfp-card p-5">
@@ -195,6 +205,11 @@ function Compose({
         <Field label="Channel">
           <select value={channel} onChange={(e) => setChannel(e.target.value as CommsChannel)} className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm">
             {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </Field>
+        <Field label="Comms type">
+          <select value={commsType} onChange={(e) => setCommsType(e.target.value as CommsType)} className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm">
+            {COMMS_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </Field>
         <Field label="Audience">
@@ -232,6 +247,7 @@ function Compose({
               subject,
               body,
               linked_shaping_id: linkedShaping || null,
+              comms_type: commsType,
             });
             onDone();
           }}

@@ -7,7 +7,7 @@ export function relativeTime(iso: string) {
 export function slaState(iso: string): "breach" | "today" | "ok" {
   const d = new Date(iso);
   if (isPast(d)) return "breach";
-  if (isToday(d)) return "ok";
+  if (isToday(d)) return "today";
   return "ok";
 }
 
