@@ -1965,8 +1965,163 @@ export const useTfpStore = create<State>()(
         }
         return retro;
       },
+
+      // ============ Wave 5: stubs (full implementations pending follow-up) ============
+      approveFastTrack: (id, approverId) => {
+        get().approveShaping(id, approverId, "Fast-track approved");
+        get().pushToJira(id);
+      },
+      offboardClinic: (clinicId, reason) => {
+        const me = get().currentUserId;
+        const clinic = get().clinics.find((c) => c.id === clinicId);
+        if (!clinic) return;
+        set({
+          clinics: get().clinics.map((c) =>
+            c.id === clinicId
+              ? { ...c, status: "Offboarded", offboarded_at: new Date().toISOString(), offboarded_by_id: me, offboard_reason: reason }
+              : c,
+          ),
+        });
+        get().audit_log({ entity_type: "clinic", entity_id: clinicId, action: `Clinic offboarded: ${clinic.name}` });
+      },
+      createSprint: (data) => {
+        const sp: Sprint = {
+          id: "s-" + uid(),
+          name: data.name,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          status: "Planning",
+          scope_locked_at: null,
+          scope_locked_by: null,
+          gross_capacity_pts: data.gross_capacity_pts,
+          leave_deduction_pts: 0,
+          interrupt_buffer_pts: 0,
+          qa_buffer_pts: 0,
+          uncertainty_buffer_pts: 0,
+          golive_deduction_pts: 0,
+          carryforward_estimate_pts: 0,
+          allocated_pts: 0,
+          notes: data.notes,
+        };
+        set({ sprints: [...get().sprints, sp] });
+        get().audit_log({ entity_type: "sprint", entity_id: sp.id, action: `Sprint created: ${sp.name}` });
+        return sp;
+      },
+      markTechDebtReviewed: (shapingId) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === shapingId ? { ...s, tech_debt_reviewed_at: new Date().toISOString() } : s,
+          ),
+        });
+      },
+      recordTechDebtReview: (data) => {
+        const tdr: TechDebtReview = {
+          id: "tdr-" + uid(),
+          reviewed_by_id: get().currentUserId,
+          reviewed_at: new Date().toISOString(),
+          ...data,
+        };
+        set({ techDebtReviews: [tdr, ...get().techDebtReviews] });
+        return tdr;
+      },
+      simulateMonitoringAlert: (data) => {
+        const alert: MonitoringAlert = {
+          id: "mon-" + uid(),
+          system: data.system,
+          integration: data.integration,
+          severity: data.severity,
+          message: data.message,
+          detected_at: new Date().toISOString(),
+          signal_id: null,
+          deduplicated: false,
+        };
+        const existing = get().signals.find(
+          (s) => s.issue_type === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
+        );
+        if (existing) {
+          alert.deduplicated = true;
+          alert.signal_id = existing.id;
+          set({
+            monitoringAlerts: [alert, ...get().monitoringAlerts],
+            signals: get().signals.map((s) =>
+              s.id === existing.id
+                ? { ...s, description: s.description + `\n\nAlert repeated at ${new Date().toISOString()}` }
+                : s,
+            ),
+          });
+        } else {
+          const sig = get().createSignal({
+            title: `[MONITORING] ${data.system} — ${data.integration}`,
+            description: `${data.severity}: ${data.message}`,
+            source: "Internal",
+            product: "Platform",
+            issue_type_override: "Incident",
+            tier_override: "T1",
+            displacement_flag: false,
+            displacement_note: null,
+          });
+          alert.signal_id = sig.id;
+          set({ monitoringAlerts: [alert, ...get().monitoringAlerts] });
+        }
+        get().pushNotification({
+          trigger: "monitoring_alert",
+          title: `${data.severity} monitoring alert: ${data.system}`,
+          body: data.message,
+          link_to: "/health",
+          entity_id: alert.id,
+        });
+        return alert;
+      },
+      submitClinicFeedback: (data) => {
+        const oneHourAgo = Date.now() - 3600000;
+        const recent = get().clinicFeedbackLog.filter(
+          (r) => r.clinic_id === data.clinic_id && r.ts > oneHourAgo,
+        );
+        if (recent.length >= 5) {
+          return { ok: false, reason: "rate_limited" };
+        }
+        const sig = get().createSignal({
+          title: `[Clinic Form] ${data.reporter_name}: ${data.description.slice(0, 60)}`,
+          description: `[Clinic Form] [${data.reporter_name}] [${data.clinic_name}]\n\n${data.description}`,
+          source: "Clinic",
+          product: "Platform",
+          issue_type_override: data.urgent ? "Bug" : "Enhancement",
+          tier_override: data.urgent ? "T2" : "T3",
+          displacement_flag: false,
+          displacement_note: null,
+        });
+        set({ clinicFeedbackLog: [...get().clinicFeedbackLog, { clinic_id: data.clinic_id, ts: Date.now() }] });
+        get().pushNotification({
+          trigger: "clinic_feedback",
+          title: `Clinic feedback from ${data.clinic_name}`,
+          body: data.description.slice(0, 100),
+          link_to: "/triage",
+          for_user_id: "u-sami",
+          entity_id: sig.id,
+        });
+        return { ok: true, signal_id: sig.id };
+      },
+      completeOnboardingItem: (userId, itemId) => {
+        set({
+          users: get().users.map((u) =>
+            u.id === userId ? { ...u, onboarding_progress: { ...u.onboarding_progress, [itemId]: true } } : u,
+          ),
+        });
+      },
+      completeOnboarding: (userId) => {
+        set({
+          users: get().users.map((u) => (u.id === userId ? { ...u, onboarding_completed: true } : u)),
+        });
+      },
+      resetOnboarding: (userId) => {
+        set({
+          users: get().users.map((u) =>
+            u.id === userId ? { ...u, onboarding_completed: false, onboarding_progress: {} } : u,
+          ),
+        });
+      },
     }),
-    { name: "tfp-os-v4" },
+    { name: "tfp-os-v5" },
   ),
 );
 
