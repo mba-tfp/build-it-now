@@ -30,6 +30,14 @@ export function AppShell() {
   const users = useTfpStore((s) => s.users);
   const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
+  const meLive = users.find((u) => u.id === currentUserId);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const showOnboarding = !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
+
+  // Reset dismiss when user switches
+  useEffect(() => {
+    setOnboardingDismissed(false);
+  }, [currentUserId]);
 
   return (
     <div className="min-h-screen bg-background">
