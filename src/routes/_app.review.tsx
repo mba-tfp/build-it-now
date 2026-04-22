@@ -21,6 +21,9 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/review")({
   component: ReviewsPage,
