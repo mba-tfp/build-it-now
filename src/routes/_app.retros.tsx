@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type { RetroTheme } from "@/lib/tfp/types";
 import { fmtDate } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Plus, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/retros")({
   component: RetrosPage,
@@ -25,6 +28,23 @@ function RetrosPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const create = useTfpStore((s) => s.createRetro);
   const [composing, setComposing] = useState(false);
+
+  type SortKey = "created_at" | "actions";
+  const { sort, setSort } = useSortMenu<SortKey>("retros", { key: "created_at", dir: "desc" });
+
+  const sorted = useMemo(
+    () =>
+      sortRows(retros, sort, (r, k) => {
+        if (k === "created_at") return new Date(r.created_at).getTime();
+        if (k === "actions") {
+          const text = r.one_change ?? "";
+          // count actions as comma- or newline-separated entries
+          return text.split(/[,\n]/).filter((s) => s.trim().length > 0).length;
+        }
+        return null;
+      }),
+    [retros, sort],
+  );
 
   return (
     <div>
