@@ -71,6 +71,14 @@ export function AppShell() {
 
           <div className="flex items-center gap-2">
             <NotificationsBell />
+            <button
+              onClick={() => resetOnboarding(currentUserId)}
+              className="hidden items-center gap-1 rounded-md border border-input bg-surface px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
+              title="Reopen onboarding checklist"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Getting started
+            </button>
             <select
               value={currentUserId}
               onChange={(e) => setCurrentUser(e.target.value)}
