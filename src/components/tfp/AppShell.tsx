@@ -71,6 +71,9 @@ function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const flags = useTfpStore((s) => s.flags);
+
+  const adminItems = ADMIN_NAV.filter((n) => !n.flag || flags[n.flag]);
 
   return (
     <Sidebar collapsible="icon">
@@ -113,6 +116,30 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {adminItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>System</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((n) => {
+                  const active =
+                    location.pathname === n.to || location.pathname.startsWith(n.to + "/");
+                  const Icon = n.icon;
+                  return (
+                    <SidebarMenuItem key={n.to}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
+                        <Link to={n.to}>
+                          <Icon className="h-4 w-4" />
+                          <span>{n.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
