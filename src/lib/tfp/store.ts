@@ -1474,9 +1474,16 @@ export const useTfpStore = create<State>()(
           if (s.id !== signalId) return s;
           if (decision === "Proceed") {
             const isFastTrack = s.issue_type === "Bug" && (s.tier === "T1" || s.tier === "T2");
-            // Default fast-track owner to a Tech Lead if available
             const ownerId = isFastTrack ? "u-waseem" : me;
             const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
+            // B1: Leadership signals always have shaping started with a context note prefilled
+            // and `current_step` set so the queue treats them as actively shaped.
+            sh.shaping_status = "In Shaping";
+            sh.current_step = 1;
+            if (s.source === "Leadership") {
+              sh.problem_evidence =
+                `Raised by Leadership on ${new Date(s.created_at).toLocaleDateString()}.\nOriginal ask:\n"${s.description.slice(0, 300)}"`;
+            }
             set({ shaping: [sh, ...get().shaping] });
             get().audit_log({ entity_type: "signal", entity_id: signalId, action: isFastTrack ? "Triaged → Proceed (Fast-track)" : "Triaged → Proceed" });
             if (isFastTrack) {
@@ -1626,12 +1633,23 @@ export const useTfpStore = create<State>()(
       },
 
       setRoadmapBucket: (id, bucket, displacement) => {
+        const prev = get().shaping.find((s) => s.id === id);
+        const sp = get().sprint;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id ? { ...s, roadmap_bucket: bucket, displacement, updated_at: new Date().toISOString() } : s,
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Roadmap bucket set to ${bucket}` });
+        // B9: if sprint is locked AND we leave "Now" mid-sprint, log an Override for visibility.
+        if (prev && prev.roadmap_bucket === "Now" && bucket !== "Now" && sp.status === "Locked") {
+          get().logOverride({
+            kind: "Scope added mid-sprint",
+            reason: `Bucket moved from Now → ${bucket} mid-sprint. Displacement: ${displacement || "—"}`,
+            shaping_id: id,
+            shahid_visible: true,
+          });
+        }
       },
 
       setComplexity: (id, c) => {
@@ -1707,7 +1725,17 @@ export const useTfpStore = create<State>()(
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        if (!item || item.shaping_status !== "Approved" || item.jira_key) return item?.jira_key ?? "";
+        // B10: cannot push without Tech Approval (Approved status implies tech sign-off).
+        if (!item) return "";
+        if (item.shaping_status !== "Approved") {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off + PM approval first.`);
+            });
+          }
+          return item.jira_key ?? "";
+        }
+        if (item.jira_key) return item.jira_key;
         const key = nextJiraKey();
         const event: JiraEvent = {
           id: "je-" + uid(),
@@ -1983,6 +2011,7 @@ export const useTfpStore = create<State>()(
       },
 
       logFollowOnSignal: (reviewId, data) => {
+        const review = get().reviews.find((r) => r.id === reviewId);
         const sig = get().createSignal({
           title: data.title,
           description: data.description,
@@ -1991,6 +2020,19 @@ export const useTfpStore = create<State>()(
           displacement_flag: false,
           displacement_note: null,
         });
+        // B8: link follow-on signal back to the originating signal.
+        if (review) {
+          set({
+            signals: get().signals.map((s) =>
+              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id } : s,
+            ),
+          });
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: sig.id,
+            action: `Linked as follow-on of ${review.signal_id}`,
+          });
+        }
         set({
           reviews: get().reviews.map((r) =>
             r.id === reviewId
@@ -2029,18 +2071,46 @@ export const useTfpStore = create<State>()(
         if (!item) return;
         const g = item.dev_complete;
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
+        const now = new Date().toISOString();
+        // B5: auto-advance to Done when sign-off completes the gate.
+        const nextDelivery: DeliveryStatus = "Done";
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
               ? {
                   ...s,
-                  dev_complete: { ...s.dev_complete, signed_off_by: me, signed_off_at: new Date().toISOString() },
-                  updated_at: new Date().toISOString(),
+                  dev_complete: { ...s.dev_complete, signed_off_by: me, signed_off_at: now },
+                  delivery_status: nextDelivery,
+                  updated_at: now,
                 }
               : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off" });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
+        // Auto-create a Pending review if none exists yet.
+        const reviews = get().reviews;
+        if (!reviews.some((r) => r.shaping_id === id)) {
+          const review: Review = {
+            id: "rv-" + uid(),
+            shaping_id: id,
+            signal_id: item.signal_id,
+            size: pickReviewSize(item),
+            status: "Pending",
+            pm_owner_id: item.pm_owner_id,
+            scheduled_for: null,
+            completed_at: null,
+            outcome_rating: null,
+            what_worked: "",
+            what_didnt: "",
+            follow_on_signals_created: [],
+            notes: "",
+            follow_on_draft_title: "",
+            follow_on_draft_description: "",
+            created_at: now,
+            updated_at: now,
+          };
+          set({ reviews: [review, ...reviews] });
+        }
       },
 
       toggleSprintLock: () => {
@@ -2228,6 +2298,18 @@ export const useTfpStore = create<State>()(
 
       approveComms: (id) => {
         const me = get().currentUserId;
+        const item = get().comms.find((c) => c.id === id);
+        if (!item) return;
+        // B6: separation of duties — drafter cannot self-approve.
+        if (item.drafted_by === me) {
+          if (typeof window !== "undefined") {
+            // Lazy import to avoid bundling toast in pure-state path.
+            import("sonner").then(({ toast }) => {
+              toast.error("You cannot approve your own comms. Ask another PM to review.");
+            });
+          }
+          return;
+        }
         set({
           comms: get().comms.map((c) =>
             c.id === id ? { ...c, status: "Approved", approved_by: me, approved_at: new Date().toISOString() } : c,
@@ -2241,6 +2323,17 @@ export const useTfpStore = create<State>()(
       },
 
       sendComms: (id) => {
+        const item = get().comms.find((c) => c.id === id);
+        if (!item) return;
+        // B7: only Approved comms can be sent.
+        if (item.status !== "Approved") {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`Cannot send — current status is ${item.status}. Approve first.`);
+            });
+          }
+          return;
+        }
         set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Sent", sent_at: new Date().toISOString() } : c)) });
         get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms sent" });
       },

@@ -22,6 +22,9 @@ import {
   ShieldAlert,
   Crown,
   HeartPulse,
+  ShieldCheck,
+  BookOpen,
+  Workflow as WorkflowIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingModal } from "./OnboardingModal";
@@ -56,6 +59,12 @@ const NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ classN
   { to: "/overrides", label: "Overrides", icon: ShieldAlert },
   { to: "/leadership", label: "Leadership", icon: Crown },
   { to: "/health", label: "Queue Health", icon: HeartPulse },
+];
+
+const ADMIN_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }>; flag?: "helpCenterEnabled" | "workflowBuilderEnabled" | "adminPanelEnabled" }> = [
+  { to: "/help", label: "Help Center", icon: BookOpen, flag: "helpCenterEnabled" },
+  { to: "/workflows", label: "Workflows", icon: WorkflowIcon, flag: "workflowBuilderEnabled" },
+  { to: "/admin", label: "Admin", icon: ShieldCheck, flag: "adminPanelEnabled" },
 ];
 
 function AppSidebar() {
