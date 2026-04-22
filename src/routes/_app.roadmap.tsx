@@ -477,6 +477,7 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
           collapsedYears={collapsedYears}
           collapsedQuarters={collapsedQuarters}
           collapsedStreams={collapsedStreams}
+          showSnapGrid={showSnapGrid}
           toggleYear={toggleYear}
           toggleQuarter={toggleQuarter}
           toggleStream={toggleStream}
