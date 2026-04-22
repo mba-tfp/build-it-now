@@ -166,32 +166,70 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
   // Re-render trigger for canUndo/canRedo (they read from store snapshot).
   const storeVersion = useRoadmapStore().version;
 
-  // Hydrate persisted UI prefs once per active roadmap.
+  // Hydrate persisted UI prefs once per active roadmap (or whenever scope changes).
   useEffect(() => {
-    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    const scope = readPrefsScope();
+    setPrefsScope(scope);
+    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS, scope);
     setView(prefs.view);
     setFilters(prefs.filters);
     setGroupBy(prefs.groupBy);
     setCollapsedYears(new Set(prefs.collapsedYears));
     setCollapsedQuarters(new Set(prefs.collapsedQuarters));
     setCollapsedStreams(new Set(prefs.collapsedStreams));
+    setShowSnapGrid(prefs.showSnapGrid);
     setHydrated(true);
   }, [roadmapId]);
 
-  // Persist whenever any pref changes (after hydration).
+  // Persist whenever any pref changes (after hydration). Honours the chosen scope.
   useEffect(() => {
     if (!hydrated) return;
-    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
-    writeUiPrefs<RoadmapUiPrefs>(roadmapId, {
-      ...existing,
+    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS, prefsScope);
+    writeUiPrefs<RoadmapUiPrefs>(
+      roadmapId,
+      {
+        ...existing,
+        view,
+        filters,
+        groupBy,
+        collapsedYears: Array.from(collapsedYears),
+        collapsedQuarters: Array.from(collapsedQuarters),
+        collapsedStreams: Array.from(collapsedStreams),
+        showSnapGrid,
+      },
+      prefsScope,
+    );
+  }, [
+    hydrated,
+    roadmapId,
+    prefsScope,
+    view,
+    filters,
+    groupBy,
+    collapsedYears,
+    collapsedQuarters,
+    collapsedStreams,
+    showSnapGrid,
+  ]);
+
+  // Switching scope: copy current settings to the new scope's storage so the
+  // toggle is non-destructive, then update the chosen scope.
+  function changeScope(next: PrefsScope) {
+    if (next === prefsScope) return;
+    const snapshot: RoadmapUiPrefs = {
       view,
       filters,
       groupBy,
       collapsedYears: Array.from(collapsedYears),
       collapsedQuarters: Array.from(collapsedQuarters),
       collapsedStreams: Array.from(collapsedStreams),
-    });
-  }, [hydrated, roadmapId, view, filters, groupBy, collapsedYears, collapsedQuarters, collapsedStreams]);
+      showSnapGrid,
+      tab: "planning",
+    };
+    writeUiPrefs<RoadmapUiPrefs>(roadmapId, snapshot, next);
+    writePrefsScope(next);
+    setPrefsScope(next);
+  }
 
   // Keyboard shortcuts for undo/redo.
   useEffect(() => {
