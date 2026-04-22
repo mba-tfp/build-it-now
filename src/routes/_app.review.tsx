@@ -69,10 +69,19 @@ function ReviewsPage() {
     [shaping, signals, reviews],
   );
 
-  const filtered = useMemo(
-    () => (filter === "All" ? reviews : reviews.filter((r) => r.status === filter)),
-    [reviews, filter],
-  );
+  type SortKey = "created" | "scheduled" | "status" | "outcome";
+  const { sort, setSort } = useSortMenu<SortKey>("reviews", { key: "created", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const base = filter === "All" ? reviews : reviews.filter((r) => r.status === filter);
+    return sortRows(base, sort, (r, k) => {
+      if (k === "created") return new Date(r.created_at).getTime();
+      if (k === "scheduled") return r.scheduled_for ? new Date(r.scheduled_for).getTime() : 0;
+      if (k === "status") return r.status;
+      if (k === "outcome") return r.outcome_rating ?? "";
+      return null;
+    });
+  }, [reviews, filter, sort]);
 
   const counts = useMemo(() => {
     const c = { Pending: 0, Scheduled: 0, Completed: 0 } as Record<ReviewStatus, number>;
