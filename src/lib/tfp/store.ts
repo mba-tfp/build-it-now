@@ -1500,27 +1500,60 @@ export const useTfpStore = create<State>()(
         set({ signals });
       },
 
-      updateSignal: (signalId, patch) => {
+      updateSignal: (signalId, patch, opts) => {
         const prev = get().signals.find((s) => s.id === signalId);
-        if (!prev) return;
+        if (!prev) return { ok: false, error: "Signal not found" };
+
+        // Status transition guard (Wave A #3)
+        if (patch.status && patch.status !== prev.status) {
+          const allowed = isAllowedStatusTransition(prev.status, patch.status);
+          const isTerminal = ["Proceed", "Hold", "Rejected"].includes(patch.status);
+          if (!allowed && isTerminal && !opts?.force) {
+            return {
+              ok: false,
+              error: `Status ${prev.status} → ${patch.status} requires confirmation and a reason.`,
+            };
+          }
+          if (!allowed && opts?.force && (!opts.reason || opts.reason.trim().length < 5)) {
+            return { ok: false, error: "Reason is required (min 5 chars) to bypass." };
+          }
+        }
+
         const next: Signal = { ...prev, ...patch };
-        // Recompute SLA if tier changed
+
+        // SLA recompute when tier changes
         if (patch.tier && patch.tier !== prev.tier) {
           next.sla_due_at = slaDueAt(patch.tier, new Date(prev.created_at)).toISOString();
         }
+
         set({ signals: get().signals.map((s) => (s.id === signalId ? next : s)) });
-        // Audit per changed field
+
+        // B2: status → Proceed should create the ShapingItem (mirror triageDecision)
+        if (patch.status === "Proceed" && prev.status !== "Proceed" && !prev.shaping_item_id) {
+          const me = get().currentUserId;
+          const isFastTrack = next.issue_type === "Bug" && (next.tier === "T1" || next.tier === "T2");
+          const ownerId = isFastTrack ? "u-waseem" : me;
+          const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
+          set({
+            shaping: [sh, ...get().shaping],
+            signals: get().signals.map((s) => (s.id === signalId ? { ...s, shaping_item_id: sh.id } : s)),
+          });
+        }
+
+        // Readable audit per changed field (Wave A #4)
+        const users = get().users;
         const fields: (keyof Signal)[] = [
-          "title", "description", "source", "product", "issue_type", "tier", "status", "owner_id",
+          "title", "description", "source", "product", "additional_sources",
+          "additional_products", "issue_type", "tier", "status", "owner_id",
         ];
         for (const f of fields) {
-          if (patch[f] !== undefined && prev[f] !== next[f]) {
+          if (patch[f] !== undefined && JSON.stringify(prev[f]) !== JSON.stringify(next[f])) {
             get().audit_log({
               entity_type: "signal",
               entity_id: signalId,
-              action: `${String(f)} changed`,
-              before: String(prev[f] ?? ""),
-              after: String(next[f] ?? ""),
+              action: formatFieldChange(f as string, prev[f], next[f], users),
+              before: JSON.stringify(prev[f] ?? null),
+              after: JSON.stringify(next[f] ?? null),
             });
           }
         }
@@ -1528,10 +1561,62 @@ export const useTfpStore = create<State>()(
           get().audit_log({
             entity_type: "signal",
             entity_id: signalId,
-            action: "SLA recalculated for new tier",
+            action: `SLA recalculated for ${patch.tier}`,
             after: next.sla_due_at,
           });
+          // B3: warn if newly recomputed SLA is already in the past
+          if (new Date(next.sla_due_at).getTime() < Date.now()) {
+            get().pushNotification({
+              trigger: "sla_breach",
+              title: `SLA already breached after tier change`,
+              body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
+              link_to: "/triage",
+              entity_id: signalId,
+            });
+          }
         }
+
+        // Bypass audit
+        if (patch.status && opts?.force && opts?.reason) {
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: signalId,
+            action: `Status bypass (${prev.status} → ${patch.status})`,
+            after: opts.reason,
+          });
+          get().logOverride({
+            kind: "Other",
+            reason: `Status bypass on ${signalId}: ${opts.reason}`,
+            signal_id: signalId,
+            shahid_visible: true,
+          });
+        }
+
+        return { ok: true };
+      },
+
+      setSignalAttachments: (signalId, attachments) => {
+        set({
+          signals: get().signals.map((s) => (s.id === signalId ? { ...s, attachments } : s)),
+        });
+        get().audit_log({
+          entity_type: "signal",
+          entity_id: signalId,
+          action: `Attachments updated (${attachments.length} link${attachments.length === 1 ? "" : "s"})`,
+        });
+      },
+
+      setShapingAttachments: (shapingId, attachments) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === shapingId ? { ...s, attachments, updated_at: new Date().toISOString() } : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: shapingId,
+          action: `Attachments updated (${attachments.length} link${attachments.length === 1 ? "" : "s"})`,
+        });
       },
 
       updateShaping: (id, patch) => {
