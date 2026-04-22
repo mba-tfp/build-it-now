@@ -192,7 +192,8 @@ function GoLivePage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      </ScrollTable>
     </div>
   );
 }
