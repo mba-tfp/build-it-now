@@ -67,10 +67,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
   return (
-    <>
-      <Outlet />
+    <div suppressHydrationWarning>
+      {hydrated ? <Outlet /> : null}
       <Toaster position="top-right" richColors closeButton />
-    </>
+    </div>
   );
 }
