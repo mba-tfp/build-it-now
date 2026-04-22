@@ -1162,6 +1162,7 @@ type State = {
     reason?: string,
     holdUntil?: string,
   ) => void;
+  updateSignal: (signalId: string, patch: Partial<Signal>) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
