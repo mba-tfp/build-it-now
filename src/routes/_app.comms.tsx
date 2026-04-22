@@ -47,10 +47,19 @@ function CommsPage() {
   const [composing, setComposing] = useState(false);
   const [filter, setFilter] = useState<CommsStatus | "All">("All");
 
-  const filtered = useMemo(
-    () => comms.filter((c) => filter === "All" || c.status === filter),
-    [comms, filter],
-  );
+  type SortKey = "drafted_at" | "status" | "product" | "channel";
+  const { sort, setSort } = useSortMenu<SortKey>("comms", { key: "drafted_at", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const base = comms.filter((c) => filter === "All" || c.status === filter);
+    return sortRows(base, sort, (c, k) => {
+      if (k === "drafted_at") return new Date(c.drafted_at).getTime();
+      if (k === "status") return c.status;
+      if (k === "product") return c.product;
+      if (k === "channel") return c.channel;
+      return null;
+    });
+  }, [comms, filter, sort]);
 
   const counts: Record<CommsStatus | "All", number> = {
     All: comms.length,
