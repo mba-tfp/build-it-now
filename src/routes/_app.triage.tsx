@@ -1,9 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useTfpStore, daysSince } from "@/lib/tfp/store";
+import { toast } from "sonner";
+import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { Pencil, Save, Search, X } from "lucide-react";
 
@@ -51,6 +54,20 @@ function TriageQueuePage() {
   const [tierF, setTierF] = useState<(typeof TIERS)[number]>("All");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [bypass, setBypass] = useState<{ signalId: string; patch: Partial<Signal>; from: SignalStatus; to: SignalStatus } | null>(null);
+
+  // Wrapper that surfaces toasts + opens the bypass confirm dialog when needed.
+  function tryUpdate(signalId: string, patch: Partial<Signal>) {
+    const sig = signals.find((s) => s.id === signalId);
+    if (!sig) return;
+    if (patch.status && patch.status !== sig.status && !isAllowedStatusTransition(sig.status, patch.status)) {
+      setBypass({ signalId, patch, from: sig.status, to: patch.status });
+      return;
+    }
+    const res = updateSignal(signalId, patch);
+    if (res.ok) toast.success("Saved");
+    else toast.error(res.error ?? "Couldn't save");
+  }
 
   const filtered = useMemo(() => {
     return signals
@@ -138,21 +155,21 @@ function TriageQueuePage() {
                     <InlineSelect
                       value={s.issue_type}
                       options={ALL_TYPES}
-                      onChange={(v) => updateSignal(s.id, { issue_type: v as IssueType })}
+                      onChange={(v) => tryUpdate(s.id, { issue_type: v as IssueType })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <InlineSelect
                       value={s.tier}
                       options={ALL_TIERS}
-                      onChange={(v) => updateSignal(s.id, { tier: v as Tier })}
+                      onChange={(v) => tryUpdate(s.id, { tier: v as Tier })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <InlineSelect
                       value={s.status}
                       options={ALL_STATUSES}
-                      onChange={(v) => updateSignal(s.id, { status: v as SignalStatus })}
+                      onChange={(v) => tryUpdate(s.id, { status: v as SignalStatus })}
                     />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
@@ -160,7 +177,7 @@ function TriageQueuePage() {
                       value={s.owner_id ?? ""}
                       options={["", ...users.map((u) => u.id)]}
                       labels={["—", ...users.map((u) => u.name)]}
-                      onChange={(v) => updateSignal(s.id, { owner_id: v === "" ? null : v })}
+                      onChange={(v) => tryUpdate(s.id, { owner_id: v === "" ? null : v })}
                     />
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{daysSince(s.created_at)}d</td>
@@ -205,6 +222,27 @@ function TriageQueuePage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!bypass}
+        title="Bypass triage flow?"
+        description={
+          bypass
+            ? `Moving status from "${bypass.from}" to "${bypass.to}" is not part of the normal flow. This will be logged as an Override and added to the audit trail.`
+            : ""
+        }
+        requireReason
+        confirmLabel="Bypass and save"
+        destructive
+        onCancel={() => setBypass(null)}
+        onConfirm={(reason) => {
+          if (!bypass) return;
+          const res = updateSignal(bypass.signalId, bypass.patch, { force: true, reason });
+          if (res.ok) toast.success("Bypass saved — Override logged");
+          else toast.error(res.error ?? "Couldn't save");
+          setBypass(null);
+        }}
+      />
     </div>
   );
 }
@@ -310,9 +348,14 @@ function TriagePanel({
     setDraft({});
   };
   const saveEdit = () => {
-    updateSignal(sig.id, draft);
-    setEditing(false);
-    setDraft({});
+    const res = updateSignal(sig.id, draft);
+    if (res.ok) {
+      toast.success("Saved");
+      setEditing(false);
+      setDraft({});
+    } else {
+      toast.error(res.error ?? "Couldn't save");
+    }
   };
 
   return (

@@ -41,12 +41,24 @@ export type DependencySystem =
 export type Tier = "T1" | "T2" | "T3" | "T4";
 export type SignalStatus = "New" | "In Review" | "Proceed" | "Hold" | "Rejected";
 
+export type Attachment = {
+  id: string;
+  label: string;
+  url: string;
+  added_by: string;
+  added_at: string;
+};
+
 export type Signal = {
   id: string;
   title: string;
   description: string;
   source: Source;
+  /** Optional secondary sources (multi-select). Primary `source` remains the routing key. */
+  additional_sources?: Source[];
   product: Product;
+  /** Optional secondary products (multi-select). Primary `product` remains the routing key. */
+  additional_products?: Product[];
   issue_type: IssueType;
   tier: Tier;
   status: SignalStatus;
@@ -60,6 +72,8 @@ export type Signal = {
   labels: string[];
   displacement_flag: boolean;
   displacement_note: string | null;
+  attachments?: Attachment[];
+  parent_signal_id?: string | null;
 };
 
 export type ShapingStatus =
@@ -134,6 +148,7 @@ export type ShapingItem = {
   dependency_integrations_affected: string;
   dependency_impact: string;
   dependency_deadline: string | null;
+  attachments?: Attachment[];
   created_at: string;
   updated_at: string;
 };
@@ -170,6 +185,7 @@ export type Review = {
   notes: string;
   follow_on_draft_title: string;
   follow_on_draft_description: string;
+  attachments?: Attachment[];
   created_at: string;
   updated_at: string;
 };
@@ -227,6 +243,7 @@ export type Override = {
   acknowledged_by: string | null;
   acknowledged_at: string | null;
   shahid_visible: boolean;
+  attachments?: Attachment[];
 };
 
 export type GoLiveCriterion =
@@ -250,6 +267,7 @@ export type GoLiveChecklist = {
   go_no_go_decision: "Go" | "No-Go" | null;
   go_no_go_by: string | null;
   go_no_go_at: string | null;
+  attachments?: Attachment[];
   created_at: string;
   updated_at: string;
 };
@@ -281,6 +299,7 @@ export type CommsItem = {
   linked_shaping_id: string | null;
   comms_type: CommsType;
   requires_pm_approval: boolean;
+  attachments?: Attachment[];
 };
 
 export type DecisionType = "Architectural" | "Product" | "Process" | "Vendor";
@@ -300,6 +319,7 @@ export type Decision = {
   linked_signal_id: string | null;
   linked_shaping_id: string | null;
   superseded_by_id: string | null;
+  attachments?: Attachment[];
 };
 
 export type RetroTheme = "Process" | "Tools" | "Communication" | "Quality" | "Capacity" | "Other";
@@ -314,6 +334,7 @@ export type SprintRetro = {
   created_by: string;
   created_at: string;
   escalated: boolean;
+  attachments?: Attachment[];
 };
 
 export type NotificationPriority = "P1" | "P2" | "P3" | "P4";
@@ -392,4 +413,53 @@ export type TechDebtReview = {
 export type ClinicFeedbackRecord = {
   clinic_id: string;
   ts: number;
+};
+
+// ============ Round 5: feature flags, help center, workflow builder ============
+
+export type FeatureFlags = {
+  attachmentsEnabled: boolean;
+  helpCenterEnabled: boolean;
+  workflowBuilderEnabled: boolean;
+  multiSelectIntake: boolean;
+  auditVerbose: boolean;
+  adminPanelEnabled: boolean;
+};
+
+export type HelpArticle = {
+  id: string;
+  slug: string;
+  title: string;
+  section: string;
+  body_markdown: string;
+  updated_at: string;
+  updated_by: string;
+};
+
+export type WorkflowNodeKind = "trigger" | "decision" | "action" | "stage";
+
+export type WorkflowNode = {
+  id: string;
+  kind: WorkflowNodeKind;
+  label: string;
+  config: Record<string, string>;
+  x: number;
+  y: number;
+};
+
+export type WorkflowEdge = {
+  id: string;
+  from: string;
+  to: string;
+  label?: string;
+};
+
+export type Workflow = {
+  id: string;
+  name: string;
+  active: boolean;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  created_at: string;
+  updated_at: string;
 };

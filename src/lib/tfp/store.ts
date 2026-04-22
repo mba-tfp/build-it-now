@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
+  Attachment,
   AuditEntityType,
   AuditEntry,
   Clinic,
@@ -11,8 +12,10 @@ import type {
   Complexity,
   Decision,
   DeliveryStatus,
+  FeatureFlags,
   GoLiveChecklist,
   GoLiveCriterion,
+  HelpArticle,
   JiraEvent,
   MonitoringAlert,
   MonitoringSeverity,
@@ -29,14 +32,104 @@ import type {
   RoadmapBucket,
   ShapingItem,
   Signal,
+  SignalStatus,
   Source,
   Sprint,
   SprintRetro,
   TechDebtReview,
   User,
+  Workflow,
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
 import { buildNotification } from "./notify";
+import { formatFieldChange } from "./audit";
+
+/** Allowed forward transitions from each signal status. */
+export const ALLOWED_STATUS_TRANSITIONS: Record<SignalStatus, SignalStatus[]> = {
+  New: ["In Review", "Hold", "Rejected", "Proceed"],
+  "In Review": ["Proceed", "Hold", "Rejected"],
+  Hold: ["In Review", "Proceed", "Rejected"],
+  Rejected: [],
+  Proceed: [],
+};
+
+export function isAllowedStatusTransition(from: SignalStatus, to: SignalStatus): boolean {
+  if (from === to) return true;
+  return ALLOWED_STATUS_TRANSITIONS[from].includes(to);
+}
+
+const DEFAULT_FLAGS: FeatureFlags = {
+  attachmentsEnabled: true,
+  helpCenterEnabled: true,
+  workflowBuilderEnabled: true,
+  multiSelectIntake: true,
+  auditVerbose: true,
+  adminPanelEnabled: true,
+};
+
+const SEED_HELP: HelpArticle[] = [
+  {
+    id: "h-intake",
+    slug: "intake",
+    title: "Signal Intake",
+    section: "Workflow",
+    body_markdown:
+      "# Signal Intake\n\nThe single entry point for all work. Log every customer, leadership, or internal signal here — frictionless, never ignored.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests Type and SLA Tier — override only when you have a strong reason.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-triage",
+    slug: "triage",
+    title: "Triage Queue",
+    section: "Workflow",
+    body_markdown:
+      "# Triage Queue\n\nClick a signal to make a triage decision: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, Tier, Type, and Owner can be edited inline in the table.\n\n## Status guard\nMoving to **Proceed**, **Hold**, or **Rejected** from a non-allowed state requires a written reason and creates an Override entry.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-shaping",
+    slug: "shaping",
+    title: "Shaping",
+    section: "Workflow",
+    body_markdown:
+      "# Shaping\n\nFive steps from problem framing to tech-approved. The Shaping queue tracks completeness and unblocks the next stage.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-attachments",
+    slug: "attachments",
+    title: "Attachments",
+    section: "Features",
+    body_markdown:
+      "# Attachments\n\nAdd reference links (Figma, Drive, Notion, JIRA) on signals, shaping items, reviews, comms, decisions, retros, go-lives and overrides. Files themselves are not uploaded — only links.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-admin",
+    slug: "admin",
+    title: "Admin panel",
+    section: "Admin",
+    body_markdown:
+      "# Admin panel\n\nManage users, feature toggles, help articles, and inspect the full audit log.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-workflows",
+    slug: "workflows",
+    title: "Workflow Builder",
+    section: "Features",
+    body_markdown:
+      "# Workflow Builder\n\nVisualise and tweak the Signal → Triage → Shaping → Delivery flow. v1 is observational: active workflows emit additional notifications when signals progress.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+];
+
 
 let _uidCounter = 0;
 const uid = () => {
@@ -1145,6 +1238,10 @@ type State = {
   monitoringAlerts: MonitoringAlert[];
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
+  // Round 5
+  flags: FeatureFlags;
+  helpArticles: HelpArticle[];
+  workflows: Workflow[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -1162,7 +1259,9 @@ type State = {
     reason?: string,
     holdUntil?: string,
   ) => void;
-  updateSignal: (signalId: string, patch: Partial<Signal>) => void;
+  updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
+  setSignalAttachments: (signalId: string, next: Attachment[]) => void;
+  setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
@@ -1238,6 +1337,15 @@ type State = {
   completeOnboardingItem: (userId: string, itemId: string) => void;
   completeOnboarding: (userId: string) => void;
   resetOnboarding: (userId: string) => void;
+  // Round 5: feature flags / users / help / workflows
+  setFlag: (key: keyof FeatureFlags, value: boolean) => void;
+  upsertUser: (user: User) => void;
+  removeUser: (userId: string) => void;
+  upsertHelpArticle: (article: Omit<HelpArticle, "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
+  removeHelpArticle: (id: string) => void;
+  upsertWorkflow: (workflow: Omit<Workflow, "created_at" | "updated_at"> & { id?: string }) => Workflow;
+  removeWorkflow: (id: string) => void;
+  toggleWorkflowActive: (id: string) => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -1270,6 +1378,9 @@ export const useTfpStore = create<State>()(
       monitoringAlerts: seedMonitoring,
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
+      flags: DEFAULT_FLAGS,
+      helpArticles: SEED_HELP,
+      workflows: [],
 
       setCurrentUser: (id) => set({ currentUserId: id }),
 
@@ -1293,7 +1404,10 @@ export const useTfpStore = create<State>()(
           entity_id: n.entity_id ?? null,
           ts: n.ts,
         });
-        set({ notifications: [note, ...get().notifications] });
+        // B12: cap notifications at 200 most-recent
+        const existing = get().notifications;
+        const next = [note, ...existing].slice(0, 200);
+        set({ notifications: next });
         return note;
       },
 
@@ -1386,27 +1500,60 @@ export const useTfpStore = create<State>()(
         set({ signals });
       },
 
-      updateSignal: (signalId, patch) => {
+      updateSignal: (signalId, patch, opts) => {
         const prev = get().signals.find((s) => s.id === signalId);
-        if (!prev) return;
+        if (!prev) return { ok: false, error: "Signal not found" };
+
+        // Status transition guard (Wave A #3)
+        if (patch.status && patch.status !== prev.status) {
+          const allowed = isAllowedStatusTransition(prev.status, patch.status);
+          const isTerminal = ["Proceed", "Hold", "Rejected"].includes(patch.status);
+          if (!allowed && isTerminal && !opts?.force) {
+            return {
+              ok: false,
+              error: `Status ${prev.status} → ${patch.status} requires confirmation and a reason.`,
+            };
+          }
+          if (!allowed && opts?.force && (!opts.reason || opts.reason.trim().length < 5)) {
+            return { ok: false, error: "Reason is required (min 5 chars) to bypass." };
+          }
+        }
+
         const next: Signal = { ...prev, ...patch };
-        // Recompute SLA if tier changed
+
+        // SLA recompute when tier changes
         if (patch.tier && patch.tier !== prev.tier) {
           next.sla_due_at = slaDueAt(patch.tier, new Date(prev.created_at)).toISOString();
         }
+
         set({ signals: get().signals.map((s) => (s.id === signalId ? next : s)) });
-        // Audit per changed field
+
+        // B2: status → Proceed should create the ShapingItem (mirror triageDecision)
+        if (patch.status === "Proceed" && prev.status !== "Proceed" && !prev.shaping_item_id) {
+          const me = get().currentUserId;
+          const isFastTrack = next.issue_type === "Bug" && (next.tier === "T1" || next.tier === "T2");
+          const ownerId = isFastTrack ? "u-waseem" : me;
+          const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
+          set({
+            shaping: [sh, ...get().shaping],
+            signals: get().signals.map((s) => (s.id === signalId ? { ...s, shaping_item_id: sh.id } : s)),
+          });
+        }
+
+        // Readable audit per changed field (Wave A #4)
+        const users = get().users;
         const fields: (keyof Signal)[] = [
-          "title", "description", "source", "product", "issue_type", "tier", "status", "owner_id",
+          "title", "description", "source", "product", "additional_sources",
+          "additional_products", "issue_type", "tier", "status", "owner_id",
         ];
         for (const f of fields) {
-          if (patch[f] !== undefined && prev[f] !== next[f]) {
+          if (patch[f] !== undefined && JSON.stringify(prev[f]) !== JSON.stringify(next[f])) {
             get().audit_log({
               entity_type: "signal",
               entity_id: signalId,
-              action: `${String(f)} changed`,
-              before: String(prev[f] ?? ""),
-              after: String(next[f] ?? ""),
+              action: formatFieldChange(f as string, prev[f], next[f], users),
+              before: JSON.stringify(prev[f] ?? null),
+              after: JSON.stringify(next[f] ?? null),
             });
           }
         }
@@ -1414,10 +1561,62 @@ export const useTfpStore = create<State>()(
           get().audit_log({
             entity_type: "signal",
             entity_id: signalId,
-            action: "SLA recalculated for new tier",
+            action: `SLA recalculated for ${patch.tier}`,
             after: next.sla_due_at,
           });
+          // B3: warn if newly recomputed SLA is already in the past
+          if (new Date(next.sla_due_at).getTime() < Date.now()) {
+            get().pushNotification({
+              trigger: "sla_breach",
+              title: `SLA already breached after tier change`,
+              body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
+              link_to: "/triage",
+              entity_id: signalId,
+            });
+          }
         }
+
+        // Bypass audit
+        if (patch.status && opts?.force && opts?.reason) {
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: signalId,
+            action: `Status bypass (${prev.status} → ${patch.status})`,
+            after: opts.reason,
+          });
+          get().logOverride({
+            kind: "Other",
+            reason: `Status bypass on ${signalId}: ${opts.reason}`,
+            signal_id: signalId,
+            shahid_visible: true,
+          });
+        }
+
+        return { ok: true };
+      },
+
+      setSignalAttachments: (signalId, attachments) => {
+        set({
+          signals: get().signals.map((s) => (s.id === signalId ? { ...s, attachments } : s)),
+        });
+        get().audit_log({
+          entity_type: "signal",
+          entity_id: signalId,
+          action: `Attachments updated (${attachments.length} link${attachments.length === 1 ? "" : "s"})`,
+        });
+      },
+
+      setShapingAttachments: (shapingId, attachments) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === shapingId ? { ...s, attachments, updated_at: new Date().toISOString() } : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: shapingId,
+          action: `Attachments updated (${attachments.length} link${attachments.length === 1 ? "" : "s"})`,
+        });
       },
 
       updateShaping: (id, patch) => {
@@ -2240,8 +2439,85 @@ export const useTfpStore = create<State>()(
           ),
         });
       },
+
+      setFlag: (key, value) => {
+        set({ flags: { ...get().flags, [key]: value } });
+      },
+      upsertUser: (user) => {
+        const exists = get().users.find((u) => u.id === user.id);
+        set({ users: exists ? get().users.map((u) => (u.id === user.id ? user : u)) : [...get().users, user] });
+      },
+      removeUser: (userId) => {
+        set({ users: get().users.filter((x) => x.id !== userId) });
+      },
+      upsertHelpArticle: (article) => {
+        const me = get().currentUserId;
+        const now = new Date().toISOString();
+        const id = article.id ?? "h-" + uid();
+        const next: HelpArticle = {
+          id,
+          slug: article.slug,
+          title: article.title,
+          section: article.section,
+          body_markdown: article.body_markdown,
+          updated_at: now,
+          updated_by: me,
+        };
+        const exists = get().helpArticles.find((a) => a.id === id);
+        set({
+          helpArticles: exists
+            ? get().helpArticles.map((a) => (a.id === id ? next : a))
+            : [...get().helpArticles, next],
+        });
+        return next;
+      },
+      removeHelpArticle: (id) => {
+        set({ helpArticles: get().helpArticles.filter((a) => a.id !== id) });
+      },
+      upsertWorkflow: (wf) => {
+        const now = new Date().toISOString();
+        const id = wf.id ?? "wf-" + uid();
+        const exists = get().workflows.find((w) => w.id === id);
+        const next: Workflow = {
+          id,
+          name: wf.name,
+          active: wf.active,
+          nodes: wf.nodes,
+          edges: wf.edges,
+          created_at: exists?.created_at ?? now,
+          updated_at: now,
+        };
+        set({
+          workflows: exists
+            ? get().workflows.map((w) => (w.id === id ? next : w))
+            : [...get().workflows, next],
+        });
+        return next;
+      },
+      removeWorkflow: (id) => {
+        set({ workflows: get().workflows.filter((w) => w.id !== id) });
+      },
+      toggleWorkflowActive: (id) => {
+        set({
+          workflows: get().workflows.map((w) =>
+            w.id === id ? { ...w, active: !w.active, updated_at: new Date().toISOString() } : w,
+          ),
+        });
+      },
     }),
-    { name: "tfp-os-v5" },
+    {
+      name: "tfp-os-v6",
+      version: 6,
+      migrate: (persisted: unknown) => {
+        const p = (persisted ?? {}) as Partial<State>;
+        return {
+          ...p,
+          flags: p.flags ?? DEFAULT_FLAGS,
+          helpArticles: p.helpArticles ?? SEED_HELP,
+          workflows: p.workflows ?? [],
+        } as State;
+      },
+    },
   ),
 );
 
