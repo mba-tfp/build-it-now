@@ -63,7 +63,8 @@ export function ImportModal({ onClose }: Props) {
 
   function handleImport() {
     if (!parsed || parsed.length === 0) return;
-    const result = roadmapActions.importItems(parsed);
+    // Cast to the wider import type — store will defensively coerce.
+    const result = roadmapActions.importItems(parsed as Parameters<typeof roadmapActions.importItems>[0]);
     toast.success(
       `Imported ${result.added} items` +
         (result.streamsCreated ? ` · ${result.streamsCreated} new streams` : "") +
