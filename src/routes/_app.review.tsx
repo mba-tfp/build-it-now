@@ -21,6 +21,9 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/review")({
   component: ReviewsPage,
@@ -66,10 +69,19 @@ function ReviewsPage() {
     [shaping, signals, reviews],
   );
 
-  const filtered = useMemo(
-    () => (filter === "All" ? reviews : reviews.filter((r) => r.status === filter)),
-    [reviews, filter],
-  );
+  type SortKey = "created" | "scheduled" | "status" | "outcome";
+  const { sort, setSort } = useSortMenu<SortKey>("reviews", { key: "created", dir: "desc" });
+
+  const filtered = useMemo(() => {
+    const base = filter === "All" ? reviews : reviews.filter((r) => r.status === filter);
+    return sortRows(base, sort, (r, k) => {
+      if (k === "created") return new Date(r.created_at).getTime();
+      if (k === "scheduled") return r.scheduled_for ? new Date(r.scheduled_for).getTime() : 0;
+      if (k === "status") return r.status;
+      if (k === "outcome") return r.outcome_rating ?? "";
+      return null;
+    });
+  }, [reviews, filter, sort]);
 
   const counts = useMemo(() => {
     const c = { Pending: 0, Scheduled: 0, Completed: 0 } as Record<ReviewStatus, number>;
@@ -146,9 +158,22 @@ function ReviewsPage() {
             onClick={() => setFilter(s)}
           />
         ))}
+        <SortMenu
+          className="ml-auto"
+          tableId="reviews"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "created", label: "Created" },
+            { key: "scheduled", label: "Scheduled" },
+            { key: "status", label: "Status" },
+            { key: "outcome", label: "Outcome rating" },
+          ]}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        <ScrollTable className="border border-border bg-surface/40 p-2">
         <div className="space-y-2">
           {filtered.length === 0 ? (
             <div className="tfp-card p-8 text-center text-sm text-muted-foreground">
@@ -193,6 +218,7 @@ function ReviewsPage() {
             })
           )}
         </div>
+        </ScrollTable>
 
         <div>
           {active ? (
