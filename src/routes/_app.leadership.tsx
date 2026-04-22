@@ -483,6 +483,16 @@ function LeadershipPage() {
             <SelectFilter value={sourceFilter} onChange={(v) => setSourceFilter(v as Source | "All")} options={["All", "Leadership", "Clinic", "Internal", "Dev Team"]} />
             <SelectFilter value={productFilter} onChange={(v) => setProductFilter(v as Product | "All")} options={["All", "Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"]} />
             <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "T1", "T2", "T3", "T4"]} />
+            <SortMenu
+              tableId="leadership-signals"
+              sort={signalSort}
+              onChange={setSignalSort}
+              options={[
+                { key: "created_at", label: "Created date" },
+                { key: "source", label: "Source" },
+                { key: "tier", label: "Tier" },
+              ]}
+            />
           </div>
         </div>
         <div className="max-h-[480px] overflow-y-auto">
