@@ -2439,8 +2439,85 @@ export const useTfpStore = create<State>()(
           ),
         });
       },
+
+      setFlag: (key, value) => {
+        set({ flags: { ...get().flags, [key]: value } });
+      },
+      upsertUser: (user) => {
+        const exists = get().users.find((u) => u.id === user.id);
+        set({ users: exists ? get().users.map((u) => (u.id === user.id ? user : u)) : [...get().users, user] });
+      },
+      removeUser: (userId) => {
+        set({ users: get().users.filter((x) => x.id !== userId) });
+      },
+      upsertHelpArticle: (article) => {
+        const me = get().currentUserId;
+        const now = new Date().toISOString();
+        const id = article.id ?? "h-" + uid();
+        const next: HelpArticle = {
+          id,
+          slug: article.slug,
+          title: article.title,
+          section: article.section,
+          body_markdown: article.body_markdown,
+          updated_at: now,
+          updated_by: me,
+        };
+        const exists = get().helpArticles.find((a) => a.id === id);
+        set({
+          helpArticles: exists
+            ? get().helpArticles.map((a) => (a.id === id ? next : a))
+            : [...get().helpArticles, next],
+        });
+        return next;
+      },
+      removeHelpArticle: (id) => {
+        set({ helpArticles: get().helpArticles.filter((a) => a.id !== id) });
+      },
+      upsertWorkflow: (wf) => {
+        const now = new Date().toISOString();
+        const id = wf.id ?? "wf-" + uid();
+        const exists = get().workflows.find((w) => w.id === id);
+        const next: Workflow = {
+          id,
+          name: wf.name,
+          active: wf.active,
+          nodes: wf.nodes,
+          edges: wf.edges,
+          created_at: exists?.created_at ?? now,
+          updated_at: now,
+        };
+        set({
+          workflows: exists
+            ? get().workflows.map((w) => (w.id === id ? next : w))
+            : [...get().workflows, next],
+        });
+        return next;
+      },
+      removeWorkflow: (id) => {
+        set({ workflows: get().workflows.filter((w) => w.id !== id) });
+      },
+      toggleWorkflowActive: (id) => {
+        set({
+          workflows: get().workflows.map((w) =>
+            w.id === id ? { ...w, active: !w.active, updated_at: new Date().toISOString() } : w,
+          ),
+        });
+      },
     }),
-    { name: "tfp-os-v5" },
+    {
+      name: "tfp-os-v6",
+      version: 6,
+      migrate: (persisted: unknown) => {
+        const p = (persisted ?? {}) as Partial<State>;
+        return {
+          ...p,
+          flags: p.flags ?? DEFAULT_FLAGS,
+          helpArticles: p.helpArticles ?? SEED_HELP,
+          workflows: p.workflows ?? [],
+        } as State;
+      },
+    },
   ),
 );
 
