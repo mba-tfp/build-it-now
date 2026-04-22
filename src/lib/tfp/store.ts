@@ -761,6 +761,8 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingInQA.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -777,6 +779,8 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingInDelivery.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -793,6 +797,8 @@ const seedComms: CommsItem[] = [
     sent_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
     rejected_reason: null,
     linked_shaping_id: shapingDone.id,
+    comms_type: "Go-live update",
+    requires_pm_approval: false,
   },
   {
     id: "cm-" + uid(),
@@ -809,6 +815,63 @@ const seedComms: CommsItem[] = [
     sent_at: null,
     rejected_reason: null,
     linked_shaping_id: shapingBlocked.id,
+    comms_type: "Incident update",
+    requires_pm_approval: true,
+  },
+];
+
+// ============ New entity seeds ============
+
+const ACTIVE_CLINIC_NAMES = [
+  "OFC", "RCC", "Procrea QC", "GF Waterloo", "GF Vaughan", "GF Newmarket",
+  "GF Twin Waters", "Heartland", "Aurora", "Kelowna", "Ovo", "Olive", "Grace",
+];
+
+const seedClinics: Clinic[] = ACTIVE_CLINIC_NAMES.map((name, i) => ({
+  id: "cl-" + (i + 1).toString().padStart(3, "0"),
+  name,
+  status: "Active" as ClinicStatus,
+  product: (["Otto-Onboard", "Otto Notes", "Otto Pulse"] as Product[])[i % 3],
+  clinic_contact_name: `${name} Lead`,
+  clinic_contact_email: `lead@${name.toLowerCase().replace(/\s+/g, "")}.example`,
+  go_live_date: new Date(SEED_EPOCH - (60 + i * 5) * 86400000).toISOString(),
+  offboarded_at: null,
+  offboarded_by_id: null,
+  offboard_reason: null,
+}));
+
+const seedMonitoring: MonitoringAlert[] = [
+  {
+    id: "mon-" + uid(),
+    system: "Phelix AI",
+    integration: "Notes sync webhook",
+    severity: "P2",
+    message: "Webhook delivery latency > 30s on 3 events.",
+    detected_at: new Date(SEED_EPOCH - 6 * 3600000).toISOString(),
+    signal_id: null,
+    deduplicated: false,
+  },
+  {
+    id: "mon-" + uid(),
+    system: "Accuro",
+    integration: "Patient roster nightly sync",
+    severity: "P1",
+    message: "Sync failed: connection refused for 4 retries.",
+    detected_at: new Date(SEED_EPOCH - 18 * 3600000).toISOString(),
+    signal_id: null,
+    deduplicated: true,
+  },
+];
+
+const seedTechDebtReviews: TechDebtReview[] = [
+  {
+    id: "tdr-" + uid(),
+    reviewed_by_id: "u-bazil",
+    reviewed_at: new Date(SEED_EPOCH - 80 * 86400000).toISOString(),
+    quarter: "Q1 2026",
+    items_scheduled: 3,
+    items_deferred: 5,
+    notes: "Sprint 2-3 absorbed scheduled items; deferred items revisited next quarter.",
   },
 ];
 
