@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ClinicFeedbackRouteImport } from './routes/clinic-feedback'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppWorkflowsRouteImport } from './routes/_app.workflows'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
 import { Route as AppRoadmapRouteImport } from './routes/_app.roadmap'
@@ -41,6 +42,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkflowsRoute = AppWorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTriageRoute = AppTriageRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/roadmap': typeof AppRoadmapRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
+  '/workflows': typeof AppWorkflowsRoute
   '/help/$slug': typeof AppHelpSlugRoute
 }
 export interface FileRoutesByTo {
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/roadmap': typeof AppRoadmapRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
+  '/workflows': typeof AppWorkflowsRoute
   '/': typeof AppIndexRoute
   '/help/$slug': typeof AppHelpSlugRoute
 }
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/_app/roadmap': typeof AppRoadmapRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
+  '/_app/workflows': typeof AppWorkflowsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/help/$slug': typeof AppHelpSlugRoute
 }
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/roadmap'
     | '/shaping'
     | '/triage'
+    | '/workflows'
     | '/help/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/roadmap'
     | '/shaping'
     | '/triage'
+    | '/workflows'
     | '/'
     | '/help/$slug'
   id:
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/_app/roadmap'
     | '/_app/shaping'
     | '/_app/triage'
+    | '/_app/workflows'
     | '/_app/'
     | '/_app/help/$slug'
   fileRoutesById: FileRoutesById
@@ -276,6 +288,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workflows': {
+      id: '/_app/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof AppWorkflowsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/triage': {
@@ -420,6 +439,7 @@ interface AppRouteChildren {
   AppRoadmapRoute: typeof AppRoadmapRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
+  AppWorkflowsRoute: typeof AppWorkflowsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -439,6 +459,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRoadmapRoute: AppRoadmapRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
+  AppWorkflowsRoute: AppWorkflowsRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -451,3 +472,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

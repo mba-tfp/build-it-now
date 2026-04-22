@@ -311,13 +311,14 @@ function HelpTab() {
       toast.error("Title and slug required");
       return;
     }
-    upsertHelpArticle({
-      id: editing.id || undefined,
+    const payload: Parameters<typeof upsertHelpArticle>[0] = {
       slug: editing.slug.trim(),
       title: editing.title.trim(),
       section: editing.section,
       body_markdown: editing.body_markdown,
-    });
+    };
+    if (editing.id) payload.id = editing.id;
+    upsertHelpArticle(payload);
     toast.success("Article saved");
     setEditing(null);
   }
