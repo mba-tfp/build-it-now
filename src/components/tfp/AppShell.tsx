@@ -27,7 +27,17 @@ export function AppShell() {
   const location = useLocation();
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const setCurrentUser = useTfpStore((s) => s.setCurrentUser);
-  const me = USERS.find((u) => u.id === currentUserId)!;
+  const users = useTfpStore((s) => s.users);
+  const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
+  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
+  const meLive = users.find((u) => u.id === currentUserId);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const showOnboarding = !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
+
+  // Reset dismiss when user switches
+  useEffect(() => {
+    setOnboardingDismissed(false);
+  }, [currentUserId]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -69,6 +79,14 @@ export function AppShell() {
 
           <div className="flex items-center gap-2">
             <NotificationsBell />
+            <button
+              onClick={() => resetOnboarding(currentUserId)}
+              className="hidden items-center gap-1 rounded-md border border-input bg-surface px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
+              title="Reopen onboarding checklist"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Getting started
+            </button>
             <select
               value={currentUserId}
               onChange={(e) => setCurrentUser(e.target.value)}
@@ -96,9 +114,12 @@ export function AppShell() {
       <footer className="border-t border-border bg-surface/40 py-4 text-center text-[11px] text-muted-foreground">
         The Fertility Partners · Internal Use Only · Mock data — backend not yet wired
       </footer>
+
+      {showOnboarding && <OnboardingModal onClose={() => setOnboardingDismissed(true)} />}
     </div>
   );
 }
+// keep below: NotificationsBell
 
 function NotificationsBell() {
   const notifications = useTfpStore((s) => s.notifications);
