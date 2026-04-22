@@ -39,27 +39,40 @@ function ShapingPage() {
   const signals = useTfpStore((s) => s.signals);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const cards = shaping.map((sh) => ({
-    sh,
-    sig: signals.find((s) => s.id === sh.signal_id),
-  }));
+  type SortKey = "started" | "completeness" | "tier";
+  const { sort, setSort } = useSortMenu<SortKey>("shaping");
+
+  const cards = useMemo(
+    () => shaping.map((sh) => ({ sh, sig: signals.find((s) => s.id === sh.signal_id) })),
+    [shaping, signals],
+  );
+
+  const sorted = useMemo(() => {
+    if (sort.key && sort.dir) {
+      return sortRows(cards, sort, (c, k) => {
+        if (k === "started") return c.sh.shaping_started_at ? new Date(c.sh.shaping_started_at).getTime() : 0;
+        if (k === "completeness") return completenessScore(c.sh);
+        if (k === "tier") return c.sig?.tier ?? "Z";
+        return null;
+      });
+    }
+    // Default: overdue → fast-track → others
+    return [...cards].sort((a, b) => {
+      const ah = a.sh.shaping_started_at ? (Date.now() - new Date(a.sh.shaping_started_at).getTime()) / 3600000 : 0;
+      const bh = b.sh.shaping_started_at ? (Date.now() - new Date(b.sh.shaping_started_at).getTime()) / 3600000 : 0;
+      const aOverdue = a.sig?.issue_type === "Bug" && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      const bOverdue = b.sig?.issue_type === "Bug" && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+      if (a.sh.fast_track !== b.sh.fast_track) return a.sh.fast_track ? -1 : 1;
+      return 0;
+    });
+  }, [cards, sort]);
 
   const open = cards.find((c) => c.sh.id === openId);
 
   if (open?.sig) {
     return <ShapingWorkspace itemId={open.sh.id} onBack={() => setOpenId(null)} />;
   }
-
-  // Sort: overdue (>72h timebox + bug + non-fast-track non-approved) → fast-track → others
-  const sorted = [...cards].sort((a, b) => {
-    const ah = a.sh.shaping_started_at ? (Date.now() - new Date(a.sh.shaping_started_at).getTime()) / 3600000 : 0;
-    const bh = b.sh.shaping_started_at ? (Date.now() - new Date(b.sh.shaping_started_at).getTime()) / 3600000 : 0;
-    const aOverdue = a.sig?.issue_type === "Bug" && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
-    const bOverdue = b.sig?.issue_type === "Bug" && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
-    if (aOverdue !== bOverdue) return bOverdue - aOverdue;
-    if (a.sh.fast_track !== b.sh.fast_track) return a.sh.fast_track ? -1 : 1;
-    return 0;
-  });
 
   return (
     <div>
