@@ -7,7 +7,13 @@ export type Role =
   | "QA Scrum Master"
   | "Leadership";
 
-export type User = { id: string; name: string; role: Role };
+export type User = {
+  id: string;
+  name: string;
+  role: Role;
+  onboarding_completed: boolean;
+  onboarding_progress: Record<string, boolean>;
+};
 
 export type Source = "Leadership" | "Clinic" | "Internal" | "Dev Team";
 export type Product =
@@ -60,9 +66,9 @@ export type Complexity = "Simple" | "Medium" | "Complex";
 export type RoadmapBucket = "Now" | "Next" | "Later" | "Not Now" | "Override";
 
 export type DevCompleteGate = {
-  tests_pass: boolean;
-  docs_updated: boolean;
-  qa_signed_off: boolean;
+  merged_to_main: boolean;
+  deployed_to_staging: boolean;
+  smoke_test_passed: boolean;
   signed_off_by: string | null;
   signed_off_at: string | null;
 };
@@ -94,6 +100,7 @@ export type ShapingItem = {
   tech_estimate_pts: number | null;
   tech_concerns: string;
   tech_signed_off_at: string | null;
+  tech_concurrent_access_checked: boolean;
   // Approval (Step 5)
   approver_id: string | null;
   approval_decision: "Approved" | "Changes Requested" | null;
@@ -104,6 +111,13 @@ export type ShapingItem = {
   delivery_status: DeliveryStatus | null;
   blocked_since: string | null;
   dev_complete: DevCompleteGate;
+  // Bug fast-track + timebox (spec)
+  fast_track: boolean;
+  fast_track_root_cause: string;
+  shaping_started_at: string | null;
+  timebox_escalated_at: string | null;
+  // Tech debt
+  tech_debt_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -160,11 +174,12 @@ export type Sprint = {
   golive_deduction_pts: number;
   carryforward_estimate_pts: number;
   allocated_pts: number;
+  notes?: string;
 };
 
 // ============ Wave 4 additions ============
 
-export type AuditEntityType = "signal" | "shaping" | "review" | "sprint" | "override" | "comms" | "checklist" | "decision" | "retro";
+export type AuditEntityType = "signal" | "shaping" | "review" | "sprint" | "override" | "comms" | "checklist" | "decision" | "retro" | "clinic" | "monitoring";
 
 export type AuditEntry = {
   id: string;
@@ -172,7 +187,7 @@ export type AuditEntry = {
   actor_id: string;
   entity_type: AuditEntityType;
   entity_id: string;
-  action: string; // human-readable: "moved to In Progress", "approved", "logged override OVR-007"
+  action: string;
   before?: string | null;
   after?: string | null;
   meta?: Record<string, unknown>;
@@ -182,7 +197,7 @@ export type OverrideKind = "Capacity exceeded" | "Scope added mid-sprint" | "Tie
 export type OverrideAckStatus = "Pending" | "Acknowledged";
 
 export type Override = {
-  id: string; // OVR-NNN
+  id: string;
   kind: OverrideKind;
   reason: string;
   signal_id: string | null;
@@ -199,11 +214,11 @@ export type Override = {
 };
 
 export type GoLiveCriterion =
-  | "Code merged & deployed to staging"
-  | "QA sign-off complete"
-  | "Clinic comms sent"
-  | "Rollback plan documented"
-  | "On-call coverage confirmed";
+  | "Clinic staff trained"
+  | "Data migrated and verified"
+  | "UAT completed by clinic contact"
+  | "Rollback plan confirmed and tested"
+  | "Go-live comms sent to clinic staff";
 
 export type GoLiveStatus = "Not Started" | "In Progress" | "Ready" | "Live" | "Rolled Back";
 
@@ -225,12 +240,19 @@ export type GoLiveChecklist = {
 
 export type CommsStatus = "Draft" | "Pending Approval" | "Approved" | "Sent" | "Rejected";
 export type CommsChannel = "Email" | "In-app banner" | "Teams" | "Phone";
+export type CommsType =
+  | "Delay notification"
+  | "Incident update"
+  | "Incident all-clear"
+  | "Go-live update"
+  | "Postponement"
+  | "Scope change";
 
 export type CommsItem = {
   id: string;
   product: Product;
   channel: CommsChannel;
-  audience: string; // "All clinics", "Pilot clinics", "Clinic A"
+  audience: string;
   subject: string;
   body: string;
   drafted_by: string;
@@ -241,13 +263,15 @@ export type CommsItem = {
   sent_at: string | null;
   rejected_reason: string | null;
   linked_shaping_id: string | null;
+  comms_type: CommsType;
+  requires_pm_approval: boolean;
 };
 
 export type DecisionType = "Architectural" | "Product" | "Process" | "Vendor";
 export type DecisionStatus = "Open" | "Decided" | "Superseded";
 
 export type Decision = {
-  id: string; // DEC-NNN
+  id: string;
   title: string;
   type: DecisionType;
   status: DecisionStatus;
@@ -273,7 +297,7 @@ export type SprintRetro = {
   primary_theme: RetroTheme;
   created_by: string;
   created_at: string;
-  escalated: boolean; // true if 3 consecutive sprints share primary_theme
+  escalated: boolean;
 };
 
 export type NotificationPriority = "P1" | "P2" | "P3" | "P4";
@@ -290,7 +314,11 @@ export type NotificationTrigger =
   | "scope_change"
   | "retro_escalation"
   | "override_logged"
-  | "shaping_stuck";
+  | "shaping_stuck"
+  | "monitoring_alert"
+  | "fast_track_review"
+  | "timebox_breach"
+  | "clinic_feedback";
 
 export type Notification = {
   id: string;
@@ -299,8 +327,53 @@ export type Notification = {
   priority: NotificationPriority;
   title: string;
   body: string;
-  for_user_id: string | null; // null = all
-  link_to: string | null; // route path
+  for_user_id: string | null;
+  link_to: string | null;
   read: boolean;
   entity_id: string | null;
+};
+
+// ============ New entity types ============
+
+export type ClinicStatus = "Active" | "Dormant" | "Offboarded";
+export type Clinic = {
+  id: string;
+  name: string;
+  status: ClinicStatus;
+  product: Product;
+  clinic_contact_name: string;
+  clinic_contact_email: string;
+  go_live_date: string | null;
+  offboarded_at: string | null;
+  offboarded_by_id: string | null;
+  offboard_reason: string | null;
+};
+
+export type MonitoringSystem = "Accuro" | "Phelix AI" | "Olive EngagedMD" | "Tia Health" | "EngagedMD";
+export type MonitoringSeverity = "P0" | "P1" | "P2";
+
+export type MonitoringAlert = {
+  id: string;
+  system: MonitoringSystem;
+  integration: string;
+  severity: MonitoringSeverity;
+  message: string;
+  detected_at: string;
+  signal_id: string | null;
+  deduplicated: boolean;
+};
+
+export type TechDebtReview = {
+  id: string;
+  reviewed_by_id: string;
+  reviewed_at: string;
+  quarter: string;
+  items_scheduled: number;
+  items_deferred: number;
+  notes: string;
+};
+
+export type ClinicFeedbackRecord = {
+  clinic_id: string;
+  ts: number;
 };
