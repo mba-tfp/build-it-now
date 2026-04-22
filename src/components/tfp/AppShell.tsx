@@ -59,7 +59,12 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" suppressHydrationWarning>
+      {!hydrated ? (
+        <div className="min-h-screen" />
+      ) : (
+        <>
+
       <header className="sticky top-0 z-30 border-b border-border bg-surface/85 backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-6 py-3">
           <Link to="/intake" className="flex items-center gap-2">
