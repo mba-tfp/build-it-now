@@ -4,29 +4,112 @@ import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { Activity, Bell, HelpCircle, Search } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  HelpCircle,
+  Search,
+  Inbox,
+  Filter,
+  Layers,
+  Truck,
+  Map as MapIcon,
+  Rocket,
+  MessageSquare,
+  ClipboardCheck,
+  RotateCcw,
+  Gavel,
+  ShieldAlert,
+  Crown,
+  HeartPulse,
+} from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingModal } from "./OnboardingModal";
 import { GlobalSearch } from "./GlobalSearch";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
-const NAV: Array<{ to: string; label: string }> = [
-  { to: "/intake", label: "Intake" },
-  { to: "/triage", label: "Triage" },
-  { to: "/shaping", label: "Shaping" },
-  { to: "/delivery", label: "Delivery" },
-  { to: "/roadmap", label: "Roadmap" },
-  { to: "/golive", label: "Go-Live" },
-  { to: "/comms", label: "Comms" },
-  { to: "/review", label: "Reviews" },
-  { to: "/retros", label: "Retros" },
-  { to: "/decisions", label: "Decisions" },
-  { to: "/overrides", label: "Overrides" },
-  { to: "/leadership", label: "Leadership" },
-  { to: "/health", label: "Queue Health" },
+const NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/intake", label: "Intake", icon: Inbox },
+  { to: "/triage", label: "Triage", icon: Filter },
+  { to: "/shaping", label: "Shaping", icon: Layers },
+  { to: "/delivery", label: "Delivery", icon: Truck },
+  { to: "/roadmap", label: "Roadmap", icon: MapIcon },
+  { to: "/golive", label: "Go-Live", icon: Rocket },
+  { to: "/comms", label: "Comms", icon: MessageSquare },
+  { to: "/review", label: "Reviews", icon: ClipboardCheck },
+  { to: "/retros", label: "Retros", icon: RotateCcw },
+  { to: "/decisions", label: "Decisions", icon: Gavel },
+  { to: "/overrides", label: "Overrides", icon: ShieldAlert },
+  { to: "/leadership", label: "Leadership", icon: Crown },
+  { to: "/health", label: "Queue Health", icon: HeartPulse },
 ];
 
-export function AppShell() {
+function AppSidebar() {
   const location = useLocation();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <Link to="/intake" className="flex items-center gap-2 px-2 py-1.5">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
+            <Activity className="h-4 w-4" strokeWidth={2.25} />
+          </span>
+          {!collapsed && (
+            <div className="leading-tight">
+              <div className="font-display text-[15px] tracking-tight">TFP OS</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Signal → Delivery
+              </div>
+            </div>
+          )}
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {NAV.map((n) => {
+                const active =
+                  location.pathname === n.to ||
+                  (n.to !== "/intake" && location.pathname.startsWith(n.to));
+                const Icon = n.icon;
+                return (
+                  <SidebarMenuItem key={n.to}>
+                    <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
+                      <Link to={n.to}>
+                        <Icon className="h-4 w-4" />
+                        <span>{n.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
+export function AppShell() {
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const setCurrentUser = useTfpStore((s) => s.setCurrentUser);
   const users = useTfpStore((s) => s.users);
@@ -55,97 +138,66 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-
-      <header className="sticky top-0 z-30 border-b border-border bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-6 py-3">
-          <Link to="/intake" className="flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-primary-foreground">
-              <Activity className="h-4 w-4" strokeWidth={2.25} />
-            </span>
-            <div className="leading-tight">
-              <div className="font-display text-[15px] tracking-tight">TFP OS</div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                Signal → Shaping → Delivery
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background">
+        <AppSidebar />
+        <SidebarInset>
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/85 px-4 py-2.5 backdrop-blur">
+            <SidebarTrigger />
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="hidden items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
+                title="Search (⌘K)"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Search</span>
+                <kbd className="ml-1 hidden rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">⌘K</kbd>
+              </button>
+              <NotificationsBell />
+              <button
+                onClick={() => resetOnboarding(currentUserId)}
+                className="hidden items-center gap-1 rounded-md border border-input bg-surface px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
+                title="Reopen onboarding checklist"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Getting started
+              </button>
+              <select
+                value={currentUserId}
+                onChange={(e) => setCurrentUser(e.target.value)}
+                className="rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {USERS.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} — {u.role}
+                  </option>
+                ))}
+              </select>
+              <div className="hidden items-center gap-2 md:flex">
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                  {me.name[0]}
+                </div>
               </div>
             </div>
-          </Link>
+          </header>
 
-          <nav className="flex flex-1 flex-wrap items-center gap-0.5">
-            {NAV.map((n) => {
-              const active =
-                location.pathname === n.to ||
-                (n.to !== "/intake" && location.pathname.startsWith(n.to));
-              return (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className={cn(
-                    "rounded-md px-2.5 py-1.5 text-[13px] transition",
-                    active
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {n.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <main className="mx-auto w-full max-w-[1500px] px-6 py-8">
+            <Outlet />
+          </main>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="hidden items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
-              title="Search (⌘K)"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span>Search</span>
-              <kbd className="ml-1 hidden rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">⌘K</kbd>
-            </button>
-            <NotificationsBell />
-            <button
-              onClick={() => resetOnboarding(currentUserId)}
-              className="hidden items-center gap-1 rounded-md border border-input bg-surface px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
-              title="Reopen onboarding checklist"
-            >
-              <HelpCircle className="h-3.5 w-3.5" />
-              Getting started
-            </button>
-            <select
-              value={currentUserId}
-              onChange={(e) => setCurrentUser(e.target.value)}
-              className="rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {USERS.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} — {u.role}
-                </option>
-              ))}
-            </select>
-            <div className="hidden items-center gap-2 md:flex">
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-                {me.name[0]}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+          <footer className="border-t border-border bg-surface/40 py-4 text-center text-[11px] text-muted-foreground">
+            The Fertility Partners · Internal Use Only · Mock data — backend not yet wired
+          </footer>
+        </SidebarInset>
 
-      <main className="mx-auto max-w-[1500px] px-6 py-8">
-        <Outlet />
-      </main>
-
-      <footer className="border-t border-border bg-surface/40 py-4 text-center text-[11px] text-muted-foreground">
-        The Fertility Partners · Internal Use Only · Mock data — backend not yet wired
-      </footer>
-
-      {showOnboarding && <OnboardingModal onClose={() => setOnboardingDismissed(true)} />}
-      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
-    </div>
+        {showOnboarding && <OnboardingModal onClose={() => setOnboardingDismissed(true)} />}
+        <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+      </div>
+    </SidebarProvider>
   );
 }
-// keep below: NotificationsBell
+
 
 function NotificationsBell() {
   const notifications = useTfpStore((s) => s.notifications);
