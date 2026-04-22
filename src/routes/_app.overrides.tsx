@@ -43,13 +43,23 @@ function OverridesPage() {
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Acknowledged">("All");
   const [composing, setComposing] = useState(false);
 
+  type SortKey = "raised_at" | "kind" | "ack_status" | "displaced_pts";
+  const { sort, setSort } = useSortMenu<SortKey>("overrides", { key: "raised_at", dir: "desc" });
+
   const filtered = useMemo(() => {
-    return overrides.filter((o) => {
+    const base = overrides.filter((o) => {
       if (showOnlyShahid && !o.shahid_visible) return false;
       if (statusFilter !== "All" && o.ack_status !== statusFilter) return false;
       return true;
     });
-  }, [overrides, showOnlyShahid, statusFilter]);
+    return sortRows(base, sort, (o, k) => {
+      if (k === "raised_at") return new Date(o.raised_at).getTime();
+      if (k === "kind") return o.kind;
+      if (k === "ack_status") return o.ack_status;
+      if (k === "displaced_pts") return o.displaced_pts ?? 0;
+      return null;
+    });
+  }, [overrides, showOnlyShahid, statusFilter, sort]);
 
   const pending = overrides.filter((o) => o.ack_status === "Pending").length;
   const usable = usableCapacity(sprint);
