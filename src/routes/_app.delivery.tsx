@@ -81,7 +81,25 @@ function DeliveryPage() {
 
   const rows = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
 
-  const blocked = rows.filter((r) => r.sh.delivery_status === "Blocked");
+  type SortKey = "updated" | "status" | "assignee" | "stale";
+  const { sort, setSort } = useSortMenu<SortKey>("delivery", { key: "updated", dir: "desc" });
+
+  const sortedRows = useMemo(
+    () =>
+      sortRows(rows, sort, (r, k) => {
+        if (k === "updated") return new Date(r.sh.updated_at ?? r.sh.created_at).getTime();
+        if (k === "status") return r.sh.delivery_status ?? "";
+        if (k === "assignee") {
+          const u = USERS.find((x) => x.id === r.sh.delivery_assignee_id);
+          return u?.name ?? "";
+        }
+        if (k === "stale") return -1 * daysSince(r.sh.updated_at ?? r.sh.created_at);
+        return null;
+      }),
+    [rows, sort],
+  );
+
+  const blocked = sortedRows.filter((r) => r.sh.delivery_status === "Blocked");
   const grouped: Record<DeliveryStatus, Row[]> = {
     "To Do": [],
     "In Progress": [],
@@ -89,7 +107,7 @@ function DeliveryPage() {
     Blocked: [],
     Done: [],
   };
-  rows.forEach((r) => {
+  sortedRows.forEach((r) => {
     if (r.sh.delivery_status) grouped[r.sh.delivery_status].push(r);
   });
 
