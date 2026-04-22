@@ -100,7 +100,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
         hits.Shaping.push({
           id: sh.id,
           type: "Shaping",
-          title: sig?.title ?? sh.problem_what.slice(0, 80) || sh.id,
+          title: sig?.title ?? (sh.problem_what.slice(0, 80) || sh.id),
           excerpt: excerpt(m(sh.problem_what) ? sh.problem_what : sh.solution_approach, debounced),
           product: sig?.product,
           to: "/shaping",
