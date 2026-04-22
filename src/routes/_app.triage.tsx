@@ -348,9 +348,14 @@ function TriagePanel({
     setDraft({});
   };
   const saveEdit = () => {
-    updateSignal(sig.id, draft);
-    setEditing(false);
-    setDraft({});
+    const res = updateSignal(sig.id, draft);
+    if (res.ok) {
+      toast.success("Saved");
+      setEditing(false);
+      setDraft({});
+    } else {
+      toast.error(res.error ?? "Couldn't save");
+    }
   };
 
   return (
