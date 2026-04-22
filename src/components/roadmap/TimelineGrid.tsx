@@ -217,6 +217,8 @@ export function TimelineGrid({
                       items={sectionItems}
                       visibleMonths={visibleMonths}
                       gridTemplateColumns={gridTemplateColumns}
+                      showSnapGrid={showSnapGrid}
+                      onAnnounce={setLiveMessage}
                       onOpenItem={onOpenItem}
                       onCreateItem={onCreateItem}
                     />
