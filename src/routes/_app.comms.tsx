@@ -201,7 +201,8 @@ function CommsPage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      </ScrollTable>
     </div>
   );
 }
