@@ -2000,6 +2000,10 @@ export const useTfpStore = create<State>()(
       },
 
       completeReview: (id, data) => {
+        // B11: enforce outcome_rating is provided
+        if (!data.outcome_rating) {
+          return;
+        }
         set({
           reviews: get().reviews.map((r) =>
             r.id === id
@@ -2485,12 +2489,22 @@ export const useTfpStore = create<State>()(
         return alert;
       },
       submitClinicFeedback: (data) => {
-        const oneHourAgo = Date.now() - 3600000;
+        const now = Date.now();
+        const oneHourAgo = now - 3600000;
+        const oneDayAgo = now - 86400000;
         const recent = get().clinicFeedbackLog.filter(
           (r) => r.clinic_id === data.clinic_id && r.ts > oneHourAgo,
         );
         if (recent.length >= 5) {
           return { ok: false, reason: "rate_limited" };
+        }
+        // B13: detect duplicate within 24h (same clinic + same first 80 chars of description)
+        const descKey = data.description.trim().slice(0, 80).toLowerCase();
+        const dup = get().clinicFeedbackLog.find(
+          (r) => r.clinic_id === data.clinic_id && r.ts > oneDayAgo && r.desc_key === descKey,
+        );
+        if (dup) {
+          return { ok: false, reason: "duplicate within 24h" };
         }
         const sig = get().createSignal({
           title: `[Clinic Form] ${data.reporter_name}: ${data.description.slice(0, 60)}`,
@@ -2502,7 +2516,7 @@ export const useTfpStore = create<State>()(
           displacement_flag: false,
           displacement_note: null,
         });
-        set({ clinicFeedbackLog: [...get().clinicFeedbackLog, { clinic_id: data.clinic_id, ts: Date.now() }] });
+        set({ clinicFeedbackLog: [...get().clinicFeedbackLog, { clinic_id: data.clinic_id, ts: now, desc_key: descKey }] });
         get().pushNotification({
           trigger: "clinic_feedback",
           title: `Clinic feedback from ${data.clinic_name}`,
