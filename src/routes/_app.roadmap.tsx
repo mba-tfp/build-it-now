@@ -154,6 +154,9 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [groupBy, setGroupBy] = useState<GroupByField[]>(["product"]);
   const [modal, setModal] = useState<ModalState>(null);
+  const [showSnapGrid, setShowSnapGrid] = useState(false);
+  // Scope of persisted UI preferences (per-roadmap vs device-wide).
+  const [prefsScope, setPrefsScope] = useState<PrefsScope>("roadmap");
 
   // Collapsed state for timeline
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set());
