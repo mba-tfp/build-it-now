@@ -54,6 +54,7 @@ type RoadmapUiPrefs = {
   collapsedQuarters: string[];
   collapsedStreams: string[];
   tab: "planning" | "delivery";
+  showSnapGrid: boolean;
 };
 
 const DEFAULT_PREFS: RoadmapUiPrefs = {
@@ -64,6 +65,7 @@ const DEFAULT_PREFS: RoadmapUiPrefs = {
   collapsedQuarters: [],
   collapsedStreams: [],
   tab: "planning",
+  showSnapGrid: false,
 };
 
 function RoadmapPage() {
