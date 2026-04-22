@@ -189,6 +189,20 @@ function OverviewTab() {
   pendingComms.forEach((c) => alerts.push({ priority: "P3", title: `Comms awaiting approval: ${c.subject}`, body: c.audience }));
   overdueReviews.forEach((r) => alerts.push({ priority: "P3", title: "Review pending", body: r.size + " review for " + r.shaping_id }));
   stale.forEach((s) => alerts.push({ priority: "P4", title: "Shaping stale (>6d)", body: s.problem_what.slice(0, 80) || s.id }));
+  // Dependency Change deadline alerts
+  const nowMs = Date.now();
+  shaping.forEach((sh) => {
+    if (!sh.dependency_deadline) return;
+    if (sh.shaping_status === "Approved" || sh.shaping_status === "In Delivery") return;
+    const days = Math.ceil((new Date(sh.dependency_deadline).getTime() - nowMs) / 86400000);
+    if (days < 0 || days > 14) return;
+    const sys = sh.dependency_system ?? "External system";
+    if (days <= 7) {
+      alerts.push({ priority: "P1", title: `${sys} API change due in ${days}d — shaping not approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval." });
+    } else {
+      alerts.push({ priority: "P2", title: `${sys} API change due in ${days}d — shaping not yet approved`, body: sh.dependency_what_changed.slice(0, 100) || "Dependency change requires shaping approval." });
+    }
+  });
   alerts.sort((a, b) => a.priority.localeCompare(b.priority));
 
   return (
