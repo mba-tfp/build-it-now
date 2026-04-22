@@ -1,4 +1,5 @@
 import { Link, Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
@@ -66,10 +67,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
   return (
-    <>
-      <Outlet />
+    <div suppressHydrationWarning>
+      {hydrated ? <Outlet /> : null}
       <Toaster position="top-right" richColors closeButton />
-    </>
+    </div>
   );
 }
