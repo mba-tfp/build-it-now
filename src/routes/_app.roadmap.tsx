@@ -64,7 +64,24 @@ const DEFAULT_PREFS: RoadmapUiPrefs = {
 
 function RoadmapPage() {
   const snap = useRoadmapStore();
+  const activeId = snap.activeId;
+  // Hydrate persisted tab choice on first mount per roadmap.
   const [tab, setTab] = useState<"planning" | "delivery">("planning");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const prefs = readUiPrefs<RoadmapUiPrefs>(activeId, DEFAULT_PREFS);
+    setTab(prefs.tab);
+    setHydrated(true);
+  }, [activeId]);
+
+  // Persist tab whenever it changes (after hydration).
+  useEffect(() => {
+    if (!hydrated || !activeId) return;
+    const prefs = readUiPrefs<RoadmapUiPrefs>(activeId, DEFAULT_PREFS);
+    writeUiPrefs(activeId, { ...prefs, tab });
+  }, [tab, hydrated, activeId]);
 
   // Loading guard for SSR/first paint
   if (!snap.active) {
