@@ -403,6 +403,7 @@ function SpanningCard({
   span,
   row,
   visibleMonths,
+  onAnnounce,
   onClick,
 }: {
   item: RoadmapItem;
@@ -410,11 +411,28 @@ function SpanningCard({
   span: number;
   row: number;
   visibleMonths: MonthCell[];
+  onAnnounce: (msg: string) => void;
   onClick: () => void;
 }) {
   const [resizing, setResizing] = useState<"left" | "right" | null>(null);
   const [previewSpan, setPreviewSpan] = useState<{ startIdx: number; span: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  function rangeLabel(p: { startIdx: number; span: number }) {
+    const a = visibleMonths[p.startIdx];
+    const b = visibleMonths[p.startIdx + p.span - 1];
+    if (!a) return "";
+    if (p.span === 1) return `${a.monthLabel} ${a.year}`;
+    return `${a.monthLabel} ${a.year} to ${b.monthLabel} ${b.year}`;
+  }
+
+  function commitSpan(p: { startIdx: number; span: number }) {
+    const startKey = visibleMonths[p.startIdx].key;
+    const endKey = visibleMonths[p.startIdx + p.span - 1].key;
+    const newMonths = rangeMonths(startKey, endKey, visibleMonths);
+    roadmapActions.moveItemMonths(item.id, newMonths);
+    onAnnounce(`${item.title} now spans ${rangeLabel(p)} (${p.span} month${p.span === 1 ? "" : "s"}).`);
+  }
 
   function handleResizeStart(e: React.MouseEvent, side: "left" | "right") {
     e.stopPropagation();
@@ -443,12 +461,7 @@ function SpanningCard({
       window.removeEventListener("mouseup", onUp);
       setResizing(null);
       setPreviewSpan((preview) => {
-        if (preview) {
-          const startKey = visibleMonths[preview.startIdx].key;
-          const endKey = visibleMonths[preview.startIdx + preview.span - 1].key;
-          const newMonths = rangeMonths(startKey, endKey, visibleMonths);
-          roadmapActions.moveItemMonths(item.id, newMonths);
-        }
+        if (preview) commitSpan(preview);
         return null;
       });
     }
@@ -456,13 +469,34 @@ function SpanningCard({
     window.addEventListener("mouseup", onUp);
   }
 
+  // Keyboard resize: focus a handle, then ←/→ shrinks/grows by one month.
+  function handleHandleKey(e: React.KeyboardEvent, side: "left" | "right") {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    let next: { startIdx: number; span: number };
+    if (side === "right") {
+      const newSpan = Math.max(1, Math.min(visibleMonths.length - startIdx, span + dir));
+      next = { startIdx, span: newSpan };
+    } else {
+      const newStart = Math.max(0, Math.min(startIdx + span - 1, startIdx + dir));
+      const newSpan = startIdx + span - newStart;
+      next = { startIdx: newStart, span: newSpan };
+    }
+    commitSpan(next);
+  }
+
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.setData("text/plain", item.id);
     e.dataTransfer.effectAllowed = "move";
+    onAnnounce(`Dragging ${item.title}. Drop on a month cell to snap.`);
   }
 
   const effective = previewSpan ?? { startIdx, span };
   const multiMonth = item.months.length > 1;
+  const cardLabel = `${item.title}, ${item.status}, ${rangeLabel({ startIdx, span })}. Press Enter to edit.`;
+  const leftTooltipId = `tt-l-${item.id}`;
+  const rightTooltipId = `tt-r-${item.id}`;
 
   return (
     <div
@@ -470,8 +504,18 @@ function SpanningCard({
       draggable={!resizing}
       onDragStart={handleDragStart}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={cardLabel}
+      aria-grabbed={!!resizing}
       className={cn(
-        "pointer-events-auto group relative mb-1 cursor-grab overflow-hidden rounded-md border border-border bg-surface px-2 py-1.5 text-xs shadow-sm transition hover:shadow-md active:cursor-grabbing",
+        "pointer-events-auto group relative mb-1 cursor-grab overflow-hidden rounded-md border border-border bg-surface px-2 py-1.5 text-xs shadow-sm transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing",
         resizing && "ring-2 ring-primary",
       )}
       style={{
@@ -481,22 +525,37 @@ function SpanningCard({
         borderLeftColor: item.color_tag,
       }}
     >
-      {/* Left resize handle (snap-to-month) */}
-      <div
+      {/* Left resize handle (snap-to-month) — accessible button */}
+      <button
+        type="button"
         onMouseDown={(e) => handleResizeStart(e, "left")}
-        title="Drag to change start month (snaps to month)"
-        className="absolute inset-y-0 left-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+        onKeyDown={(e) => handleHandleKey(e, "left")}
+        aria-label={`Resize start of ${item.title}. Currently starts ${visibleMonths[startIdx]?.monthLabel} ${visibleMonths[startIdx]?.year}. Use left and right arrow keys to adjust by one month.`}
+        aria-describedby={leftTooltipId}
+        title="Drag or use ← → keys to change start month (snaps to month)"
+        className="absolute inset-y-0 left-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center bg-transparent opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-100 hover:w-2 hover:bg-primary"
       >
         <span className="pointer-events-none h-3 w-px bg-primary/70" />
-      </div>
-      {/* Right resize handle (snap-to-month) */}
-      <div
+      </button>
+      <span id={leftTooltipId} role="tooltip" className="sr-only">
+        Drag horizontally or press arrow keys to change start month. Snaps to the month grid.
+      </span>
+
+      {/* Right resize handle (snap-to-month) — accessible button */}
+      <button
+        type="button"
         onMouseDown={(e) => handleResizeStart(e, "right")}
-        title="Drag to change end month (snaps to month)"
-        className="absolute inset-y-0 right-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+        onKeyDown={(e) => handleHandleKey(e, "right")}
+        aria-label={`Resize end of ${item.title}. Currently ends ${visibleMonths[startIdx + span - 1]?.monthLabel} ${visibleMonths[startIdx + span - 1]?.year}. Use left and right arrow keys to adjust by one month.`}
+        aria-describedby={rightTooltipId}
+        title="Drag or use ← → keys to change end month (snaps to month)"
+        className="absolute inset-y-0 right-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center bg-transparent opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-100 hover:w-2 hover:bg-primary"
       >
         <span className="pointer-events-none h-3 w-px bg-primary/70" />
-      </div>
+      </button>
+      <span id={rightTooltipId} role="tooltip" className="sr-only">
+        Drag horizontally or press arrow keys to change end month. Snaps to the month grid.
+      </span>
 
       {/* Live snap range readout while resizing */}
       {resizing && previewSpan && (
