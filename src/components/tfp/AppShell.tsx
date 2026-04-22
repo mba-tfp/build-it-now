@@ -27,7 +27,9 @@ export function AppShell() {
   const location = useLocation();
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const setCurrentUser = useTfpStore((s) => s.setCurrentUser);
-  const me = USERS.find((u) => u.id === currentUserId)!;
+  const users = useTfpStore((s) => s.users);
+  const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
+  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
 
   return (
     <div className="min-h-screen bg-background">
