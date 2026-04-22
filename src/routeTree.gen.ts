@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
+import { Route as AppRoadmapRouteImport } from './routes/_app.roadmap'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
 import { Route as AppRetrosRouteImport } from './routes/_app.retros'
 import { Route as AppOverridesRouteImport } from './routes/_app.overrides'
@@ -47,6 +48,11 @@ const AppTriageRoute = AppTriageRouteImport.update({
 const AppShapingRoute = AppShapingRouteImport.update({
   id: '/shaping',
   path: '/shaping',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRoadmapRoute = AppRoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReviewRoute = AppReviewRouteImport.update({
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/overrides': typeof AppOverridesRoute
   '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
+  '/roadmap': typeof AppRoadmapRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
 }
@@ -128,6 +135,7 @@ export interface FileRoutesByTo {
   '/overrides': typeof AppOverridesRoute
   '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
+  '/roadmap': typeof AppRoadmapRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
   '/': typeof AppIndexRoute
@@ -146,6 +154,7 @@ export interface FileRoutesById {
   '/_app/overrides': typeof AppOverridesRoute
   '/_app/retros': typeof AppRetrosRoute
   '/_app/review': typeof AppReviewRoute
+  '/_app/roadmap': typeof AppRoadmapRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
   '/_app/': typeof AppIndexRoute
@@ -165,6 +174,7 @@ export interface FileRouteTypes {
     | '/overrides'
     | '/retros'
     | '/review'
+    | '/roadmap'
     | '/shaping'
     | '/triage'
   fileRoutesByTo: FileRoutesByTo
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/overrides'
     | '/retros'
     | '/review'
+    | '/roadmap'
     | '/shaping'
     | '/triage'
     | '/'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/_app/overrides'
     | '/_app/retros'
     | '/_app/review'
+    | '/_app/roadmap'
     | '/_app/shaping'
     | '/_app/triage'
     | '/_app/'
@@ -242,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/shaping'
       fullPath: '/shaping'
       preLoaderRoute: typeof AppShapingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/roadmap': {
+      id: '/_app/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof AppRoadmapRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/review': {
@@ -328,6 +347,7 @@ interface AppRouteChildren {
   AppOverridesRoute: typeof AppOverridesRoute
   AppRetrosRoute: typeof AppRetrosRoute
   AppReviewRoute: typeof AppReviewRoute
+  AppRoadmapRoute: typeof AppRoadmapRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -344,6 +364,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOverridesRoute: AppOverridesRoute,
   AppRetrosRoute: AppRetrosRoute,
   AppReviewRoute: AppReviewRoute,
+  AppRoadmapRoute: AppRoadmapRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
   AppIndexRoute: AppIndexRoute,
