@@ -64,9 +64,25 @@ export function TimelineGrid({
   // Total grid width
   const gridTemplateColumns = `${SECTION_COL_WIDTH}px ${TBP_COL_WIDTH}px repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))`;
 
+  // Live region for screen-reader announcements during drag/resize.
+  const [liveMessage, setLiveMessage] = useState("");
+  useEffect(() => {
+    if (!liveMessage) return;
+    const t = setTimeout(() => setLiveMessage(""), 2000);
+    return () => clearTimeout(t);
+  }, [liveMessage]);
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-      <div className="min-w-full">
+      {/* Polite live region — announces snap targets to assistive tech */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveMessage}
+      </div>
+      <div
+        className="min-w-full"
+        role="grid"
+        aria-label={`Roadmap timeline with ${visibleMonths.length} visible months`}
+      >
         {/* ===== Sticky 3-row header ===== */}
         <div className="sticky top-0 z-30">
           {/* Row 1: Year */}
