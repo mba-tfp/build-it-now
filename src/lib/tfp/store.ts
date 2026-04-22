@@ -121,6 +121,8 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     jira_key: null,
     delivery_status: null,
     blocked_since: null,
+    blocker_description: "",
+    delivery_assignee_id: null,
     dev_complete: {
       merged_to_main: false,
       deployed_to_staging: false,
@@ -393,6 +395,7 @@ const shapingInDelivery: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
   jira_key: "TFP-1042",
   delivery_status: "In Progress",
+  delivery_assignee_id: "u-farooq",
   created_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
@@ -441,6 +444,7 @@ const shapingInQA: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
   jira_key: "TFP-1038",
   delivery_status: "In QA",
+  delivery_assignee_id: "u-zeeshan",
   created_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
@@ -490,6 +494,8 @@ const shapingBlocked: ShapingItem = {
   jira_key: "TFP-1045",
   delivery_status: "Blocked",
   blocked_since: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+  blocker_description: "Awaiting SMTP provider response — needed before we can validate retry path.",
+  delivery_assignee_id: "u-ahmed",
   created_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
@@ -538,6 +544,7 @@ const shapingDone: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
   jira_key: "TFP-1031",
   delivery_status: "Done",
+  delivery_assignee_id: "u-farooq",
   dev_complete: {
     merged_to_main: true,
     deployed_to_staging: true,
@@ -1164,6 +1171,9 @@ type State = {
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
+  setBlocked: (id: string, description: string) => void;
+  unblock: (id: string, next: DeliveryStatus) => void;
+  setDeliveryAssignee: (id: string, userId: string | null) => void;
   syncFromJira: () => number;
   startReview: (shapingId: string) => Review | null;
   updateReview: (id: string, patch: Partial<Review>) => void;
@@ -1595,6 +1605,64 @@ export const useTfpStore = create<State>()(
             entity_id: id,
           });
         }
+      },
+
+      setBlocked: (id, description) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.jira_key) return;
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  delivery_status: "Blocked",
+                  blocked_since: now,
+                  blocker_description: description,
+                  updated_at: now,
+                }
+              : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: "Marked Blocked",
+          after: description.slice(0, 80),
+        });
+        get().pushNotification({
+          trigger: "blocker_signoff",
+          title: `${item.jira_key} marked Blocked`,
+          body: description.slice(0, 120),
+          link_to: "/delivery",
+          entity_id: id,
+        });
+      },
+
+      unblock: (id, next) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item) return;
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? { ...s, delivery_status: next, blocked_since: null, blocker_description: "", updated_at: now }
+              : s,
+          ),
+        });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Unblocked → ${next}`,
+        });
+      },
+
+      setDeliveryAssignee: (id, userId) => {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, delivery_assignee_id: userId, updated_at: new Date().toISOString() } : s,
+          ),
+        });
       },
 
       syncFromJira: () => {

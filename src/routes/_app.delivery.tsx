@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { USERS, useTfpStore, usableCapacity } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem } from "@/lib/tfp/types";
-import { fmtDateTime } from "@/lib/tfp/format";
+import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
+import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
+import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { ArrowDown, ArrowUp, LayoutGrid, RefreshCw, Table as TableIcon } from "lucide-react";
+import { AlertTriangle, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/delivery")({
   component: DeliveryPage,
 });
 
-const STATUSES: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Blocked", "Done"];
+const COLUMNS: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
+
+type Row = { sh: ShapingItem; sig: { title: string; product: string } | undefined };
 
 const STATUS_TONE: Record<DeliveryStatus, string> = {
   "To Do": "bg-muted text-muted-foreground",
@@ -20,20 +23,49 @@ const STATUS_TONE: Record<DeliveryStatus, string> = {
   Done: "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]",
 };
 
-type SortKey = "jira" | "title" | "status" | "pts" | "updated";
+// Role permission matrix
+function canMove(user: User, sh: ShapingItem, target: DeliveryStatus): boolean {
+  const role = user.role;
+  const isAssignee = sh.delivery_assignee_id === user.id;
+  if (target === "Blocked") return true; // anyone can flag a blocker (with reason)
+  if (role === "Developer" || role === "Tech Lead") {
+    if (!isAssignee) return false;
+    if (sh.delivery_status === "To Do" && target === "In Progress") return true;
+    if (sh.delivery_status === "In Progress" && target === "Done") return true; // gate-enforced separately
+    return false;
+  }
+  if (role === "QA Scrum Master") {
+    if (sh.delivery_status === "Done" && target === "In QA") return false;
+    if (target === "In QA" && sh.delivery_status === "In Progress") return true;
+    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return true;
+    return false;
+  }
+  if (role === "PM" || role === "Senior PM" || role === "Associate PM") {
+    return false; // PMs can flag blockers / hold but not move QA items
+  }
+  return false;
+}
 
 function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
+  const users = useTfpStore((s) => s.users);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
-  const [view, setView] = useState<"table" | "kanban">("table");
-  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "All">("All");
-  const [sortKey, setSortKey] = useState<SortKey>("updated");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const setStatus = useTfpStore((s) => s.setDeliveryStatus);
+  const setBlocked = useTfpStore((s) => s.setBlocked);
+  const unblock = useTfpStore((s) => s.unblock);
+  const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
+  const signOff = useTfpStore((s) => s.signOffDevComplete);
+  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
 
-  const items = useMemo(
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
+  const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
+
+  const allRows: Row[] = useMemo(
     () =>
       shaping
         .filter((s) => s.jira_key && s.delivery_status)
@@ -45,58 +77,46 @@ function DeliveryPage() {
     [shaping, signals],
   );
 
-  const filtered = useMemo(() => {
-    const list = statusFilter === "All" ? items : items.filter((x) => x.sh.delivery_status === statusFilter);
-    const sorted = [...list].sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      switch (sortKey) {
-        case "jira":
-          return a.sh.jira_key!.localeCompare(b.sh.jira_key!) * dir;
-        case "title":
-          return a.sig!.title.localeCompare(b.sig!.title) * dir;
-        case "status":
-          return STATUSES.indexOf(a.sh.delivery_status!) - STATUSES.indexOf(b.sh.delivery_status!) * dir;
-        case "pts":
-          return ((a.sh.tech_estimate_pts ?? 0) - (b.sh.tech_estimate_pts ?? 0)) * dir;
-        case "updated":
-        default:
-          return (new Date(a.sh.updated_at).getTime() - new Date(b.sh.updated_at).getTime()) * dir;
-      }
-    });
-    return sorted;
-  }, [items, statusFilter, sortKey, sortDir]);
+  const rows = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
 
-  const usable = usableCapacity(sprint);
-  const totals = useMemo(() => {
-    const counts: Record<DeliveryStatus, number> = {
-      "To Do": 0,
-      "In Progress": 0,
-      "In QA": 0,
-      Blocked: 0,
-      Done: 0,
-    };
-    let pts = 0;
-    let donePts = 0;
-    items.forEach(({ sh }) => {
-      counts[sh.delivery_status!]++;
-      pts += sh.tech_estimate_pts ?? 0;
-      if (sh.delivery_status === "Done") donePts += sh.tech_estimate_pts ?? 0;
-    });
-    return { counts, pts, donePts };
-  }, [items]);
+  const blocked = rows.filter((r) => r.sh.delivery_status === "Blocked");
+  const grouped: Record<DeliveryStatus, Row[]> = {
+    "To Do": [],
+    "In Progress": [],
+    "In QA": [],
+    Blocked: [],
+    Done: [],
+  };
+  rows.forEach((r) => {
+    if (r.sh.delivery_status) grouped[r.sh.delivery_status].push(r);
+  });
 
-  function toggleSort(k: SortKey) {
-    if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir("desc");
+  const sprintLocked = !!sprint.scope_locked_at;
+  const teamMembers = USERS.filter((u) => ["Developer", "Tech Lead", "QA Scrum Master"].includes(u.role));
+
+  function handleMove(sh: ShapingItem, next: DeliveryStatus) {
+    if (next === "Blocked") {
+      setBlockerFor(sh);
+      return;
     }
+    if (!canMove(me, sh, next)) {
+      toast.error("Not allowed", {
+        description: `${me.role} cannot move this item to ${next}.`,
+      });
+      return;
+    }
+    if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
+      // Dev wants to mark Dev Complete (mapped to In QA via gate)
+      setDevCompleteFor(sh);
+      return;
+    }
+    setStatus(sh.id, next);
   }
 
   function handleSync() {
     const n = syncFromJira();
-    setSyncMsg(n === 0 ? "No changes from Jira." : `Pulled ${n} status update${n === 1 ? "" : "s"} from Jira.`);
-    window.setTimeout(() => setSyncMsg(null), 3500);
+    if (n === 0) toast.info("No changes from Jira.");
+    else toast.success(`Pulled ${n} status update${n === 1 ? "" : "s"}.`);
   }
 
   return (
@@ -106,395 +126,338 @@ function DeliveryPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 4</p>
           <h1 className="mt-1 font-display text-3xl">Delivery Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sprint.name} · {totals.donePts} / {totals.pts} pts complete · {usable} pts usable capacity
+            {sprint.name} · {rows.length} items · viewing as {me.name} ({me.role})
           </p>
         </div>
-
         <div className="flex items-center gap-2">
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All items ({allRows.length})</option>
+            {teamMembers.map((u) => {
+              const n = allRows.filter((r) => r.sh.delivery_assignee_id === u.id).length;
+              return (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({n})
+                </option>
+              );
+            })}
+          </select>
           <button
             onClick={handleSync}
             className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Sync from Jira
           </button>
-          <div className="flex rounded-md border border-input bg-surface p-0.5">
-            <button
-              onClick={() => setView("table")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs",
-                view === "table" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-              )}
-            >
-              <TableIcon className="h-3.5 w-3.5" /> Table
-            </button>
-            <button
-              onClick={() => setView("kanban")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs",
-                view === "kanban" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-              )}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" /> Kanban
-            </button>
-          </div>
+          <button
+            disabled={sprintLocked}
+            title={sprintLocked ? "Sprint is locked — items can only be added via an override" : ""}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add item
+          </button>
         </div>
       </header>
 
-      {syncMsg && (
-        <div className="mb-4 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 px-3 py-2 text-sm text-[var(--color-status-proceed)]">
-          {syncMsg}
+      {sprintLocked && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
+          <Lock className="h-3.5 w-3.5 text-amber-600" />
+          <span>
+            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Use the Override log to add new items.
+          </span>
         </div>
       )}
 
-      {/* Status pills / filter */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <FilterPill
-          active={statusFilter === "All"}
-          label={`All (${items.length})`}
-          onClick={() => setStatusFilter("All")}
-        />
-        {STATUSES.map((s) => (
-          <FilterPill
-            key={s}
-            active={statusFilter === s}
-            label={`${s} (${totals.counts[s]})`}
-            tone={STATUS_TONE[s]}
-            onClick={() => setStatusFilter(s)}
-          />
+      {/* Blocked rail */}
+      {blocked.length > 0 && (
+        <section className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            Blocked ({blocked.length})
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {blocked.map(({ sh, sig }) => {
+              const days = sh.blocked_since ? Math.abs(daysSince(sh.blocked_since)) : 0;
+              const escalated = days >= 1;
+              return (
+                <div key={sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-mono">{sh.jira_key}</span>
+                    <span className={escalated ? "font-medium text-destructive" : ""}>
+                      {days}d blocked {escalated && "· P2"}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-medium leading-snug">{sig?.title}</p>
+                  {sh.blocker_description && (
+                    <p className="mt-1 text-[11px] italic text-muted-foreground">"{sh.blocker_description}"</p>
+                  )}
+                  <button
+                    onClick={() => unblock(sh.id, "In Progress")}
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-input bg-surface px-2 py-1 text-[11px] hover:bg-muted"
+                  >
+                    Unblock → In Progress
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Kanban */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {COLUMNS.map((status) => (
+          <div key={status} className="rounded-lg border border-border bg-muted/20 p-2">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS_TONE[status])}>
+                {status}
+              </span>
+              <span className="text-[11px] text-muted-foreground">{grouped[status].length}</span>
+            </div>
+            <div className="space-y-2">
+              {grouped[status].map(({ sh, sig }) => {
+                const assignee = USERS.find((u) => u.id === sh.delivery_assignee_id);
+                const initials = assignee?.name.split(" ").map((p) => p[0]).join("") ?? "—";
+                const days = Math.abs(daysSince(sh.updated_at));
+                const isOpen = expanded === sh.id;
+                const gateReady =
+                  sh.dev_complete.merged_to_main &&
+                  sh.dev_complete.deployed_to_staging &&
+                  sh.dev_complete.smoke_test_passed;
+                return (
+                  <div
+                    key={sh.id}
+                    className={cn(
+                      "rounded-md border bg-surface p-2.5 text-sm shadow-sm transition",
+                      isOpen ? "border-primary/40" : "border-border",
+                    )}
+                  >
+                    <button
+                      onClick={() => setExpanded(isOpen ? null : sh.id)}
+                      className="block w-full text-left"
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="font-mono">{sh.jira_key}</span>
+                        <span className="font-mono">{sh.tech_estimate_pts ?? "—"}p</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 font-medium leading-snug">{sig?.title}</p>
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">
+                          {initials}
+                        </span>
+                        <span>{days}d in status</span>
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="mt-2 space-y-2 border-t border-border/60 pt-2">
+                        <p className="text-[11px] text-muted-foreground">{sig?.product}</p>
+                        {status === "In Progress" && (
+                          <div className="rounded-md border border-border bg-muted/20 p-2">
+                            <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              Dev Complete gate
+                            </p>
+                            <ul className="space-y-0.5 text-[11px]">
+                              <li>
+                                {sh.dev_complete.merged_to_main ? "✓" : "○"} Merged to main
+                              </li>
+                              <li>
+                                {sh.dev_complete.deployed_to_staging ? "✓" : "○"} Deployed to staging
+                              </li>
+                              <li>
+                                {sh.dev_complete.smoke_test_passed ? "✓" : "○"} Smoke test passed
+                              </li>
+                            </ul>
+                            {sh.dev_complete.signed_off_at && (
+                              <p className="mt-1 text-[10px] text-[var(--color-status-proceed)]">
+                                Gate signed off {fmtDateTime(sh.dev_complete.signed_off_at)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5">
+                          {COLUMNS.filter((s) => s !== status).map((target) => {
+                            const allowed = canMove(me, sh, target);
+                            const needsGate =
+                              status === "In Progress" && target === "Done" && !gateReady && me.role !== "QA Scrum Master";
+                            return (
+                              <button
+                                key={target}
+                                disabled={!allowed && me.role !== "QA Scrum Master" ? !allowed : false}
+                                onClick={() => handleMove(sh, target)}
+                                className={cn(
+                                  "rounded-md border px-2 py-1 text-[11px]",
+                                  allowed
+                                    ? "border-input bg-surface hover:bg-muted"
+                                    : "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/60",
+                                )}
+                                title={
+                                  !allowed
+                                    ? `${me.role} cannot move to ${target}`
+                                    : needsGate
+                                      ? "Dev Complete gate required"
+                                      : ""
+                                }
+                              >
+                                → {target}
+                              </button>
+                            );
+                          })}
+                          <button
+                            onClick={() => setBlockerFor(sh)}
+                            className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"
+                          >
+                            <Pause className="mr-1 inline h-3 w-3" /> Block
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {grouped[status].length === 0 && (
+                <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">—</p>
+              )}
+            </div>
+          </div>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>
-          {items.length === 0 ? (
-            <div className="tfp-card p-12 text-center text-sm text-muted-foreground">
-              Nothing in delivery yet. Approve a shaping item to push it to Jira.
-            </div>
-          ) : view === "table" ? (
-            <BoardTable
-              rows={filtered}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-            />
-          ) : (
-            <Kanban items={items} />
-          )}
-        </div>
-
-        <JiraEventLog />
-      </div>
-    </div>
-  );
-}
-
-function FilterPill({
-  active,
-  label,
-  tone,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  tone?: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : cn("border-border bg-surface hover:border-primary/40", tone),
+      {/* Dev Complete gate modal */}
+      {devCompleteFor && (
+        <DevCompleteModal
+          item={devCompleteFor}
+          onToggle={(key, v) => toggleGate(devCompleteFor.id, key, v)}
+          onConfirm={() => {
+            signOff(devCompleteFor.id);
+            setStatus(devCompleteFor.id, "In QA");
+            toast.success("Gate signed off · Abdul Karim notified");
+            setDevCompleteFor(null);
+          }}
+          onClose={() => setDevCompleteFor(null)}
+        />
       )}
-    >
-      {label}
-    </button>
-  );
-}
 
-function BoardTable({
-  rows,
-  sortKey,
-  sortDir,
-  onSort,
-}: {
-  rows: Array<{ sh: ShapingItem; sig: { title: string; product: string } | undefined }>;
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onSort: (k: SortKey) => void;
-}) {
-  const setStatus = useTfpStore((s) => s.setDeliveryStatus);
-
-  return (
-    <div className="tfp-card overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wider text-muted-foreground">
-          <tr>
-            <Th onClick={() => onSort("jira")} active={sortKey === "jira"} dir={sortDir}>Key</Th>
-            <Th onClick={() => onSort("title")} active={sortKey === "title"} dir={sortDir}>Title</Th>
-            <th className="px-3 py-2 text-left font-medium">Owner</th>
-            <Th onClick={() => onSort("status")} active={sortKey === "status"} dir={sortDir}>Status</Th>
-            <Th onClick={() => onSort("pts")} active={sortKey === "pts"} dir={sortDir}>Pts</Th>
-            <Th onClick={() => onSort("updated")} active={sortKey === "updated"} dir={sortDir}>Updated</Th>
-            <th className="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ sh, sig }) => {
-            const reviewer = USERS.find((u) => u.id === sh.tech_reviewer_id);
-            return (
-              <tr key={sh.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                <td className="px-3 py-2.5 font-mono text-xs text-foreground">{sh.jira_key}</td>
-                <td className="px-3 py-2.5">
-                  <div className="font-medium leading-tight">{sig?.title}</div>
-                  <div className="text-[11px] text-muted-foreground">{sig?.product}</div>
-                </td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{reviewer?.name ?? "—"}</td>
-                <td className="px-3 py-2.5">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      STATUS_TONE[sh.delivery_status!],
-                    )}
-                  >
-                    {sh.delivery_status}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 font-mono text-xs">{sh.tech_estimate_pts ?? "—"}</td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{fmtDateTime(sh.updated_at)}</td>
-                <td className="px-3 py-2.5 text-right">
-                  <select
-                    value={sh.delivery_status!}
-                    onChange={(e) => setStatus(sh.id, e.target.value as DeliveryStatus)}
-                    className="rounded-md border border-input bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        Move to {s}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <DevCompleteRail rows={rows} />
+      {/* Blocker reason modal */}
+      {blockerFor && (
+        <BlockerModal
+          item={blockerFor}
+          onConfirm={(desc) => {
+            setBlocked(blockerFor.id, desc);
+            toast.success("Item flagged as blocked");
+            setBlockerFor(null);
+          }}
+          onClose={() => setBlockerFor(null)}
+        />
+      )}
     </div>
   );
 }
 
-function DevCompleteRail({ rows }: { rows: Array<{ sh: ShapingItem; sig: { title: string; product: string } | undefined }> }) {
-  const inFlight = rows.filter((r) => r.sh.delivery_status && r.sh.delivery_status !== "Done" && r.sh.delivery_status !== "To Do");
-  const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
-  const signOff = useTfpStore((s) => s.signOffDevComplete);
-
-  if (inFlight.length === 0) return null;
-
-  return (
-    <div className="border-t border-border bg-muted/10 p-4">
-      <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Dev Complete gate</p>
-      <p className="mb-3 text-xs text-muted-foreground">
-        All three boxes must be checked before an item can transition to Done.
-      </p>
-      <div className="space-y-2">
-        {inFlight.map(({ sh, sig }) => {
-          const g = sh.dev_complete;
-          const allChecked = g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed;
-          return (
-            <div key={sh.id} className="rounded-md border border-border bg-surface p-3">
-              <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="font-mono">{sh.jira_key}</span>
-                <span className="text-muted-foreground">{sig?.title}</span>
-              </div>
-              <div className="flex flex-wrap gap-3 text-xs">
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={g.merged_to_main} onChange={(e) => toggleGate(sh.id, "merged_to_main", e.target.checked)} />
-                  Code merged to main branch
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={g.deployed_to_staging} onChange={(e) => toggleGate(sh.id, "deployed_to_staging", e.target.checked)} />
-                  Deployed to staging environment
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={g.smoke_test_passed} onChange={(e) => toggleGate(sh.id, "smoke_test_passed", e.target.checked)} />
-                  Basic smoke test passed by dev
-                </label>
-                {!g.signed_off_at ? (
-                  <button
-                    disabled={!allChecked}
-                    onClick={() => signOff(sh.id)}
-                    className="ml-auto rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground disabled:opacity-40"
-                  >
-                    Sign off gate
-                  </button>
-                ) : (
-                  <span className="ml-auto text-[var(--color-status-proceed)]">✓ Gate signed off</span>
-                )}
-              </div>
-              {!allChecked && (
-                <p className="mt-2 text-[11px] text-muted-foreground">All three checkboxes required to move to Done.</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Th({
-  children,
-  onClick,
-  active,
-  dir,
+function DevCompleteModal({
+  item,
+  onToggle,
+  onConfirm,
+  onClose,
 }: {
-  children: React.ReactNode;
-  onClick: () => void;
-  active: boolean;
-  dir: "asc" | "desc";
+  item: ShapingItem;
+  onToggle: (key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", v: boolean) => void;
+  onConfirm: () => void;
+  onClose: () => void;
 }) {
+  const g = item.dev_complete;
+  const allChecked = g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed;
   return (
-    <th className="px-3 py-2 text-left font-medium">
-      <button
-        onClick={onClick}
-        className={cn(
-          "inline-flex items-center gap-1 hover:text-foreground",
-          active && "text-foreground",
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        {children}
-        {active && (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
-      </button>
-    </th>
-  );
-}
-
-function Kanban({
-  items,
-}: {
-  items: Array<{ sh: ShapingItem; sig: { title: string; product: string } | undefined }>;
-}) {
-  const setStatus = useTfpStore((s) => s.setDeliveryStatus);
-  const grouped: Record<DeliveryStatus, typeof items> = {
-    "To Do": [],
-    "In Progress": [],
-    "In QA": [],
-    Blocked: [],
-    Done: [],
-  };
-  items.forEach((x) => grouped[x.sh.delivery_status!].push(x));
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      {STATUSES.map((status) => (
-        <div key={status} className="rounded-lg border border-border bg-muted/20 p-2">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
-                STATUS_TONE[status],
-              )}
-            >
-              {status}
-            </span>
-            <span className="text-[11px] text-muted-foreground">{grouped[status].length}</span>
-          </div>
-          <div className="space-y-2">
-            {grouped[status].map(({ sh, sig }) => (
-              <div key={sh.id} className="rounded-md border border-border bg-surface p-3 shadow-sm">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span className="font-mono">{sh.jira_key}</span>
-                  <span className="font-mono">{sh.tech_estimate_pts ?? "—"} pts</span>
-                </div>
-                <p className="mt-1 line-clamp-3 text-sm font-medium leading-snug">{sig?.title}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">{sig?.product}</p>
-                <select
-                  value={sh.delivery_status!}
-                  onChange={(e) => setStatus(sh.id, e.target.value as DeliveryStatus)}
-                  className="mt-2 w-full rounded-md border border-input bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-            {grouped[status].length === 0 && (
-              <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">—</p>
-            )}
-          </div>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg">Confirm Dev Complete</h3>
+          <button onClick={onClose}>
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
-      ))}
+        <p className="mb-4 text-xs text-muted-foreground">
+          {item.jira_key} · all three checks must pass before Abdul Karim can pick it up for QA.
+        </p>
+        <div className="space-y-2 text-sm">
+          {[
+            { key: "merged_to_main" as const, label: "Code merged to main branch" },
+            { key: "deployed_to_staging" as const, label: "Deployed to staging environment" },
+            { key: "smoke_test_passed" as const, label: "Basic smoke test passed — core happy path verified" },
+          ].map((row) => (
+            <label key={row.key} className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <input type="checkbox" checked={g[row.key]} onChange={(e) => onToggle(row.key, e.target.checked)} />
+              <span>{row.label}</span>
+            </label>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+            Cancel
+          </button>
+          <button
+            disabled={!allChecked}
+            onClick={onConfirm}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40"
+          >
+            Confirm Dev Complete
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function JiraEventLog() {
-  const events = useTfpStore((s) => s.jiraEvents);
-  const [limit, setLimit] = useState(15);
-  const visible = events.slice(0, limit);
-
+function BlockerModal({
+  item,
+  onConfirm,
+  onClose,
+}: {
+  item: ShapingItem;
+  onConfirm: (description: string) => void;
+  onClose: () => void;
+}) {
+  const [desc, setDesc] = useState(item.blocker_description ?? "");
+  const valid = desc.trim().length >= 20;
   return (
-    <aside className="lg:sticky lg:top-24 lg:self-start">
-      <div className="tfp-card flex max-h-[70vh] flex-col">
-        <div className="border-b border-border p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Jira event log</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Mocked webhook stream. Each push or status change generates an event.
-          </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg">Mark blocked</h3>
+          <button onClick={onClose}>
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3">
-          {visible.length === 0 ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">No events yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {visible.map((e) => (
-                <li
-                  key={e.id}
-                  className="rounded-md border border-border bg-muted/20 p-2.5 text-xs"
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-                        e.direction === "outbound"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]",
-                      )}
-                    >
-                      {e.direction === "outbound" ? "→ push" : "← pull"}
-                    </span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {fmtDateTime(e.ts)}
-                    </span>
-                  </div>
-                  <div className="font-mono text-foreground">{e.jira_key}</div>
-                  <div className="text-muted-foreground">{e.type}</div>
-                  <pre className="mt-1 overflow-x-auto rounded bg-background p-1.5 font-mono text-[10px] text-muted-foreground">
-                    {JSON.stringify(e.payload, null, 0)}
-                  </pre>
-                </li>
-              ))}
-            </ul>
-          )}
+        <p className="mb-3 text-xs text-muted-foreground">{item.jira_key} · describe the blocker (min 20 chars).</p>
+        <textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          rows={4}
+          placeholder="What's blocking this item? Who do we need to unblock it?"
+          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-1 text-[11px] text-muted-foreground">{desc.trim().length}/20 chars minimum</div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+            Cancel
+          </button>
+          <button
+            disabled={!valid}
+            onClick={() => onConfirm(desc.trim())}
+            className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground disabled:opacity-40"
+          >
+            Mark blocked
+          </button>
         </div>
-        {events.length > limit && (
-          <div className="border-t border-border p-2 text-center">
-            <button
-              onClick={() => setLimit((l) => l + 25)}
-              className="text-xs text-primary hover:underline"
-            >
-              Show more ({events.length - limit} hidden)
-            </button>
-          </div>
-        )}
       </div>
-    </aside>
+    </div>
   );
 }

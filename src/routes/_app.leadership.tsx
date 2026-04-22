@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   USERS,
@@ -47,6 +47,12 @@ function LeadershipPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
   const sprint = useTfpStore((s) => s.sprint);
+  const overrides = useTfpStore((s) => s.overrides);
+  const goLives = useTfpStore((s) => s.goLives);
+  const ackOverride = useTfpStore((s) => s.ackOverride);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const users = useTfpStore((s) => s.users);
+  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
   const [openSignalId, setOpenSignalId] = useState<string | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
 
@@ -237,6 +243,42 @@ function LeadershipPage() {
           </button>
         </div>
       </header>
+
+      {me.role !== "Leadership" && (
+        <div className="no-print mb-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+          You are viewing the Leadership dashboard. Switch to Shahid in the user menu to see his perspective.
+        </div>
+      )}
+
+      <SprintStatusStrip
+        sprint={sprint}
+        usable={usable}
+        allocated={allocated}
+        capacityPct={capacityPct}
+        blockedCount={blocked.length}
+        deliveredCount={delivered.length}
+        committedCount={shaping.filter((s) => s.delivery_status).length}
+        now={now}
+      />
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr] print-page-break">
+        <OverrideLogPanel
+          overrides={overrides}
+          sprintId={sprint.id}
+          onAck={ackOverride}
+          canAck={me.role === "Leadership"}
+        />
+        <GoLivePipelinePanel goLives={goLives} />
+      </div>
+
+      <div className="no-print mt-4 flex justify-end">
+        <Link
+          to="/roadmap"
+          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs hover:bg-muted"
+        >
+          Open full Roadmap →
+        </Link>
+      </div>
 
       {/* KPI tiles */}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -636,3 +678,200 @@ function SelectFilter({ value, onChange, options }: { value: string; onChange: (
 // Suppress unused-type warnings — these are imported for documentation.
 const _types: { sh?: ShapingItem; sig?: Signal; it?: IssueType } = {};
 void _types;
+
+// ============== Wave 4 panels ==============
+
+function SprintStatusStrip({
+  sprint,
+  usable,
+  allocated,
+  capacityPct,
+  blockedCount,
+  deliveredCount,
+  committedCount,
+  now,
+}: {
+  sprint: { name: string; start_date: string; end_date: string };
+  usable: number;
+  allocated: number;
+  capacityPct: number;
+  blockedCount: number;
+  deliveredCount: number;
+  committedCount: number;
+  now: number;
+}) {
+  const daysLeft = Math.max(0, Math.ceil((new Date(sprint.end_date).getTime() - now) / 86400000));
+  const tone = capacityPct > 100 ? "bg-destructive" : capacityPct > 90 ? "bg-amber-500" : "bg-primary";
+  return (
+    <section className="rounded-lg border border-border bg-surface p-4">
+      <div className="flex flex-wrap items-center gap-6">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active sprint</p>
+          <p className="font-display text-lg leading-tight">{sprint.name}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {fmtDate(sprint.start_date)} → {fmtDate(sprint.end_date)} · {daysLeft}d remaining
+          </p>
+        </div>
+        <div className="min-w-[200px] flex-1">
+          <div className="mb-1 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Capacity</span>
+            <span className="font-mono">
+              {allocated} / {usable} pts · {capacityPct}%
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className={cn("h-full transition-all", tone)} style={{ width: `${Math.min(100, capacityPct)}%` }} />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-2xl">{deliveredCount}<span className="text-muted-foreground">/{committedCount}</span></p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Done / committed</p>
+        </div>
+        <div className="text-center">
+          <p
+            className={cn(
+              "font-mono text-2xl",
+              blockedCount > 0 ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
+            {blockedCount}
+          </p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Blocked</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OverrideLogPanel({
+  overrides,
+  sprintId,
+  onAck,
+  canAck,
+}: {
+  overrides: import("@/lib/tfp/types").Override[];
+  sprintId: string;
+  onAck: (id: string) => void;
+  canAck: boolean;
+}) {
+  const sprintOverrides = overrides.filter((o) => o.sprint_id === sprintId || o.sprint_id === null);
+  const pending = sprintOverrides.filter((o) => o.ack_status === "Pending").length;
+  return (
+    <div className="tfp-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="font-display text-base">Override log · this sprint</h3>
+          <p className="text-[11px] text-muted-foreground">
+            {sprintOverrides.length} total
+            {pending > 0 && (
+              <span className="ml-2 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
+                {pending} pending
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+      {sprintOverrides.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">No overrides this sprint.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-medium">Kind</th>
+                <th className="px-2 py-1.5 text-left font-medium">Reason</th>
+                <th className="px-2 py-1.5 text-left font-medium">Displaced</th>
+                <th className="px-2 py-1.5 text-left font-medium">Status</th>
+                <th className="px-2 py-1.5 text-right font-medium no-print"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sprintOverrides.map((o) => (
+                <tr key={o.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-2 py-2 font-medium">{o.kind}</td>
+                  <td className="px-2 py-2 text-muted-foreground">{o.reason}</td>
+                  <td className="px-2 py-2 text-muted-foreground">{o.displaced_pts}p</td>
+                  <td className="px-2 py-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px]",
+                        o.ack_status === "Acknowledged"
+                          ? "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]"
+                          : "bg-amber-500/15 text-amber-700",
+                      )}
+                    >
+                      {o.ack_status}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 text-right no-print">
+                    {o.ack_status === "Pending" && canAck && (
+                      <button
+                        onClick={() => onAck(o.id)}
+                        className="rounded-md bg-primary px-2 py-1 text-[10px] text-primary-foreground hover:bg-primary/90"
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GoLivePipelinePanel({ goLives }: { goLives: import("@/lib/tfp/types").GoLiveChecklist[] }) {
+  const sorted = [...goLives].sort(
+    (a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime(),
+  );
+  return (
+    <div className="tfp-card p-4">
+      <h3 className="mb-3 font-display text-base">Go-live pipeline</h3>
+      {sorted.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">No go-lives scheduled.</p>
+      ) : (
+        <ul className="space-y-2">
+          {sorted.map((g) => {
+            const total = Object.values(g.criteria).length;
+            const done = Object.values(g.criteria).filter((c) => c.done).length;
+            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+            return (
+              <li key={g.id} className="rounded-md border border-border bg-muted/20 p-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">{g.release_name}</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-0.5 text-[10px]",
+                      g.go_no_go_decision === "Go"
+                        ? "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]"
+                        : g.go_no_go_decision === "No-Go"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {g.go_no_go_decision ?? "Pending"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {g.product} · {fmtDate(g.scheduled_for)}
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {done}/{total}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
