@@ -189,6 +189,8 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
       {sh.fast_track ? (
         <FastTrack item={sh} />
+      ) : sig.issue_type === "Dependency Change" ? (
+        <DependencyFastTrack item={sh} />
       ) : (
         <>
           {/* Stepper */}
