@@ -1343,9 +1343,21 @@ export const useTfpStore = create<State>()(
         const signals = get().signals.map((s) => {
           if (s.id !== signalId) return s;
           if (decision === "Proceed") {
-            const sh = blankShaping(s.id, me);
+            const isFastTrack = s.issue_type === "Bug" && (s.tier === "T1" || s.tier === "T2");
+            // Default fast-track owner to a Tech Lead if available
+            const ownerId = isFastTrack ? "u-waseem" : me;
+            const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
             set({ shaping: [sh, ...get().shaping] });
-            get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Proceed" });
+            get().audit_log({ entity_type: "signal", entity_id: signalId, action: isFastTrack ? "Triaged → Proceed (Fast-track)" : "Triaged → Proceed" });
+            if (isFastTrack) {
+              get().pushNotification({
+                trigger: "fast_track_review",
+                title: `Fast-track: ${s.title}`,
+                body: `${s.tier} ${s.issue_type} — root cause required.`,
+                link_to: "/shaping",
+                entity_id: sh.id,
+              });
+            }
             return { ...s, status: "Proceed" as const, owner_id: me, shaping_item_id: sh.id, triage_reason: null, hold_until: null };
           }
           if (decision === "Hold") {
