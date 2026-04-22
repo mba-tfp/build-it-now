@@ -7,14 +7,11 @@ import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   AlertTriangle,
-  Building2,
   Download,
   FileText,
   Info,
   Plus,
   Send,
-  TrendingDown,
-  TrendingUp,
   Wrench,
   Zap,
 } from "lucide-react";
