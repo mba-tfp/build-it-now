@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   USERS,
@@ -47,6 +47,12 @@ function LeadershipPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
   const sprint = useTfpStore((s) => s.sprint);
+  const overrides = useTfpStore((s) => s.overrides);
+  const goLives = useTfpStore((s) => s.goLives);
+  const ackOverride = useTfpStore((s) => s.ackOverride);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const users = useTfpStore((s) => s.users);
+  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
   const [openSignalId, setOpenSignalId] = useState<string | null>(null);
   const [updateOpen, setUpdateOpen] = useState(false);
 
