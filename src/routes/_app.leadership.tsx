@@ -35,6 +35,8 @@ import { TierBadge, StatusBadge } from "@/components/tfp/Badge";
 import { SignalTimelineDrawer } from "@/components/tfp/SignalTimelineDrawer";
 import { SprintUpdateModal } from "@/components/tfp/SprintUpdateModal";
 import { downloadCsv, signalsToCsv } from "@/lib/tfp/exports";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
 
 export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
