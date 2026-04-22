@@ -35,6 +35,8 @@ import { TierBadge, StatusBadge } from "@/components/tfp/Badge";
 import { SignalTimelineDrawer } from "@/components/tfp/SignalTimelineDrawer";
 import { SprintUpdateModal } from "@/components/tfp/SprintUpdateModal";
 import { downloadCsv, signalsToCsv } from "@/lib/tfp/exports";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
 
 export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
@@ -181,8 +183,11 @@ function LeadershipPage() {
   const [productFilter, setProductFilter] = useState<Product | "All">("All");
   const [tierFilter, setTierFilter] = useState<Tier | "All">("All");
 
+  type SignalSortKey = "created_at" | "source" | "tier";
+  const { sort: signalSort, setSort: setSignalSort } = useSortMenu<SignalSortKey>("leadership-signals", { key: "created_at", dir: "desc" });
+
   const filteredSignals = useMemo(() => {
-    return signals.filter((s) => {
+    const base = signals.filter((s) => {
       if (sourceFilter !== "All" && s.source !== sourceFilter) return false;
       if (productFilter !== "All" && s.product !== productFilter) return false;
       if (tierFilter !== "All" && s.tier !== tierFilter) return false;
@@ -198,7 +203,13 @@ function LeadershipPage() {
       }
       return true;
     });
-  }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now]);
+    return sortRows(base, signalSort, (s, k) => {
+      if (k === "created_at") return new Date(s.created_at).getTime();
+      if (k === "source") return s.source;
+      if (k === "tier") return s.tier;
+      return null;
+    });
+  }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now, signalSort]);
 
   function exportCsv() {
     const csv = signalsToCsv(filteredSignals, shaping, USERS);
@@ -472,6 +483,16 @@ function LeadershipPage() {
             <SelectFilter value={sourceFilter} onChange={(v) => setSourceFilter(v as Source | "All")} options={["All", "Leadership", "Clinic", "Internal", "Dev Team"]} />
             <SelectFilter value={productFilter} onChange={(v) => setProductFilter(v as Product | "All")} options={["All", "Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"]} />
             <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "T1", "T2", "T3", "T4"]} />
+            <SortMenu
+              tableId="leadership-signals"
+              sort={signalSort}
+              onChange={setSignalSort}
+              options={[
+                { key: "created_at", label: "Created date" },
+                { key: "source", label: "Source" },
+                { key: "tier", label: "Tier" },
+              ]}
+            />
           </div>
         </div>
         <div className="max-h-[480px] overflow-y-auto">

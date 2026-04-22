@@ -5,6 +5,9 @@ import type { GoLiveCriterion, Product } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertOctagon, Check, Plus, Radio, Rocket, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/golive")({
   component: GoLivePage,
@@ -28,10 +31,21 @@ function GoLivePage() {
   const upsert = useTfpStore((s) => s.upsertGoLive);
   const [composing, setComposing] = useState(false);
 
-  const sorted = useMemo(
-    () => [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime()),
-    [goLives],
-  );
+  type SortKey = "scheduled_for" | "readiness" | "product";
+  const { sort, setSort } = useSortMenu<SortKey>("golive", { key: "scheduled_for", dir: "asc" });
+
+  const sorted = useMemo(() => {
+    if (sort.key && sort.dir) {
+      return sortRows(goLives, sort, (g, k) => {
+        if (k === "scheduled_for") return new Date(g.scheduled_for).getTime();
+        if (k === "readiness") return CRITERIA.filter((c) => g.criteria[c].done).length;
+        if (k === "product") return g.product;
+        return null;
+      });
+    }
+    // default: scheduled asc (preserves existing behaviour)
+    return [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+  }, [goLives, sort]);
 
   return (
     <div>
@@ -52,10 +66,24 @@ function GoLivePage() {
         </button>
       </header>
 
+      <div className="mb-4 flex items-center justify-end">
+        <SortMenu
+          tableId="golive"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "scheduled_for", label: "Target date" },
+            { key: "readiness", label: "Readiness" },
+            { key: "product", label: "Product" },
+          ]}
+        />
+      </div>
+
       {composing && <ComposeGoLive upsert={upsert} onDone={() => setComposing(false)} />}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {sorted.map((g) => {
+      <ScrollTable className="border border-border bg-surface/40 p-3" maxHeight="calc(100vh - 360px)">
+        <div className="grid gap-4 lg:grid-cols-2">
+          {sorted.map((g) => {
           const sh = shaping.find((s) => s.id === g.shaping_id);
           const sig = sh ? signals.find((s) => s.id === sh.signal_id) : null;
           const doneCount = CRITERIA.filter((c) => g.criteria[c].done).length;
@@ -164,7 +192,8 @@ function GoLivePage() {
             </div>
           );
         })}
-      </div>
+        </div>
+      </ScrollTable>
     </div>
   );
 }

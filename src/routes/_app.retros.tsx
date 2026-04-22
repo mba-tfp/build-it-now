@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type { RetroTheme } from "@/lib/tfp/types";
 import { fmtDate } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Plus, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/retros")({
   component: RetrosPage,
@@ -26,6 +29,23 @@ function RetrosPage() {
   const create = useTfpStore((s) => s.createRetro);
   const [composing, setComposing] = useState(false);
 
+  type SortKey = "created_at" | "actions";
+  const { sort, setSort } = useSortMenu<SortKey>("retros", { key: "created_at", dir: "desc" });
+
+  const sorted = useMemo(
+    () =>
+      sortRows(retros, sort, (r, k) => {
+        if (k === "created_at") return new Date(r.created_at).getTime();
+        if (k === "actions") {
+          const text = r.one_change ?? "";
+          // count actions as comma- or newline-separated entries
+          return text.split(/[,\n]/).filter((s) => s.trim().length > 0).length;
+        }
+        return null;
+      }),
+    [retros, sort],
+  );
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -45,43 +65,57 @@ function RetrosPage() {
         </button>
       </header>
 
+      <div className="mb-4 flex items-center justify-end">
+        <SortMenu
+          tableId="retros"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "created_at", label: "Sprint date" },
+            { key: "actions", label: "Action items" },
+          ]}
+        />
+      </div>
+
       {composing && <Compose create={create} onDone={() => setComposing(false)} sprintId={sprint.id} />}
 
-      <div className="space-y-3">
-        {retros.length === 0 && (
-          <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No retros yet.</div>
-        )}
-        {retros.map((r) => {
-          const author = USERS.find((u) => u.id === r.created_by);
-          return (
-            <article key={r.id} className={cn("tfp-card p-5", r.escalated && "border-destructive/50 ring-2 ring-destructive/10")}>
-              <header className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-display text-lg">{r.sprint_id.toUpperCase()} retrospective</h3>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", THEME_TONE[r.primary_theme])}>
-                      {r.primary_theme}
-                    </span>
-                    {r.escalated && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
-                        <AlertTriangle className="h-3 w-3" /> Escalated · 3 sprints
+      <ScrollTable className="border border-border bg-surface/40 p-3" maxHeight="calc(100vh - 360px)">
+        <div className="space-y-3">
+          {sorted.length === 0 && (
+            <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No retros yet.</div>
+          )}
+          {sorted.map((r) => {
+            const author = USERS.find((u) => u.id === r.created_by);
+            return (
+              <article key={r.id} className={cn("tfp-card p-5", r.escalated && "border-destructive/50 ring-2 ring-destructive/10")}>
+                <header className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-lg">{r.sprint_id.toUpperCase()} retrospective</h3>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", THEME_TONE[r.primary_theme])}>
+                        {r.primary_theme}
                       </span>
-                    )}
+                      {r.escalated && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                          <AlertTriangle className="h-3 w-3" /> Escalated · 3 sprints
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {author?.name} · {fmtDate(r.created_at)}
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {author?.name} · {fmtDate(r.created_at)}
-                  </p>
+                </header>
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+                  <Section label="What worked">{r.what_worked}</Section>
+                  <Section label="What didn't">{r.what_didnt}</Section>
+                  <Section label="One change">{r.one_change}</Section>
                 </div>
-              </header>
-              <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
-                <Section label="What worked">{r.what_worked}</Section>
-                <Section label="What didn't">{r.what_didnt}</Section>
-                <Section label="One change">{r.one_change}</Section>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      </ScrollTable>
     </div>
   );
 }
