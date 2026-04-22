@@ -8,6 +8,7 @@ import {
   Upload,
   Undo2,
   Redo2,
+  Grid3x3,
 } from "lucide-react";
 import {
   useRoadmapStore,
