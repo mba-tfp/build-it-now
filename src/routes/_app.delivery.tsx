@@ -150,6 +150,17 @@ function DeliveryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <SortMenu
+            tableId="delivery"
+            sort={sort}
+            onChange={setSort}
+            options={[
+              { key: "updated", label: "Updated" },
+              { key: "status", label: "Status" },
+              { key: "assignee", label: "Assignee" },
+              { key: "stale", label: "Days since update" },
+            ]}
+          />
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
