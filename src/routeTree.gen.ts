@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ClinicFeedbackRouteImport } from './routes/clinic-feedback'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
@@ -24,6 +25,11 @@ import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
 import { Route as AppDecisionsRouteImport } from './routes/_app.decisions'
 import { Route as AppCommsRouteImport } from './routes/_app.comms'
 
+const ClinicFeedbackRoute = ClinicFeedbackRouteImport.update({
+  id: '/clinic-feedback',
+  path: '/clinic-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -96,6 +102,7 @@ const AppCommsRoute = AppCommsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/clinic-feedback': typeof ClinicFeedbackRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/triage': typeof AppTriageRoute
 }
 export interface FileRoutesByTo {
+  '/clinic-feedback': typeof ClinicFeedbackRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
@@ -127,6 +135,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/clinic-feedback': typeof ClinicFeedbackRoute
   '/_app/comms': typeof AppCommsRoute
   '/_app/decisions': typeof AppDecisionsRoute
   '/_app/delivery': typeof AppDeliveryRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/clinic-feedback'
     | '/comms'
     | '/decisions'
     | '/delivery'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/triage'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/clinic-feedback'
     | '/comms'
     | '/decisions'
     | '/delivery'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/clinic-feedback'
     | '/_app/comms'
     | '/_app/decisions'
     | '/_app/delivery'
@@ -192,10 +204,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  ClinicFeedbackRoute: typeof ClinicFeedbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/clinic-feedback': {
+      id: '/clinic-feedback'
+      path: '/clinic-feedback'
+      fullPath: '/clinic-feedback'
+      preLoaderRoute: typeof ClinicFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -333,6 +353,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ClinicFeedbackRoute: ClinicFeedbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
