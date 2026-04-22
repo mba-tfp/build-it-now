@@ -1162,6 +1162,7 @@ type State = {
     reason?: string,
     holdUntil?: string,
   ) => void;
+  updateSignal: (signalId: string, patch: Partial<Signal>) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
@@ -1383,6 +1384,40 @@ export const useTfpStore = create<State>()(
           return { ...s, status: "Rejected" as const, owner_id: me, triage_reason: reason ?? null };
         });
         set({ signals });
+      },
+
+      updateSignal: (signalId, patch) => {
+        const prev = get().signals.find((s) => s.id === signalId);
+        if (!prev) return;
+        const next: Signal = { ...prev, ...patch };
+        // Recompute SLA if tier changed
+        if (patch.tier && patch.tier !== prev.tier) {
+          next.sla_due_at = slaDueAt(patch.tier, new Date(prev.created_at)).toISOString();
+        }
+        set({ signals: get().signals.map((s) => (s.id === signalId ? next : s)) });
+        // Audit per changed field
+        const fields: (keyof Signal)[] = [
+          "title", "description", "source", "product", "issue_type", "tier", "status", "owner_id",
+        ];
+        for (const f of fields) {
+          if (patch[f] !== undefined && prev[f] !== next[f]) {
+            get().audit_log({
+              entity_type: "signal",
+              entity_id: signalId,
+              action: `${String(f)} changed`,
+              before: String(prev[f] ?? ""),
+              after: String(next[f] ?? ""),
+            });
+          }
+        }
+        if (patch.tier && patch.tier !== prev.tier) {
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: signalId,
+            action: "SLA recalculated for new tier",
+            after: next.sla_due_at,
+          });
+        }
       },
 
       updateShaping: (id, patch) => {
