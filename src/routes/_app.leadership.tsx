@@ -244,6 +244,42 @@ function LeadershipPage() {
         </div>
       </header>
 
+      {me.role !== "Leadership" && (
+        <div className="no-print mb-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+          You are viewing the Leadership dashboard. Switch to Shahid in the user menu to see his perspective.
+        </div>
+      )}
+
+      <SprintStatusStrip
+        sprint={sprint}
+        usable={usable}
+        allocated={allocated}
+        capacityPct={capacityPct}
+        blockedCount={blocked.length}
+        deliveredCount={delivered.length}
+        committedCount={shaping.filter((s) => s.delivery_status).length}
+        now={now}
+      />
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr] print-page-break">
+        <OverrideLogPanel
+          overrides={overrides}
+          sprintId={sprint.id}
+          onAck={ackOverride}
+          canAck={me.role === "Leadership"}
+        />
+        <GoLivePipelinePanel goLives={goLives} />
+      </div>
+
+      <div className="no-print mt-4 flex justify-end">
+        <Link
+          to="/roadmap"
+          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs hover:bg-muted"
+        >
+          Open full Roadmap →
+        </Link>
+      </div>
+
       {/* KPI tiles */}
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
