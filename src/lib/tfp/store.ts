@@ -395,6 +395,7 @@ const shapingInDelivery: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
   jira_key: "TFP-1042",
   delivery_status: "In Progress",
+  delivery_assignee_id: "u-farooq",
   created_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
@@ -443,6 +444,7 @@ const shapingInQA: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
   jira_key: "TFP-1038",
   delivery_status: "In QA",
+  delivery_assignee_id: "u-zeeshan",
   created_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
@@ -492,6 +494,8 @@ const shapingBlocked: ShapingItem = {
   jira_key: "TFP-1045",
   delivery_status: "Blocked",
   blocked_since: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+  blocker_description: "Awaiting SMTP provider response — needed before we can validate retry path.",
+  delivery_assignee_id: "u-ahmed",
   created_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
