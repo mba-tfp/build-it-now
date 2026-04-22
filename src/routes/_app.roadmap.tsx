@@ -397,6 +397,56 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
               <Redo2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {/* Snap-grid overlay toggle (accessible) */}
+          <button
+            type="button"
+            onClick={() => setShowSnapGrid((v) => !v)}
+            aria-pressed={showSnapGrid}
+            title={showSnapGrid ? "Hide snap grid overlay" : "Show snap grid overlay (visible month gridlines for snap targets)"}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm",
+              showSnapGrid ? "border-primary bg-primary/10 text-primary" : "border-input bg-surface hover:bg-accent",
+            )}
+          >
+            <Grid3x3 className="h-3.5 w-3.5" /> Snap grid
+          </button>
+
+          {/* Preferences scope toggle */}
+          <div
+            role="group"
+            aria-label="Where to save your timeline preferences"
+            className="ml-1 flex overflow-hidden rounded-md border border-input text-xs"
+            title="Choose whether your timeline view, filters, collapsed sections and snap-grid setting are remembered for this roadmap only or for every roadmap on this device."
+          >
+            <button
+              type="button"
+              onClick={() => changeScope("roadmap")}
+              aria-pressed={prefsScope === "roadmap"}
+              className={cn(
+                "px-2.5 py-1.5",
+                prefsScope === "roadmap"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-surface text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              This roadmap
+            </button>
+            <button
+              type="button"
+              onClick={() => changeScope("global")}
+              aria-pressed={prefsScope === "global"}
+              className={cn(
+                "border-l border-input px-2.5 py-1.5",
+                prefsScope === "global"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-surface text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              All roadmaps
+            </button>
+          </div>
+
           {/* Force re-eval of canUndo/canRedo when store changes */}
           <span className="hidden">{storeVersion}</span>
         </div>
