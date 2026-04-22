@@ -158,9 +158,22 @@ function ReviewsPage() {
             onClick={() => setFilter(s)}
           />
         ))}
+        <SortMenu
+          className="ml-auto"
+          tableId="reviews"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "created", label: "Created" },
+            { key: "scheduled", label: "Scheduled" },
+            { key: "status", label: "Status" },
+            { key: "outcome", label: "Outcome rating" },
+          ]}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        <ScrollTable className="border border-border bg-surface/40 p-2">
         <div className="space-y-2">
           {filtered.length === 0 ? (
             <div className="tfp-card p-8 text-center text-sm text-muted-foreground">
