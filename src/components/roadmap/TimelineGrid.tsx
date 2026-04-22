@@ -27,6 +27,8 @@ type Props = {
   toggleStream: (id: string) => void;
   onOpenItem: (id: string) => void;
   onCreateItem: (productId: string, sectionId: string, months?: string[]) => void;
+  /** When true, render a vertical month-gridline overlay so snap targets are visible. */
+  showSnapGrid?: boolean;
 };
 
 const SECTION_COL_WIDTH = 220;
