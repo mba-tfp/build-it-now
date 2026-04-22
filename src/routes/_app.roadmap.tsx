@@ -397,5 +397,3 @@ function DeliveryTab() {
 
 // Suppress: roadmapActions referenced from ItemModal/Settings/etc. Keep import for future hooks.
 void roadmapActions;
-// Bucket helper available if linking planning items to shaping bucket auto-derivation later.
-void bucketFor;
