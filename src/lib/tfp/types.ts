@@ -41,12 +41,24 @@ export type DependencySystem =
 export type Tier = "T1" | "T2" | "T3" | "T4";
 export type SignalStatus = "New" | "In Review" | "Proceed" | "Hold" | "Rejected";
 
+export type Attachment = {
+  id: string;
+  label: string;
+  url: string;
+  added_by: string;
+  added_at: string;
+};
+
 export type Signal = {
   id: string;
   title: string;
   description: string;
   source: Source;
+  /** Optional secondary sources (multi-select). Primary `source` remains the routing key. */
+  additional_sources?: Source[];
   product: Product;
+  /** Optional secondary products (multi-select). Primary `product` remains the routing key. */
+  additional_products?: Product[];
   issue_type: IssueType;
   tier: Tier;
   status: SignalStatus;
@@ -60,6 +72,8 @@ export type Signal = {
   labels: string[];
   displacement_flag: boolean;
   displacement_note: string | null;
+  attachments?: Attachment[];
+  parent_signal_id?: string | null;
 };
 
 export type ShapingStatus =
