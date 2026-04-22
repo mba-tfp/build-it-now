@@ -5,6 +5,9 @@ import type { DecisionType } from "@/lib/tfp/types";
 import { fmtDate } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { Plus, Search, X } from "lucide-react";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/decisions")({
   component: DecisionsPage,
@@ -26,9 +29,12 @@ function DecisionsPage() {
   const [type, setType] = useState<DecisionType | "All">("All");
   const [composing, setComposing] = useState(false);
 
+  type SortKey = "decided_at" | "type" | "owner";
+  const { sort, setSort } = useSortMenu<SortKey>("decisions", { key: "decided_at", dir: "desc" });
+
   const filtered = useMemo(() => {
     const ql = q.toLowerCase().trim();
-    return decisions.filter((d) => {
+    const base = decisions.filter((d) => {
       if (type !== "All" && d.type !== type) return false;
       if (!ql) return true;
       return (
@@ -38,7 +44,13 @@ function DecisionsPage() {
         d.id.toLowerCase().includes(ql)
       );
     });
-  }, [decisions, q, type]);
+    return sortRows(base, sort, (d, k) => {
+      if (k === "decided_at") return new Date(d.decided_at).getTime();
+      if (k === "type") return d.type;
+      if (k === "owner") return USERS.find((u) => u.id === d.decided_by)?.name ?? "";
+      return null;
+    });
+  }, [decisions, q, type, sort]);
 
   return (
     <div>
@@ -84,15 +96,27 @@ function DecisionsPage() {
             {t}
           </button>
         ))}
+        <SortMenu
+          className="ml-auto"
+          tableId="decisions"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "decided_at", label: "Date" },
+            { key: "type", label: "Type" },
+            { key: "owner", label: "Owner" },
+          ]}
+        />
       </div>
 
       {composing && <Compose create={create} onDone={() => setComposing(false)} />}
 
-      <div className="space-y-3">
-        {filtered.length === 0 && (
-          <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No decisions match.</div>
-        )}
-        {filtered.map((d) => {
+      <ScrollTable className="border border-border bg-surface/40 p-3" maxHeight="calc(100vh - 360px)">
+        <div className="space-y-3">
+          {filtered.length === 0 && (
+            <div className="tfp-card p-12 text-center text-sm text-muted-foreground">No decisions match.</div>
+          )}
+          {filtered.map((d) => {
           const decider = USERS.find((u) => u.id === d.decided_by);
           const sig = d.linked_signal_id ? signals.find((s) => s.id === d.linked_signal_id) : null;
           return (
@@ -124,7 +148,8 @@ function DecisionsPage() {
             </article>
           );
         })}
-      </div>
+        </div>
+      </ScrollTable>
     </div>
   );
 }
