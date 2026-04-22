@@ -544,6 +544,7 @@ const shapingDone: ShapingItem = {
   approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
   jira_key: "TFP-1031",
   delivery_status: "Done",
+  delivery_assignee_id: "u-farooq",
   dev_complete: {
     merged_to_main: true,
     deployed_to_staging: true,
@@ -1170,6 +1171,9 @@ type State = {
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
+  setBlocked: (id: string, description: string) => void;
+  unblock: (id: string, next: DeliveryStatus) => void;
+  setDeliveryAssignee: (id: string, userId: string | null) => void;
   syncFromJira: () => number;
   startReview: (shapingId: string) => Review | null;
   updateReview: (id: string, patch: Partial<Review>) => void;
