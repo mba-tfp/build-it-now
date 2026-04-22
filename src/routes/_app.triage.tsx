@@ -222,6 +222,27 @@ function TriageQueuePage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!bypass}
+        title="Bypass triage flow?"
+        description={
+          bypass
+            ? `Moving status from "${bypass.from}" to "${bypass.to}" is not part of the normal flow. This will be logged as an Override and added to the audit trail.`
+            : ""
+        }
+        requireReason
+        confirmLabel="Bypass and save"
+        destructive
+        onCancel={() => setBypass(null)}
+        onConfirm={(reason) => {
+          if (!bypass) return;
+          const res = updateSignal(bypass.signalId, bypass.patch, { force: true, reason });
+          if (res.ok) toast.success("Bypass saved — Override logged");
+          else toast.error(res.error ?? "Couldn't save");
+          setBypass(null);
+        }}
+      />
     </div>
   );
 }
