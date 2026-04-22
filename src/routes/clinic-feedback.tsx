@@ -14,7 +14,7 @@ function ClinicFeedbackPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [urgent, setUrgent] = useState(false);
-  const [done, setDone] = useState<null | { rateLimited: boolean }>(null);
+  const [done, setDone] = useState<null | { rateLimited: boolean; reason?: string }>(null);
 
   const valid = clinicId && name.trim() && description.trim().length >= 20;
 
@@ -30,7 +30,7 @@ function ClinicFeedbackPage() {
       description: description.trim(),
       urgent,
     });
-    setDone({ rateLimited: !result.ok });
+    setDone({ rateLimited: !result.ok, reason: !result.ok ? result.reason : undefined });
   }
 
   return (
@@ -56,7 +56,9 @@ function ClinicFeedbackPage() {
             <h2 className="font-display text-2xl">Thank you</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {done.rateLimited
-                ? "Your feedback has been received — please allow the team time to review before submitting again."
+                ? done.reason === "duplicate within 24h"
+                  ? "We already have a very similar report from your clinic in the last 24 hours — the team is on it. Submit again only if this is a new issue."
+                  : "Your feedback has been received — please allow the team time to review before submitting again."
                 : "Your feedback has been received. The TFP product team will review it shortly."}
             </p>
             <button
