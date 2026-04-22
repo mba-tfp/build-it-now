@@ -585,14 +585,48 @@ export const roadmapActions = {
   },
 };
 
-// ---------- UI preferences (persisted, per roadmap) ----------
+// ---------- UI preferences (persisted) ----------
+//
+// Preferences can be scoped two ways:
+//   - "roadmap": stored per-roadmap (key includes the roadmap id)
+//   - "global":  stored once for this device, applied to every roadmap
+// The chosen scope itself is stored at a stable device-wide key so it
+// survives switching between roadmaps.
+
+export type PrefsScope = "roadmap" | "global";
 
 const UI_PREFS_KEY = (id: string) => `tfp.roadmap.ui.${id}`;
+const GLOBAL_UI_PREFS_KEY = "tfp.roadmap.ui.__global";
+const PREFS_SCOPE_KEY = "tfp.roadmap.ui.scope";
 
-export function readUiPrefs<T>(roadmapId: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
+export function readPrefsScope(): PrefsScope {
+  if (typeof window === "undefined") return "roadmap";
   try {
-    const raw = localStorage.getItem(UI_PREFS_KEY(roadmapId));
+    const raw = localStorage.getItem(PREFS_SCOPE_KEY);
+    return raw === "global" ? "global" : "roadmap";
+  } catch {
+    return "roadmap";
+  }
+}
+
+export function writePrefsScope(scope: PrefsScope) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PREFS_SCOPE_KEY, scope);
+  } catch {
+    /* non-fatal */
+  }
+}
+
+function prefsKeyFor(roadmapId: string, scope: PrefsScope): string {
+  return scope === "global" ? GLOBAL_UI_PREFS_KEY : UI_PREFS_KEY(roadmapId);
+}
+
+export function readUiPrefs<T>(roadmapId: string, fallback: T, scope?: PrefsScope): T {
+  if (typeof window === "undefined") return fallback;
+  const useScope = scope ?? readPrefsScope();
+  try {
+    const raw = localStorage.getItem(prefsKeyFor(roadmapId, useScope));
     if (!raw) return fallback;
     return { ...fallback, ...(JSON.parse(raw) as Partial<T>) } as T;
   } catch {
@@ -600,10 +634,11 @@ export function readUiPrefs<T>(roadmapId: string, fallback: T): T {
   }
 }
 
-export function writeUiPrefs<T>(roadmapId: string, prefs: T) {
+export function writeUiPrefs<T>(roadmapId: string, prefs: T, scope?: PrefsScope) {
   if (typeof window === "undefined") return;
+  const useScope = scope ?? readPrefsScope();
   try {
-    localStorage.setItem(UI_PREFS_KEY(roadmapId), JSON.stringify(prefs));
+    localStorage.setItem(prefsKeyFor(roadmapId, useScope), JSON.stringify(prefs));
   } catch {
     /* quota / serialization errors are non-fatal */
   }
