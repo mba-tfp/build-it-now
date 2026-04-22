@@ -3,13 +3,20 @@ import { persist } from "zustand/middleware";
 import type {
   AuditEntityType,
   AuditEntry,
+  Clinic,
+  ClinicFeedbackRecord,
+  ClinicStatus,
   CommsItem,
+  CommsType,
   Complexity,
   Decision,
   DeliveryStatus,
   GoLiveChecklist,
   GoLiveCriterion,
   JiraEvent,
+  MonitoringAlert,
+  MonitoringSeverity,
+  MonitoringSystem,
   Notification,
   NotificationTrigger,
   OutcomeRating,
@@ -25,6 +32,7 @@ import type {
   Source,
   Sprint,
   SprintRetro,
+  TechDebtReview,
   User,
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
@@ -39,16 +47,24 @@ const uid = () => {
 // Stable epoch for seed data so SSR and client render identical timestamps.
 const SEED_EPOCH = new Date("2026-04-15T09:00:00.000Z").getTime();
 
+const blankUser = (id: string, name: string, role: User["role"]): User => ({
+  id,
+  name,
+  role,
+  onboarding_completed: false,
+  onboarding_progress: {},
+});
+
 export const USERS: User[] = [
-  { id: "u-bazil", name: "Bazil", role: "PM" },
-  { id: "u-alizar", name: "Alizar", role: "Senior PM" },
-  { id: "u-sami", name: "Sami", role: "Associate PM" },
-  { id: "u-karim", name: "Abdul Karim", role: "QA Scrum Master" },
-  { id: "u-waseem", name: "Waseem", role: "Tech Lead" },
-  { id: "u-ahmed", name: "M. Ahmed", role: "Tech Lead" },
-  { id: "u-farooq", name: "Farooq", role: "Developer" },
-  { id: "u-zeeshan", name: "Zeeshan", role: "Developer" },
-  { id: "u-shahid", name: "Shahid", role: "Leadership" },
+  blankUser("u-bazil", "Bazil", "PM"),
+  blankUser("u-alizar", "Alizar", "Senior PM"),
+  blankUser("u-sami", "Sami", "Associate PM"),
+  blankUser("u-karim", "Abdul Karim", "QA Scrum Master"),
+  blankUser("u-waseem", "Waseem", "Tech Lead"),
+  blankUser("u-ahmed", "M. Ahmed", "Tech Lead"),
+  blankUser("u-farooq", "Farooq", "Developer"),
+  blankUser("u-zeeshan", "Zeeshan", "Developer"),
+  blankUser("u-shahid", "Shahid", "Leadership"),
 ];
 
 const seedSprint: Sprint = {
