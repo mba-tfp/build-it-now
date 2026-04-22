@@ -379,8 +379,7 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
         />
       )}
 
-      {/* Suppress unused-variable warning */}
-      <div className="hidden">{allYears.length}</div>
+      {showImport && <ImportModal onClose={() => setShowImport(false)} />}
     </div>
   );
 }
