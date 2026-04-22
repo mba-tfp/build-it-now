@@ -12,6 +12,16 @@ const INCIDENT_KEYWORDS = [
   "critical",
 ];
 const TECH_DEBT_KEYWORDS = ["debt", "refactor", "slow", "performance", "cleanup"];
+const DEPENDENCY_KEYWORDS = [
+  "api change",
+  "deprecat",
+  "breaking change",
+  "endpoint removed",
+  "version upgrade",
+  "api version",
+  "sunset",
+  "migration required",
+];
 const T1_KEYWORDS = ["patient", "data integrity", "cannot treat", "system down"];
 const LEADERSHIP_URGENT = ["urgent", "board", "presentation", "today", "tomorrow"];
 
@@ -48,6 +58,12 @@ export function classifySignal(input: { source: Source; description: string }): 
   } else if ((source === "Clinic" || source === "Internal") && matches(text, ENHANCE_KEYWORDS)) {
     issue_type = "Enhancement";
     reason = "Clinic/Internal request language.";
+  } else if (
+    (source === "Internal" || source === "Dev Team") &&
+    matches(text, DEPENDENCY_KEYWORDS)
+  ) {
+    issue_type = "Dependency Change";
+    reason = "Dependency change keywords detected.";
   } else if (source === "Dev Team" && matches(text, TECH_DEBT_KEYWORDS)) {
     issue_type = "Enhancement";
     labels.push("Tech-Debt");
@@ -62,6 +78,8 @@ export function classifySignal(input: { source: Source; description: string }): 
   if (issue_type === "Incident" || matches(text, T1_KEYWORDS)) {
     tier = "T1";
   } else if (issue_type === "Bug") {
+    tier = "T2";
+  } else if (issue_type === "Dependency Change") {
     tier = "T2";
   } else if (source === "Leadership" && matches(text, LEADERSHIP_URGENT)) {
     tier = "T2";

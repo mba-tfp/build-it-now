@@ -133,6 +133,11 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     shaping_started_at: now,
     timebox_escalated_at: null,
     tech_debt_reviewed_at: null,
+    dependency_system: null,
+    dependency_what_changed: "",
+    dependency_integrations_affected: "",
+    dependency_impact: "",
+    dependency_deadline: null,
     created_at: now,
     updated_at: now,
   };

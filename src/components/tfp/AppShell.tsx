@@ -4,15 +4,17 @@ import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { Activity, Bell, HelpCircle } from "lucide-react";
+import { Activity, Bell, HelpCircle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingModal } from "./OnboardingModal";
+import { GlobalSearch } from "./GlobalSearch";
 
 const NAV: Array<{ to: string; label: string }> = [
   { to: "/intake", label: "Intake" },
   { to: "/triage", label: "Triage" },
   { to: "/shaping", label: "Shaping" },
   { to: "/delivery", label: "Delivery" },
+  { to: "/roadmap", label: "Roadmap" },
   { to: "/golive", label: "Go-Live" },
   { to: "/comms", label: "Comms" },
   { to: "/review", label: "Reviews" },
@@ -32,12 +34,25 @@ export function AppShell() {
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
   const meLive = users.find((u) => u.id === currentUserId);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const showOnboarding = !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
 
   // Reset dismiss when user switches
   useEffect(() => {
     setOnboardingDismissed(false);
   }, [currentUserId]);
+
+  // Global Cmd+K / Ctrl+K shortcut to open search
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,6 +93,15 @@ export function AppShell() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="hidden items-center gap-1.5 rounded-md border border-input bg-surface px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground md:inline-flex"
+              title="Search (⌘K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span>Search</span>
+              <kbd className="ml-1 hidden rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground lg:inline">⌘K</kbd>
+            </button>
             <NotificationsBell />
             <button
               onClick={() => resetOnboarding(currentUserId)}
@@ -116,6 +140,7 @@ export function AppShell() {
       </footer>
 
       {showOnboarding && <OnboardingModal onClose={() => setOnboardingDismissed(true)} />}
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

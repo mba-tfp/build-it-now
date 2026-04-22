@@ -189,6 +189,8 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
       {sh.fast_track ? (
         <FastTrack item={sh} />
+      ) : sig.issue_type === "Dependency Change" ? (
+        <DependencyFastTrack item={sh} />
       ) : (
         <>
           {/* Stepper */}
@@ -314,6 +316,131 @@ function FastTrack({ item }: { item: ShapingItem }) {
             {item.jira_key && <span className="ml-2 font-mono">{item.jira_key}</span>}
           </div>
         )}
+      </div>
+
+      <RoleHint required="PM" current={me.role} />
+    </div>
+  );
+}
+
+const DEP_SYSTEMS: Array<"Accuro" | "Phelix AI" | "Olive EngagedMD" | "Tia Health" | "EngagedMD"> = [
+  "Accuro",
+  "Phelix AI",
+  "Olive EngagedMD",
+  "Tia Health",
+  "EngagedMD",
+];
+
+function DependencyFastTrack({ item }: { item: ShapingItem }) {
+  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id))!;
+
+  const [whatChanged, setWhatChanged] = useState(item.dependency_what_changed);
+  const [integrations, setIntegrations] = useState(item.dependency_integrations_affected);
+  const [impact, setImpact] = useState(item.dependency_impact);
+  const [deadline, setDeadline] = useState(item.dependency_deadline ?? "");
+  const [system, setSystem] = useState<ShapingItem["dependency_system"]>(item.dependency_system);
+
+  const ready =
+    whatChanged.trim().length >= 30 &&
+    integrations.trim().length > 0 &&
+    impact.trim().length > 0 &&
+    !!system;
+
+  function save(advance: boolean) {
+    updateShaping(item.id, {
+      dependency_what_changed: whatChanged,
+      dependency_integrations_affected: integrations,
+      dependency_impact: impact,
+      dependency_deadline: deadline || null,
+      dependency_system: system,
+      ...(advance ? { current_step: 4 as const, shaping_status: "In Tech Review" as const } : {}),
+    });
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-4">
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-4 text-sm">
+          <p className="font-medium text-primary">⚡ Dependency change — impact assessment</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            External system change for <strong>{sig.product}</strong>. Skip Problem &amp; Solution briefs — capture impact and route straight to Tech Review.
+          </p>
+        </div>
+
+        <div className="tfp-card space-y-4 p-5">
+          <div>
+            <label className="mb-1 block text-sm font-medium">External system <span className="text-destructive">*</span></label>
+            <select
+              value={system ?? ""}
+              onChange={(e) => setSystem((e.target.value || null) as ShapingItem["dependency_system"])}
+              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Select…</option>
+              {DEP_SYSTEMS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">What changed <span className="text-destructive">*</span></label>
+            <p className="mb-1 text-xs text-muted-foreground">Min 30 chars. Be specific about endpoint, version, or behaviour change.</p>
+            <textarea
+              value={whatChanged}
+              onChange={(e) => setWhatChanged(e.target.value)}
+              rows={3}
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="mt-1 text-right text-xs text-muted-foreground">{whatChanged.trim().length}/30</div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Integrations affected <span className="text-destructive">*</span></label>
+            <textarea
+              value={integrations}
+              onChange={(e) => setIntegrations(e.target.value)}
+              rows={2}
+              placeholder="Which of our products / sync jobs touch this?"
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Impact if not addressed <span className="text-destructive">*</span></label>
+            <textarea
+              value={impact}
+              onChange={(e) => setImpact(e.target.value)}
+              rows={3}
+              placeholder="What breaks, for whom, and when?"
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">External deadline (optional)</label>
+            <input
+              type="date"
+              value={deadline ? deadline.slice(0, 10) : ""}
+              onChange={(e) => setDeadline(e.target.value ? new Date(e.target.value).toISOString() : "")}
+              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-4">
+            <button onClick={() => save(false)} className="text-sm text-muted-foreground hover:text-foreground">
+              Save draft
+            </button>
+            <button
+              disabled={!ready}
+              onClick={() => save(true)}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+            >
+              Save + send to Tech Review
+            </button>
+          </div>
+        </div>
       </div>
 
       <RoleHint required="PM" current={me.role} />

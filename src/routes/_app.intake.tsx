@@ -27,6 +27,7 @@ const ISSUE_TYPES: IssueType[] = [
   "Leadership Input",
   "Support",
   "Incident",
+  "Dependency Change",
 ];
 const TIERS: Tier[] = ["T1", "T2", "T3", "T4"];
 

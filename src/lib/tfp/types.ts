@@ -29,7 +29,15 @@ export type IssueType =
   | "Enhancement"
   | "Leadership Input"
   | "Support"
-  | "Incident";
+  | "Incident"
+  | "Dependency Change";
+
+export type DependencySystem =
+  | "Accuro"
+  | "Phelix AI"
+  | "Olive EngagedMD"
+  | "Tia Health"
+  | "EngagedMD";
 export type Tier = "T1" | "T2" | "T3" | "T4";
 export type SignalStatus = "New" | "In Review" | "Proceed" | "Hold" | "Rejected";
 
@@ -118,6 +126,12 @@ export type ShapingItem = {
   timebox_escalated_at: string | null;
   // Tech debt
   tech_debt_reviewed_at: string | null;
+  // Dependency Change fast-track
+  dependency_system: DependencySystem | null;
+  dependency_what_changed: string;
+  dependency_integrations_affected: string;
+  dependency_impact: string;
+  dependency_deadline: string | null;
   created_at: string;
   updated_at: string;
 };
