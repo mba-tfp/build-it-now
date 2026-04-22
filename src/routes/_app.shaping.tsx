@@ -76,12 +76,24 @@ function ShapingPage() {
 
   return (
     <div>
-      <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 3</p>
-        <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Approved signals move through five steps before they're pushed to Jira for delivery.
-        </p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 3</p>
+          <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Approved signals move through five steps before they're pushed to Jira for delivery.
+          </p>
+        </div>
+        <SortMenu
+          tableId="shaping"
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "started", label: "Started date" },
+            { key: "completeness", label: "Completeness" },
+            { key: "tier", label: "Tier" },
+          ]}
+        />
       </header>
 
       {cards.length === 0 ? (
