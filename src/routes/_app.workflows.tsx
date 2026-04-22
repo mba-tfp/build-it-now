@@ -114,7 +114,7 @@ function WorkflowsPage() {
       const next = applyEdgeChanges(changes, rfEdges);
       setDraft({
         ...draft,
-        edges: next.map((e) => ({ id: e.id, from: e.source, to: e.target, label: typeof e.label === "string" ? e.label : undefined })),
+        edges: next.map((e) => ({ id: e.id, from: e.source, to: e.target, label: typeof (e as { label?: unknown }).label === "string" ? ((e as { label?: string }).label) : undefined })),
       });
     },
     [draft, rfEdges],
@@ -126,7 +126,7 @@ function WorkflowsPage() {
       const next = addEdge({ ...conn, id: `e-${Date.now()}` }, rfEdges);
       setDraft({
         ...draft,
-        edges: next.map((e) => ({ id: e.id, from: e.source, to: e.target, label: typeof e.label === "string" ? e.label : undefined })),
+        edges: next.map((e) => ({ id: e.id, from: e.source, to: e.target, label: typeof (e as { label?: unknown }).label === "string" ? ((e as { label?: string }).label) : undefined })),
       });
     },
     [draft, rfEdges],

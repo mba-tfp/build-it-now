@@ -1341,9 +1341,9 @@ type State = {
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
-  upsertHelpArticle: (article: Omit<HelpArticle, "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
+  upsertHelpArticle: (article: Omit<HelpArticle, "id" | "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
   removeHelpArticle: (id: string) => void;
-  upsertWorkflow: (workflow: Omit<Workflow, "created_at" | "updated_at"> & { id?: string }) => Workflow;
+  upsertWorkflow: (workflow: Omit<Workflow, "id" | "created_at" | "updated_at"> & { id?: string }) => Workflow;
   removeWorkflow: (id: string) => void;
   toggleWorkflowActive: (id: string) => void;
 };
