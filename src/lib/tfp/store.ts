@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
+  Attachment,
   AuditEntityType,
   AuditEntry,
   Clinic,
@@ -11,8 +12,10 @@ import type {
   Complexity,
   Decision,
   DeliveryStatus,
+  FeatureFlags,
   GoLiveChecklist,
   GoLiveCriterion,
+  HelpArticle,
   JiraEvent,
   MonitoringAlert,
   MonitoringSeverity,
@@ -29,14 +32,104 @@ import type {
   RoadmapBucket,
   ShapingItem,
   Signal,
+  SignalStatus,
   Source,
   Sprint,
   SprintRetro,
   TechDebtReview,
   User,
+  Workflow,
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
 import { buildNotification } from "./notify";
+import { formatFieldChange } from "./audit";
+
+/** Allowed forward transitions from each signal status. */
+export const ALLOWED_STATUS_TRANSITIONS: Record<SignalStatus, SignalStatus[]> = {
+  New: ["In Review", "Hold", "Rejected", "Proceed"],
+  "In Review": ["Proceed", "Hold", "Rejected"],
+  Hold: ["In Review", "Proceed", "Rejected"],
+  Rejected: [],
+  Proceed: [],
+};
+
+export function isAllowedStatusTransition(from: SignalStatus, to: SignalStatus): boolean {
+  if (from === to) return true;
+  return ALLOWED_STATUS_TRANSITIONS[from].includes(to);
+}
+
+const DEFAULT_FLAGS: FeatureFlags = {
+  attachmentsEnabled: true,
+  helpCenterEnabled: true,
+  workflowBuilderEnabled: true,
+  multiSelectIntake: true,
+  auditVerbose: true,
+  adminPanelEnabled: true,
+};
+
+const SEED_HELP: HelpArticle[] = [
+  {
+    id: "h-intake",
+    slug: "intake",
+    title: "Signal Intake",
+    section: "Workflow",
+    body_markdown:
+      "# Signal Intake\n\nThe single entry point for all work. Log every customer, leadership, or internal signal here — frictionless, never ignored.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests Type and SLA Tier — override only when you have a strong reason.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-triage",
+    slug: "triage",
+    title: "Triage Queue",
+    section: "Workflow",
+    body_markdown:
+      "# Triage Queue\n\nClick a signal to make a triage decision: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, Tier, Type, and Owner can be edited inline in the table.\n\n## Status guard\nMoving to **Proceed**, **Hold**, or **Rejected** from a non-allowed state requires a written reason and creates an Override entry.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-shaping",
+    slug: "shaping",
+    title: "Shaping",
+    section: "Workflow",
+    body_markdown:
+      "# Shaping\n\nFive steps from problem framing to tech-approved. The Shaping queue tracks completeness and unblocks the next stage.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-attachments",
+    slug: "attachments",
+    title: "Attachments",
+    section: "Features",
+    body_markdown:
+      "# Attachments\n\nAdd reference links (Figma, Drive, Notion, JIRA) on signals, shaping items, reviews, comms, decisions, retros, go-lives and overrides. Files themselves are not uploaded — only links.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-admin",
+    slug: "admin",
+    title: "Admin panel",
+    section: "Admin",
+    body_markdown:
+      "# Admin panel\n\nManage users, feature toggles, help articles, and inspect the full audit log.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+  {
+    id: "h-workflows",
+    slug: "workflows",
+    title: "Workflow Builder",
+    section: "Features",
+    body_markdown:
+      "# Workflow Builder\n\nVisualise and tweak the Signal → Triage → Shaping → Delivery flow. v1 is observational: active workflows emit additional notifications when signals progress.",
+    updated_at: "2026-04-22T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
+];
+
 
 let _uidCounter = 0;
 const uid = () => {
