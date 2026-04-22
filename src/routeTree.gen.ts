@@ -20,11 +20,14 @@ import { Route as AppRetrosRouteImport } from './routes/_app.retros'
 import { Route as AppOverridesRouteImport } from './routes/_app.overrides'
 import { Route as AppLeadershipRouteImport } from './routes/_app.leadership'
 import { Route as AppIntakeRouteImport } from './routes/_app.intake'
+import { Route as AppHelpRouteImport } from './routes/_app.help'
 import { Route as AppHealthRouteImport } from './routes/_app.health'
 import { Route as AppGoliveRouteImport } from './routes/_app.golive'
 import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
 import { Route as AppDecisionsRouteImport } from './routes/_app.decisions'
 import { Route as AppCommsRouteImport } from './routes/_app.comms'
+import { Route as AppAdminRouteImport } from './routes/_app.admin'
+import { Route as AppHelpSlugRouteImport } from './routes/_app.help.$slug'
 
 const ClinicFeedbackRoute = ClinicFeedbackRouteImport.update({
   id: '/clinic-feedback',
@@ -80,6 +83,11 @@ const AppIntakeRoute = AppIntakeRouteImport.update({
   path: '/intake',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHelpRoute = AppHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHealthRoute = AppHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -105,15 +113,27 @@ const AppCommsRoute = AppCommsRouteImport.update({
   path: '/comms',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelpSlugRoute = AppHelpSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => AppHelpRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/clinic-feedback': typeof ClinicFeedbackRoute
+  '/admin': typeof AppAdminRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
   '/golive': typeof AppGoliveRoute
   '/health': typeof AppHealthRoute
+  '/help': typeof AppHelpRouteWithChildren
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
   '/overrides': typeof AppOverridesRoute
@@ -122,14 +142,17 @@ export interface FileRoutesByFullPath {
   '/roadmap': typeof AppRoadmapRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
+  '/help/$slug': typeof AppHelpSlugRoute
 }
 export interface FileRoutesByTo {
   '/clinic-feedback': typeof ClinicFeedbackRoute
+  '/admin': typeof AppAdminRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
   '/golive': typeof AppGoliveRoute
   '/health': typeof AppHealthRoute
+  '/help': typeof AppHelpRouteWithChildren
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
   '/overrides': typeof AppOverridesRoute
@@ -139,16 +162,19 @@ export interface FileRoutesByTo {
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
   '/': typeof AppIndexRoute
+  '/help/$slug': typeof AppHelpSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/clinic-feedback': typeof ClinicFeedbackRoute
+  '/_app/admin': typeof AppAdminRoute
   '/_app/comms': typeof AppCommsRoute
   '/_app/decisions': typeof AppDecisionsRoute
   '/_app/delivery': typeof AppDeliveryRoute
   '/_app/golive': typeof AppGoliveRoute
   '/_app/health': typeof AppHealthRoute
+  '/_app/help': typeof AppHelpRouteWithChildren
   '/_app/intake': typeof AppIntakeRoute
   '/_app/leadership': typeof AppLeadershipRoute
   '/_app/overrides': typeof AppOverridesRoute
@@ -158,17 +184,20 @@ export interface FileRoutesById {
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/help/$slug': typeof AppHelpSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/clinic-feedback'
+    | '/admin'
     | '/comms'
     | '/decisions'
     | '/delivery'
     | '/golive'
     | '/health'
+    | '/help'
     | '/intake'
     | '/leadership'
     | '/overrides'
@@ -177,14 +206,17 @@ export interface FileRouteTypes {
     | '/roadmap'
     | '/shaping'
     | '/triage'
+    | '/help/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clinic-feedback'
+    | '/admin'
     | '/comms'
     | '/decisions'
     | '/delivery'
     | '/golive'
     | '/health'
+    | '/help'
     | '/intake'
     | '/leadership'
     | '/overrides'
@@ -194,15 +226,18 @@ export interface FileRouteTypes {
     | '/shaping'
     | '/triage'
     | '/'
+    | '/help/$slug'
   id:
     | '__root__'
     | '/_app'
     | '/clinic-feedback'
+    | '/_app/admin'
     | '/_app/comms'
     | '/_app/decisions'
     | '/_app/delivery'
     | '/_app/golive'
     | '/_app/health'
+    | '/_app/help'
     | '/_app/intake'
     | '/_app/leadership'
     | '/_app/overrides'
@@ -212,6 +247,7 @@ export interface FileRouteTypes {
     | '/_app/shaping'
     | '/_app/triage'
     | '/_app/'
+    | '/_app/help/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -298,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntakeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/help': {
+      id: '/_app/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof AppHelpRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/health': {
       id: '/_app/health'
       path: '/health'
@@ -333,15 +376,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCommsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/help/$slug': {
+      id: '/_app/help/$slug'
+      path: '/$slug'
+      fullPath: '/help/$slug'
+      preLoaderRoute: typeof AppHelpSlugRouteImport
+      parentRoute: typeof AppHelpRoute
+    }
   }
 }
 
+interface AppHelpRouteChildren {
+  AppHelpSlugRoute: typeof AppHelpSlugRoute
+}
+
+const AppHelpRouteChildren: AppHelpRouteChildren = {
+  AppHelpSlugRoute: AppHelpSlugRoute,
+}
+
+const AppHelpRouteWithChildren =
+  AppHelpRoute._addFileChildren(AppHelpRouteChildren)
+
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppCommsRoute: typeof AppCommsRoute
   AppDecisionsRoute: typeof AppDecisionsRoute
   AppDeliveryRoute: typeof AppDeliveryRoute
   AppGoliveRoute: typeof AppGoliveRoute
   AppHealthRoute: typeof AppHealthRoute
+  AppHelpRoute: typeof AppHelpRouteWithChildren
   AppIntakeRoute: typeof AppIntakeRoute
   AppLeadershipRoute: typeof AppLeadershipRoute
   AppOverridesRoute: typeof AppOverridesRoute
@@ -354,11 +424,13 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppCommsRoute: AppCommsRoute,
   AppDecisionsRoute: AppDecisionsRoute,
   AppDeliveryRoute: AppDeliveryRoute,
   AppGoliveRoute: AppGoliveRoute,
   AppHealthRoute: AppHealthRoute,
+  AppHelpRoute: AppHelpRouteWithChildren,
   AppIntakeRoute: AppIntakeRoute,
   AppLeadershipRoute: AppLeadershipRoute,
   AppOverridesRoute: AppOverridesRoute,
