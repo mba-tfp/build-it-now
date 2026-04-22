@@ -44,9 +44,6 @@ function QueueHealthPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);
-  const reviews = useTfpStore((s) => s.reviews);
-  const overrides = useTfpStore((s) => s.overrides);
-  const comms = useTfpStore((s) => s.comms);
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const me = USERS.find((u) => u.id === currentUserId)!;
   const isPM = me.role === "PM" || me.role === "Senior PM";
