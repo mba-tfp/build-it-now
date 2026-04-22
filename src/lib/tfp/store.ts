@@ -1238,6 +1238,7 @@ export const useTfpStore = create<State>()(
       currentUserId: "u-bazil",
       users: USERS,
       sprint: seedSprint,
+      sprints: [seedSprint],
       signals: seedSignals,
       shaping: seedShaping,
       jiraEvents: seedJiraEvents,
@@ -1249,6 +1250,10 @@ export const useTfpStore = create<State>()(
       decisions: seedDecisions,
       retros: seedRetros,
       notifications: seedNotifications,
+      clinics: seedClinics,
+      monitoringAlerts: seedMonitoring,
+      techDebtReviews: seedTechDebtReviews,
+      clinicFeedbackLog: [],
 
       setCurrentUser: (id) => set({ currentUserId: id }),
 
@@ -1864,9 +1869,20 @@ export const useTfpStore = create<State>()(
       },
 
       createComms: (data) => {
+        const autoApproval: Record<CommsType, boolean> = {
+          "Delay notification": false,
+          "Incident update": true,
+          "Incident all-clear": true,
+          "Go-live update": false,
+          Postponement: true,
+          "Scope change": true,
+        };
+        const requires_pm_approval =
+          data.requires_pm_approval ?? autoApproval[data.comms_type];
         const item: CommsItem = {
           id: "cm-" + uid(),
           ...data,
+          requires_pm_approval,
           drafted_by: get().currentUserId,
           drafted_at: new Date().toISOString(),
           status: "Draft",
