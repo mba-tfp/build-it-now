@@ -334,10 +334,13 @@ function SubStreamRow({
       <div
         className="relative col-span-full grid"
         style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))` }}
+        role="row"
       >
         {visibleMonths.map((m) => (
           <div
             key={m.key}
+            role="gridcell"
+            aria-label={`${m.monthLabel} ${m.year}, ${sectionName}. Drop a card here to snap to ${m.monthLabel}.`}
             onDragOver={(e) => onDragOverCell(e, m.key)}
             onDragLeave={() => setDragOverKey(null)}
             onDrop={(e) => onDropCell(e, m.key)}
@@ -345,10 +348,30 @@ function SubStreamRow({
             title={`${m.monthLabel} ${m.year} — drop to snap here, double-click to add`}
             className={cn(
               "min-h-[60px] border-r border-border last:border-r-0 transition",
+              showSnapGrid && "bg-[linear-gradient(to_right,transparent_calc(100%-1px),var(--border)_calc(100%-1px))] [background-size:50%_8px] [background-repeat:repeat-y]",
               dragOverKey === m.key && "bg-primary/15 ring-2 ring-inset ring-primary/40",
             )}
           />
         ))}
+
+        {/* Optional snap-grid overlay: vertical month dividers visible across the row */}
+        {showSnapGrid && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 grid"
+            style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))` }}
+          >
+            {visibleMonths.map((m, i) => (
+              <div
+                key={m.key}
+                className={cn(
+                  "border-r border-dashed border-primary/30",
+                  i === visibleMonths.length - 1 && "border-r-0",
+                )}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Spanning cards layer */}
         <div className="pointer-events-none absolute inset-0 grid p-1.5"
@@ -362,6 +385,7 @@ function SubStreamRow({
               span={span.span}
               row={idx}
               visibleMonths={visibleMonths}
+              onAnnounce={onAnnounce}
               onClick={() => onOpenItem(item.id)}
             />
           ))}
