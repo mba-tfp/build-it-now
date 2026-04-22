@@ -8,16 +8,20 @@ import {
   Upload,
   Undo2,
   Redo2,
+  Grid3x3,
 } from "lucide-react";
 import {
   useRoadmapStore,
   roadmapActions,
   readUiPrefs,
   writeUiPrefs,
+  readPrefsScope,
+  writePrefsScope,
   undo,
   redo,
   canUndo,
   canRedo,
+  type PrefsScope,
 } from "@/lib/roadmap/store";
 import type { GroupByField, Roadmap, RoadmapItem } from "@/lib/roadmap/types";
 import { useTfpStore } from "@/lib/tfp/store";
@@ -50,6 +54,7 @@ type RoadmapUiPrefs = {
   collapsedQuarters: string[];
   collapsedStreams: string[];
   tab: "planning" | "delivery";
+  showSnapGrid: boolean;
 };
 
 const DEFAULT_PREFS: RoadmapUiPrefs = {
@@ -60,6 +65,7 @@ const DEFAULT_PREFS: RoadmapUiPrefs = {
   collapsedQuarters: [],
   collapsedStreams: [],
   tab: "planning",
+  showSnapGrid: false,
 };
 
 function RoadmapPage() {
@@ -148,6 +154,9 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [groupBy, setGroupBy] = useState<GroupByField[]>(["product"]);
   const [modal, setModal] = useState<ModalState>(null);
+  const [showSnapGrid, setShowSnapGrid] = useState(false);
+  // Scope of persisted UI preferences (per-roadmap vs device-wide).
+  const [prefsScope, setPrefsScope] = useState<PrefsScope>("roadmap");
 
   // Collapsed state for timeline
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set());
@@ -157,32 +166,70 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
   // Re-render trigger for canUndo/canRedo (they read from store snapshot).
   const storeVersion = useRoadmapStore().version;
 
-  // Hydrate persisted UI prefs once per active roadmap.
+  // Hydrate persisted UI prefs once per active roadmap (or whenever scope changes).
   useEffect(() => {
-    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
+    const scope = readPrefsScope();
+    setPrefsScope(scope);
+    const prefs = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS, scope);
     setView(prefs.view);
     setFilters(prefs.filters);
     setGroupBy(prefs.groupBy);
     setCollapsedYears(new Set(prefs.collapsedYears));
     setCollapsedQuarters(new Set(prefs.collapsedQuarters));
     setCollapsedStreams(new Set(prefs.collapsedStreams));
+    setShowSnapGrid(prefs.showSnapGrid);
     setHydrated(true);
   }, [roadmapId]);
 
-  // Persist whenever any pref changes (after hydration).
+  // Persist whenever any pref changes (after hydration). Honours the chosen scope.
   useEffect(() => {
     if (!hydrated) return;
-    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS);
-    writeUiPrefs<RoadmapUiPrefs>(roadmapId, {
-      ...existing,
+    const existing = readUiPrefs<RoadmapUiPrefs>(roadmapId, DEFAULT_PREFS, prefsScope);
+    writeUiPrefs<RoadmapUiPrefs>(
+      roadmapId,
+      {
+        ...existing,
+        view,
+        filters,
+        groupBy,
+        collapsedYears: Array.from(collapsedYears),
+        collapsedQuarters: Array.from(collapsedQuarters),
+        collapsedStreams: Array.from(collapsedStreams),
+        showSnapGrid,
+      },
+      prefsScope,
+    );
+  }, [
+    hydrated,
+    roadmapId,
+    prefsScope,
+    view,
+    filters,
+    groupBy,
+    collapsedYears,
+    collapsedQuarters,
+    collapsedStreams,
+    showSnapGrid,
+  ]);
+
+  // Switching scope: copy current settings to the new scope's storage so the
+  // toggle is non-destructive, then update the chosen scope.
+  function changeScope(next: PrefsScope) {
+    if (next === prefsScope) return;
+    const snapshot: RoadmapUiPrefs = {
       view,
       filters,
       groupBy,
       collapsedYears: Array.from(collapsedYears),
       collapsedQuarters: Array.from(collapsedQuarters),
       collapsedStreams: Array.from(collapsedStreams),
-    });
-  }, [hydrated, roadmapId, view, filters, groupBy, collapsedYears, collapsedQuarters, collapsedStreams]);
+      showSnapGrid,
+      tab: "planning",
+    };
+    writeUiPrefs<RoadmapUiPrefs>(roadmapId, snapshot, next);
+    writePrefsScope(next);
+    setPrefsScope(next);
+  }
 
   // Keyboard shortcuts for undo/redo.
   useEffect(() => {
@@ -350,6 +397,56 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
               <Redo2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {/* Snap-grid overlay toggle (accessible) */}
+          <button
+            type="button"
+            onClick={() => setShowSnapGrid((v) => !v)}
+            aria-pressed={showSnapGrid}
+            title={showSnapGrid ? "Hide snap grid overlay" : "Show snap grid overlay (visible month gridlines for snap targets)"}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm",
+              showSnapGrid ? "border-primary bg-primary/10 text-primary" : "border-input bg-surface hover:bg-accent",
+            )}
+          >
+            <Grid3x3 className="h-3.5 w-3.5" /> Snap grid
+          </button>
+
+          {/* Preferences scope toggle */}
+          <div
+            role="group"
+            aria-label="Where to save your timeline preferences"
+            className="ml-1 flex overflow-hidden rounded-md border border-input text-xs"
+            title="Choose whether your timeline view, filters, collapsed sections and snap-grid setting are remembered for this roadmap only or for every roadmap on this device."
+          >
+            <button
+              type="button"
+              onClick={() => changeScope("roadmap")}
+              aria-pressed={prefsScope === "roadmap"}
+              className={cn(
+                "px-2.5 py-1.5",
+                prefsScope === "roadmap"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-surface text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              This roadmap
+            </button>
+            <button
+              type="button"
+              onClick={() => changeScope("global")}
+              aria-pressed={prefsScope === "global"}
+              className={cn(
+                "border-l border-input px-2.5 py-1.5",
+                prefsScope === "global"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-surface text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              All roadmaps
+            </button>
+          </div>
+
           {/* Force re-eval of canUndo/canRedo when store changes */}
           <span className="hidden">{storeVersion}</span>
         </div>
@@ -380,6 +477,7 @@ function PlanningTab({ roadmap }: { roadmap: Roadmap }) {
           collapsedYears={collapsedYears}
           collapsedQuarters={collapsedQuarters}
           collapsedStreams={collapsedStreams}
+          showSnapGrid={showSnapGrid}
           toggleYear={toggleYear}
           toggleQuarter={toggleQuarter}
           toggleStream={toggleStream}

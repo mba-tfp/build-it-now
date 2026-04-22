@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import {
   PRIORITY_DOT,
@@ -27,6 +27,8 @@ type Props = {
   toggleStream: (id: string) => void;
   onOpenItem: (id: string) => void;
   onCreateItem: (productId: string, sectionId: string, months?: string[]) => void;
+  /** When true, render a vertical month-gridline overlay so snap targets are visible. */
+  showSnapGrid?: boolean;
 };
 
 const SECTION_COL_WIDTH = 220;
@@ -44,6 +46,7 @@ export function TimelineGrid({
   toggleStream,
   onOpenItem,
   onCreateItem,
+  showSnapGrid = false,
 }: Props) {
   const allMonths = useMemo(() => buildMonths(roadmap.config), [roadmap.config]);
 
@@ -61,9 +64,25 @@ export function TimelineGrid({
   // Total grid width
   const gridTemplateColumns = `${SECTION_COL_WIDTH}px ${TBP_COL_WIDTH}px repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))`;
 
+  // Live region for screen-reader announcements during drag/resize.
+  const [liveMessage, setLiveMessage] = useState("");
+  useEffect(() => {
+    if (!liveMessage) return;
+    const t = setTimeout(() => setLiveMessage(""), 2000);
+    return () => clearTimeout(t);
+  }, [liveMessage]);
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-      <div className="min-w-full">
+      {/* Polite live region — announces snap targets to assistive tech */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveMessage}
+      </div>
+      <div
+        className="min-w-full"
+        role="grid"
+        aria-label={`Roadmap timeline with ${visibleMonths.length} visible months`}
+      >
         {/* ===== Sticky 3-row header ===== */}
         <div className="sticky top-0 z-30">
           {/* Row 1: Year */}
@@ -198,6 +217,8 @@ export function TimelineGrid({
                       items={sectionItems}
                       visibleMonths={visibleMonths}
                       gridTemplateColumns={gridTemplateColumns}
+                      showSnapGrid={showSnapGrid}
+                      onAnnounce={setLiveMessage}
                       onOpenItem={onOpenItem}
                       onCreateItem={onCreateItem}
                     />
@@ -221,6 +242,8 @@ function SubStreamRow({
   items,
   visibleMonths,
   gridTemplateColumns,
+  showSnapGrid,
+  onAnnounce,
   onOpenItem,
   onCreateItem,
 }: {
@@ -231,6 +254,8 @@ function SubStreamRow({
   items: RoadmapItem[];
   visibleMonths: MonthCell[];
   gridTemplateColumns: string;
+  showSnapGrid: boolean;
+  onAnnounce: (msg: string) => void;
   onOpenItem: (id: string) => void;
   onCreateItem: (productId: string, sectionId: string, months?: string[]) => void;
 }) {
@@ -309,10 +334,13 @@ function SubStreamRow({
       <div
         className="relative col-span-full grid"
         style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))` }}
+        role="row"
       >
         {visibleMonths.map((m) => (
           <div
             key={m.key}
+            role="gridcell"
+            aria-label={`${m.monthLabel} ${m.year}, ${sectionName}. Drop a card here to snap to ${m.monthLabel}.`}
             onDragOver={(e) => onDragOverCell(e, m.key)}
             onDragLeave={() => setDragOverKey(null)}
             onDrop={(e) => onDropCell(e, m.key)}
@@ -320,10 +348,30 @@ function SubStreamRow({
             title={`${m.monthLabel} ${m.year} — drop to snap here, double-click to add`}
             className={cn(
               "min-h-[60px] border-r border-border last:border-r-0 transition",
+              showSnapGrid && "bg-[linear-gradient(to_right,transparent_calc(100%-1px),var(--border)_calc(100%-1px))] [background-size:50%_8px] [background-repeat:repeat-y]",
               dragOverKey === m.key && "bg-primary/15 ring-2 ring-inset ring-primary/40",
             )}
           />
         ))}
+
+        {/* Optional snap-grid overlay: vertical month dividers visible across the row */}
+        {showSnapGrid && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 grid"
+            style={{ gridTemplateColumns: `repeat(${visibleMonths.length}, minmax(${MONTH_COL_MIN}px, 1fr))` }}
+          >
+            {visibleMonths.map((m, i) => (
+              <div
+                key={m.key}
+                className={cn(
+                  "border-r border-dashed border-primary/30",
+                  i === visibleMonths.length - 1 && "border-r-0",
+                )}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Spanning cards layer */}
         <div className="pointer-events-none absolute inset-0 grid p-1.5"
@@ -337,6 +385,7 @@ function SubStreamRow({
               span={span.span}
               row={idx}
               visibleMonths={visibleMonths}
+              onAnnounce={onAnnounce}
               onClick={() => onOpenItem(item.id)}
             />
           ))}
@@ -354,6 +403,7 @@ function SpanningCard({
   span,
   row,
   visibleMonths,
+  onAnnounce,
   onClick,
 }: {
   item: RoadmapItem;
@@ -361,11 +411,28 @@ function SpanningCard({
   span: number;
   row: number;
   visibleMonths: MonthCell[];
+  onAnnounce: (msg: string) => void;
   onClick: () => void;
 }) {
   const [resizing, setResizing] = useState<"left" | "right" | null>(null);
   const [previewSpan, setPreviewSpan] = useState<{ startIdx: number; span: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  function rangeLabel(p: { startIdx: number; span: number }) {
+    const a = visibleMonths[p.startIdx];
+    const b = visibleMonths[p.startIdx + p.span - 1];
+    if (!a) return "";
+    if (p.span === 1) return `${a.monthLabel} ${a.year}`;
+    return `${a.monthLabel} ${a.year} to ${b.monthLabel} ${b.year}`;
+  }
+
+  function commitSpan(p: { startIdx: number; span: number }) {
+    const startKey = visibleMonths[p.startIdx].key;
+    const endKey = visibleMonths[p.startIdx + p.span - 1].key;
+    const newMonths = rangeMonths(startKey, endKey, visibleMonths);
+    roadmapActions.moveItemMonths(item.id, newMonths);
+    onAnnounce(`${item.title} now spans ${rangeLabel(p)} (${p.span} month${p.span === 1 ? "" : "s"}).`);
+  }
 
   function handleResizeStart(e: React.MouseEvent, side: "left" | "right") {
     e.stopPropagation();
@@ -394,12 +461,7 @@ function SpanningCard({
       window.removeEventListener("mouseup", onUp);
       setResizing(null);
       setPreviewSpan((preview) => {
-        if (preview) {
-          const startKey = visibleMonths[preview.startIdx].key;
-          const endKey = visibleMonths[preview.startIdx + preview.span - 1].key;
-          const newMonths = rangeMonths(startKey, endKey, visibleMonths);
-          roadmapActions.moveItemMonths(item.id, newMonths);
-        }
+        if (preview) commitSpan(preview);
         return null;
       });
     }
@@ -407,13 +469,34 @@ function SpanningCard({
     window.addEventListener("mouseup", onUp);
   }
 
+  // Keyboard resize: focus a handle, then ←/→ shrinks/grows by one month.
+  function handleHandleKey(e: React.KeyboardEvent, side: "left" | "right") {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    let next: { startIdx: number; span: number };
+    if (side === "right") {
+      const newSpan = Math.max(1, Math.min(visibleMonths.length - startIdx, span + dir));
+      next = { startIdx, span: newSpan };
+    } else {
+      const newStart = Math.max(0, Math.min(startIdx + span - 1, startIdx + dir));
+      const newSpan = startIdx + span - newStart;
+      next = { startIdx: newStart, span: newSpan };
+    }
+    commitSpan(next);
+  }
+
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.setData("text/plain", item.id);
     e.dataTransfer.effectAllowed = "move";
+    onAnnounce(`Dragging ${item.title}. Drop on a month cell to snap.`);
   }
 
   const effective = previewSpan ?? { startIdx, span };
   const multiMonth = item.months.length > 1;
+  const cardLabel = `${item.title}, ${item.status}, ${rangeLabel({ startIdx, span })}. Press Enter to edit.`;
+  const leftTooltipId = `tt-l-${item.id}`;
+  const rightTooltipId = `tt-r-${item.id}`;
 
   return (
     <div
@@ -421,8 +504,18 @@ function SpanningCard({
       draggable={!resizing}
       onDragStart={handleDragStart}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={cardLabel}
+      aria-grabbed={!!resizing}
       className={cn(
-        "pointer-events-auto group relative mb-1 cursor-grab overflow-hidden rounded-md border border-border bg-surface px-2 py-1.5 text-xs shadow-sm transition hover:shadow-md active:cursor-grabbing",
+        "pointer-events-auto group relative mb-1 cursor-grab overflow-hidden rounded-md border border-border bg-surface px-2 py-1.5 text-xs shadow-sm transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing",
         resizing && "ring-2 ring-primary",
       )}
       style={{
@@ -432,22 +525,37 @@ function SpanningCard({
         borderLeftColor: item.color_tag,
       }}
     >
-      {/* Left resize handle (snap-to-month) */}
-      <div
+      {/* Left resize handle (snap-to-month) — accessible button */}
+      <button
+        type="button"
         onMouseDown={(e) => handleResizeStart(e, "left")}
-        title="Drag to change start month (snaps to month)"
-        className="absolute inset-y-0 left-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+        onKeyDown={(e) => handleHandleKey(e, "left")}
+        aria-label={`Resize start of ${item.title}. Currently starts ${visibleMonths[startIdx]?.monthLabel} ${visibleMonths[startIdx]?.year}. Use left and right arrow keys to adjust by one month.`}
+        aria-describedby={leftTooltipId}
+        title="Drag or use ← → keys to change start month (snaps to month)"
+        className="absolute inset-y-0 left-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center bg-transparent opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-100 hover:w-2 hover:bg-primary"
       >
         <span className="pointer-events-none h-3 w-px bg-primary/70" />
-      </div>
-      {/* Right resize handle (snap-to-month) */}
-      <div
+      </button>
+      <span id={leftTooltipId} role="tooltip" className="sr-only">
+        Drag horizontally or press arrow keys to change start month. Snaps to the month grid.
+      </span>
+
+      {/* Right resize handle (snap-to-month) — accessible button */}
+      <button
+        type="button"
         onMouseDown={(e) => handleResizeStart(e, "right")}
-        title="Drag to change end month (snaps to month)"
-        className="absolute inset-y-0 right-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+        onKeyDown={(e) => handleHandleKey(e, "right")}
+        aria-label={`Resize end of ${item.title}. Currently ends ${visibleMonths[startIdx + span - 1]?.monthLabel} ${visibleMonths[startIdx + span - 1]?.year}. Use left and right arrow keys to adjust by one month.`}
+        aria-describedby={rightTooltipId}
+        title="Drag or use ← → keys to change end month (snaps to month)"
+        className="absolute inset-y-0 right-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center bg-transparent opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-100 hover:w-2 hover:bg-primary"
       >
         <span className="pointer-events-none h-3 w-px bg-primary/70" />
-      </div>
+      </button>
+      <span id={rightTooltipId} role="tooltip" className="sr-only">
+        Drag horizontally or press arrow keys to change end month. Snaps to the month grid.
+      </span>
 
       {/* Live snap range readout while resizing */}
       {resizing && previewSpan && (
