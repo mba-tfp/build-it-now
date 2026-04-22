@@ -195,7 +195,7 @@ function OverviewTab() {
   pendingOverrides.forEach((o) => alerts.push({ priority: "P2", title: `${o.id} pending acknowledgement`, body: o.kind, triggered_at: o.raised_at, system: "Overrides" }));
   if (usedPct > 85) alerts.push({ priority: "P2", title: `Sprint at ${usedPct}% capacity`, body: "New scope must declare displacement.", triggered_at: sprint.start_date, system: "Sprint" });
   stuck.forEach((s) => alerts.push({ priority: "P3", title: `Shaping stuck >12d`, body: s.problem_what.slice(0, 80) || s.id, triggered_at: s.created_at, system: "Shaping" }));
-  pendingComms.forEach((c) => alerts.push({ priority: "P3", title: `Comms awaiting approval: ${c.subject}`, body: c.audience, triggered_at: c.drafted_at ?? c.created_at, system: "Comms" }));
+  pendingComms.forEach((c) => alerts.push({ priority: "P3", title: `Comms awaiting approval: ${c.subject}`, body: c.audience, triggered_at: c.drafted_at, system: "Comms" }));
   overdueReviews.forEach((r) => alerts.push({ priority: "P3", title: "Review pending", body: r.size + " review for " + r.shaping_id, triggered_at: r.created_at, system: "Reviews" }));
   stale.forEach((s) => alerts.push({ priority: "P4", title: "Shaping stale (>6d)", body: s.problem_what.slice(0, 80) || s.id, triggered_at: s.created_at, system: "Shaping" }));
   // Dependency Change deadline alerts
