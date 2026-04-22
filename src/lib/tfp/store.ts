@@ -1238,6 +1238,10 @@ type State = {
   monitoringAlerts: MonitoringAlert[];
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
+  // Round 5
+  flags: FeatureFlags;
+  helpArticles: HelpArticle[];
+  workflows: Workflow[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -1255,7 +1259,9 @@ type State = {
     reason?: string,
     holdUntil?: string,
   ) => void;
-  updateSignal: (signalId: string, patch: Partial<Signal>) => void;
+  updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
+  setSignalAttachments: (signalId: string, next: Attachment[]) => void;
+  setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
@@ -1331,6 +1337,15 @@ type State = {
   completeOnboardingItem: (userId: string, itemId: string) => void;
   completeOnboarding: (userId: string) => void;
   resetOnboarding: (userId: string) => void;
+  // Round 5: feature flags / users / help / workflows
+  setFlag: (key: keyof FeatureFlags, value: boolean) => void;
+  upsertUser: (user: User) => void;
+  removeUser: (userId: string) => void;
+  upsertHelpArticle: (article: Omit<HelpArticle, "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
+  removeHelpArticle: (id: string) => void;
+  upsertWorkflow: (workflow: Omit<Workflow, "created_at" | "updated_at"> & { id?: string }) => Workflow;
+  removeWorkflow: (id: string) => void;
+  toggleWorkflowActive: (id: string) => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
