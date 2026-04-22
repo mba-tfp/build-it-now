@@ -1,18 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useTfpStore } from "@/lib/tfp/store";
 import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime } from "@/lib/tfp/format";
-import type { IssueType, Product, Source, Tier } from "@/lib/tfp/types";
-import { Pill, StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import type { Attachment, IssueType, Product, Source, Tier } from "@/lib/tfp/types";
+import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import { MultiSelectPills } from "@/components/tfp/MultiSelectPills";
+import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { CheckCircle2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_app/intake")({
   component: SignalIntakePage,
 });
 
-const SOURCES: Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
-const PRODUCTS: Product[] = [
+const SOURCES: readonly Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
+const PRODUCTS: readonly Product[] = [
   "Otto-Onboard",
   "Otto Notes",
   "Otto Pulse",
@@ -40,42 +43,63 @@ function defaultSourceForRole(role: string): Source {
 function SignalIntakePage() {
   const navigate = useNavigate();
   const me = useTfpStore((s) => s.users.find((u) => u.id === s.currentUserId)!);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const createSignal = useTfpStore((s) => s.createSignal);
+  const updateSignal = useTfpStore((s) => s.updateSignal);
+  const setSignalAttachments = useTfpStore((s) => s.setSignalAttachments);
+  const flags = useTfpStore((s) => s.flags);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [source, setSource] = useState<Source>(defaultSourceForRole(me.role));
-  const [product, setProduct] = useState<Product | null>(null);
+  const [sources, setSources] = useState<Source[]>([defaultSourceForRole(me.role)]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [displacementFlag, setDisplacementFlag] = useState(false);
   const [displacementNote, setDisplacementNote] = useState("");
   const [overrideType, setOverrideType] = useState<IssueType | null>(null);
   const [overrideTier, setOverrideTier] = useState<Tier | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
+  const primarySource = sources[0] ?? defaultSourceForRole(me.role);
+  const primaryProduct = products[0] ?? null;
+
   const classification = useMemo(
-    () => classifySignal({ source, description }),
-    [source, description],
+    () => classifySignal({ source: primarySource, description }),
+    [primarySource, description],
   );
   const finalType = overrideType ?? classification.issue_type;
   const finalTier = overrideTier ?? classification.tier;
   const sla = slaDueAt(finalTier);
 
   const canSubmit =
-    description.trim().length >= 20 && !!product && (!displacementFlag || displacementNote.trim().length > 0);
+    description.trim().length >= 20 &&
+    sources.length > 0 &&
+    !!primaryProduct &&
+    (!displacementFlag || displacementNote.trim().length > 0);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || !product) return;
+    if (!canSubmit || !primaryProduct) return;
     const sig = createSignal({
       title: title || description.slice(0, 80),
       description,
-      source,
-      product,
+      source: primarySource,
+      product: primaryProduct,
       issue_type_override: overrideType ?? undefined,
       tier_override: overrideTier ?? undefined,
       displacement_flag: displacementFlag,
       displacement_note: displacementFlag ? displacementNote : null,
     });
+    // Persist multi-select extras + attachments via updateSignal.
+    const additional_sources = sources.slice(1);
+    const additional_products = products.slice(1);
+    if (additional_sources.length > 0 || additional_products.length > 0) {
+      updateSignal(sig.id, { additional_sources, additional_products });
+    }
+    if (pendingAttachments.length > 0) {
+      setSignalAttachments(sig.id, pendingAttachments);
+    }
+    toast.success("Signal logged", { description: sig.id });
     setSubmitted(sig.id);
   }
 
@@ -109,11 +133,12 @@ function SignalIntakePage() {
                 setSubmitted(null);
                 setDescription("");
                 setTitle("");
-                setProduct(null);
+                setProducts([]);
                 setOverrideType(null);
                 setOverrideTier(null);
                 setDisplacementFlag(false);
                 setDisplacementNote("");
+                setPendingAttachments([]);
               }}
               className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
             >
@@ -153,6 +178,7 @@ function SignalIntakePage() {
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
               placeholder="e.g. Patients can't reset password in StimSmart"
+              suppressHydrationWarning
               className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </Field>
@@ -172,29 +198,45 @@ function SignalIntakePage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               placeholder="Describe what you heard, observed, or what was asked..."
+              suppressHydrationWarning
               className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </Field>
 
-          <Field label="Source" required>
-            <div className="flex flex-wrap gap-2">
-              {SOURCES.map((s) => (
-                <Pill key={s} active={source === s} onClick={() => setSource(s)}>
-                  {s}
-                </Pill>
-              ))}
-            </div>
+          <Field
+            label="Source"
+            required
+            hint={
+              flags.multiSelectIntake
+                ? "Tap to toggle. The first selected source is treated as primary for SLA routing."
+                : undefined
+            }
+          >
+            <MultiSelectPills options={SOURCES} selected={sources} onChange={setSources} primaryLabel="Primary" />
           </Field>
 
-          <Field label="Product" required>
-            <div className="flex flex-wrap gap-2">
-              {PRODUCTS.map((p) => (
-                <Pill key={p} active={product === p} onClick={() => setProduct(p)}>
-                  {p}
-                </Pill>
-              ))}
-            </div>
+          <Field
+            label="Product"
+            required
+            hint={
+              flags.multiSelectIntake
+                ? "Pick one or more. The first selected product is treated as primary."
+                : undefined
+            }
+          >
+            <MultiSelectPills options={PRODUCTS} selected={products} onChange={setProducts} primaryLabel="Primary" />
           </Field>
+
+          {flags.attachmentsEnabled && (
+            <Field label="Attachments" hint="Add reference links (Figma, Drive, Notion, JIRA).">
+              <AttachmentsField
+                attachments={pendingAttachments}
+                onChange={setPendingAttachments}
+                currentUserId={currentUserId}
+                compact
+              />
+            </Field>
+          )}
 
           <Field
             label="Conflicts with a committed item?"
@@ -276,6 +318,16 @@ function SignalIntakePage() {
                 <Row label="Due by">
                   <span className="text-sm text-foreground">{fmtDateTime(sla.toISOString())}</span>
                 </Row>
+                {sources.length > 1 && (
+                  <Row label="Also from">
+                    <span className="text-xs text-muted-foreground">{sources.slice(1).join(", ")}</span>
+                  </Row>
+                )}
+                {products.length > 1 && (
+                  <Row label="Also affects">
+                    <span className="text-xs text-muted-foreground">{products.slice(1).join(", ")}</span>
+                  </Row>
+                )}
                 {classification.labels.length > 0 && (
                   <Row label="Labels">
                     <div className="flex gap-1">
