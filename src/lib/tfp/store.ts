@@ -1117,6 +1117,7 @@ type State = {
   currentUserId: string;
   users: User[];
   sprint: Sprint;
+  sprints: Sprint[];
   signals: Signal[];
   shaping: ShapingItem[];
   jiraEvents: JiraEvent[];
@@ -1128,6 +1129,10 @@ type State = {
   decisions: Decision[];
   retros: SprintRetro[];
   notifications: Notification[];
+  clinics: Clinic[];
+  monitoringAlerts: MonitoringAlert[];
+  techDebtReviews: TechDebtReview[];
+  clinicFeedbackLog: ClinicFeedbackRecord[];
   setCurrentUser: (id: string) => void;
   createSignal: (data: {
     title: string;
@@ -1151,6 +1156,7 @@ type State = {
   signOffTechReview: (id: string, reviewerId: string) => void;
   approveShaping: (id: string, approverId: string, notes: string) => void;
   requestChanges: (id: string, approverId: string, notes: string) => void;
+  approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   syncFromJira: () => number;
@@ -1165,8 +1171,7 @@ type State = {
     reviewId: string,
     data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
   ) => Signal;
-  // Wave 4
-  toggleDevCompleteGate: (id: string, key: "tests_pass" | "docs_updated" | "qa_signed_off", value: boolean) => void;
+  toggleDevCompleteGate: (id: string, key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", value: boolean) => void;
   signOffDevComplete: (id: string) => void;
   toggleSprintLock: () => void;
   logOverride: (data: {
@@ -1183,7 +1188,7 @@ type State = {
   toggleGoLiveCriterion: (id: string, criterion: GoLiveCriterion, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
-  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason">) => CommsItem;
+  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason" | "requires_pm_approval"> & { requires_pm_approval?: boolean }) => CommsItem;
   submitCommsForApproval: (id: string) => void;
   approveComms: (id: string) => void;
   rejectComms: (id: string, reason: string) => void;
@@ -1202,6 +1207,21 @@ type State = {
     ts?: string;
   }) => Notification;
   audit_log: (entry: Omit<AuditEntry, "id" | "ts" | "actor_id">) => void;
+  // Clinics
+  offboardClinic: (clinicId: string, reason: string) => void;
+  // Sprints
+  createSprint: (data: { name: string; start_date: string; end_date: string; gross_capacity_pts: number; notes?: string }) => Sprint;
+  // Tech debt
+  markTechDebtReviewed: (shapingId: string) => void;
+  recordTechDebtReview: (data: Omit<TechDebtReview, "id" | "reviewed_by_id" | "reviewed_at">) => TechDebtReview;
+  // Monitoring
+  simulateMonitoringAlert: (data: { system: MonitoringSystem; integration: string; severity: MonitoringSeverity; message: string }) => MonitoringAlert;
+  // Public clinic feedback
+  submitClinicFeedback: (data: { clinic_id: string; clinic_name: string; reporter_name: string; description: string; urgent: boolean }) => { ok: true; signal_id: string } | { ok: false; reason: string };
+  // Onboarding
+  completeOnboardingItem: (userId: string, itemId: string) => void;
+  completeOnboarding: (userId: string) => void;
+  resetOnboarding: (userId: string) => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
