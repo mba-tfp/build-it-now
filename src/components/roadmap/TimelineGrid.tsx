@@ -431,20 +431,42 @@ function SpanningCard({
         borderLeftColor: item.color_tag,
       }}
     >
-      {/* Left resize handle */}
+      {/* Left resize handle (snap-to-month) */}
       <div
         onMouseDown={(e) => handleResizeStart(e, "left")}
-        className="absolute inset-y-0 left-0 z-10 w-1 cursor-col-resize opacity-0 transition group-hover:opacity-100 hover:bg-primary"
-      />
-      {/* Right resize handle */}
+        title="Drag to change start month (snaps to month)"
+        className="absolute inset-y-0 left-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+      >
+        <span className="pointer-events-none h-3 w-px bg-primary/70" />
+      </div>
+      {/* Right resize handle (snap-to-month) */}
       <div
         onMouseDown={(e) => handleResizeStart(e, "right")}
-        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize opacity-0 transition group-hover:opacity-100 hover:bg-primary"
-      />
+        title="Drag to change end month (snaps to month)"
+        className="absolute inset-y-0 right-0 z-10 flex w-1.5 cursor-col-resize items-center justify-center opacity-0 transition group-hover:opacity-100 hover:w-2 hover:bg-primary"
+      >
+        <span className="pointer-events-none h-3 w-px bg-primary/70" />
+      </div>
+
+      {/* Live snap range readout while resizing */}
+      {resizing && previewSpan && (
+        <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-background shadow">
+          {visibleMonths[previewSpan.startIdx]?.monthLabel}{" "}
+          {String(visibleMonths[previewSpan.startIdx]?.year).slice(2)}
+          {previewSpan.span > 1 && (
+            <>
+              {" → "}
+              {visibleMonths[previewSpan.startIdx + previewSpan.span - 1]?.monthLabel}{" "}
+              {String(visibleMonths[previewSpan.startIdx + previewSpan.span - 1]?.year).slice(2)}
+            </>
+          )}
+          <span className="ml-1 text-background/70">· {previewSpan.span}mo</span>
+        </div>
+      )}
 
       <div className="flex items-center gap-1.5">
-        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", PRIORITY_DOT[item.priority])} title={item.priority} />
-        <span className="truncate font-medium">{item.title}</span>
+        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", PRIORITY_DOT[item.priority])} title={`Priority: ${item.priority}`} />
+        <span className="truncate font-medium" title={item.title}>{item.title}</span>
         {multiMonth && (
           <span className="ml-auto shrink-0 rounded bg-muted px-1 text-[9px] uppercase tracking-wider text-muted-foreground">
             {item.months.length}m
