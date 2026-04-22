@@ -253,11 +253,66 @@ export function useRoadmapStore() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+// ---------- Undo / Redo history ----------
+
+const HISTORY_LIMIT = 50;
+type HistoryStacks = { past: Roadmap[]; future: Roadmap[] };
+const historyByRoadmap = new Map<string, HistoryStacks>();
+
+function getHistory(id: string): HistoryStacks {
+  if (!historyByRoadmap.has(id)) historyByRoadmap.set(id, { past: [], future: [] });
+  return historyByRoadmap.get(id)!;
+}
+
+function pushHistory(prev: Roadmap) {
+  const h = getHistory(prev.id);
+  h.past.push(JSON.parse(JSON.stringify(prev)));
+  if (h.past.length > HISTORY_LIMIT) h.past.shift();
+  // Any new edit clears the redo stack
+  h.future = [];
+}
+
+export function canUndo(): boolean {
+  const id = snapshotCache.activeId;
+  return getHistory(id).past.length > 0;
+}
+
+export function canRedo(): boolean {
+  const id = snapshotCache.activeId;
+  return getHistory(id).future.length > 0;
+}
+
+export function undo() {
+  const snap = refreshSnapshot();
+  if (!snap.active) return;
+  const h = getHistory(snap.active.id);
+  const prev = h.past.pop();
+  if (!prev) return;
+  h.future.push(JSON.parse(JSON.stringify(snap.active)));
+  writeRoadmap(prev);
+  refreshSnapshot();
+  notify();
+}
+
+export function redo() {
+  const snap = refreshSnapshot();
+  if (!snap.active) return;
+  const h = getHistory(snap.active.id);
+  const next = h.future.pop();
+  if (!next) return;
+  h.past.push(JSON.parse(JSON.stringify(snap.active)));
+  writeRoadmap(next);
+  refreshSnapshot();
+  notify();
+}
+
 // ---------- Mutations ----------
 
 function commit(updater: (rm: Roadmap) => Roadmap | void) {
   const snap = refreshSnapshot();
   if (!snap.active) return;
+  // Snapshot for undo BEFORE applying the change.
+  pushHistory(snap.active);
   const next = { ...snap.active };
   const result = updater(next);
   const final = result ?? next;
