@@ -148,6 +148,7 @@ export type ShapingItem = {
   dependency_integrations_affected: string;
   dependency_impact: string;
   dependency_deadline: string | null;
+  attachments?: Attachment[];
   created_at: string;
   updated_at: string;
 };
