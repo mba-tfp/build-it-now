@@ -183,8 +183,11 @@ function LeadershipPage() {
   const [productFilter, setProductFilter] = useState<Product | "All">("All");
   const [tierFilter, setTierFilter] = useState<Tier | "All">("All");
 
+  type SignalSortKey = "created_at" | "source" | "tier";
+  const { sort: signalSort, setSort: setSignalSort } = useSortMenu<SignalSortKey>("leadership-signals", { key: "created_at", dir: "desc" });
+
   const filteredSignals = useMemo(() => {
-    return signals.filter((s) => {
+    const base = signals.filter((s) => {
       if (sourceFilter !== "All" && s.source !== sourceFilter) return false;
       if (productFilter !== "All" && s.product !== productFilter) return false;
       if (tierFilter !== "All" && s.tier !== tierFilter) return false;
@@ -200,7 +203,13 @@ function LeadershipPage() {
       }
       return true;
     });
-  }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now]);
+    return sortRows(base, signalSort, (s, k) => {
+      if (k === "created_at") return new Date(s.created_at).getTime();
+      if (k === "source") return s.source;
+      if (k === "tier") return s.tier;
+      return null;
+    });
+  }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now, signalSort]);
 
   function exportCsv() {
     const csv = signalsToCsv(filteredSignals, shaping, USERS);
