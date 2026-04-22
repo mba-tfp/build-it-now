@@ -609,16 +609,23 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
   );
 }
 
+const CONCURRENT_KEYWORDS = ["accuro", "phelix", "integration", "api", "webhook", "sync"];
+
 function TechReview({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
   const isTechLead = me.role === "Tech Lead";
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const signOff = useTfpStore((s) => s.signOffTechReview);
+  const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id));
+
+  const haystack = `${sig?.description ?? ""} ${item.solution_approach}`.toLowerCase();
+  const needsConcurrentCheck = CONCURRENT_KEYWORDS.some((k) => haystack.includes(k));
 
   const ready =
     item.tech_review_notes.trim().length > 0 &&
     typeof item.tech_estimate_pts === "number" &&
-    (item.tech_estimate_pts ?? 0) > 0;
+    (item.tech_estimate_pts ?? 0) > 0 &&
+    (!needsConcurrentCheck || item.tech_concurrent_access_checked);
 
   if (item.tech_signed_off_at) {
     const reviewer = USERS.find((u) => u.id === item.tech_reviewer_id);
@@ -633,6 +640,9 @@ function TechReview({ item }: { item: ShapingItem }) {
             <ReadField label="Review notes" value={item.tech_review_notes} />
             <ReadField label="Concerns" value={item.tech_concerns || "None"} />
             <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
+            {needsConcurrentCheck && (
+              <ReadField label="Concurrent access" value={item.tech_concurrent_access_checked ? "Reviewed and documented" : "Not checked"} />
+            )}
           </dl>
           <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
             <button
@@ -702,7 +712,32 @@ function TechReview({ item }: { item: ShapingItem }) {
               Final estimate that propagates to Sprint capacity.
             </p>
           </div>
+
+          {needsConcurrentCheck && (
+            <div className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={item.tech_concurrent_access_checked}
+                  onChange={(e) => updateShaping(item.id, { tech_concurrent_access_checked: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium text-[var(--color-status-hold)]">Concurrent access behaviour reviewed and documented</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Detected integration keywords (Accuro/Phelix/API/webhook/sync). Confirm concurrent-access edge cases are handled.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
         </fieldset>
+
+        {needsConcurrentCheck && !item.tech_concurrent_access_checked && (
+          <p className="mt-3 text-xs text-destructive">
+            Concurrent access review required for integration items.
+          </p>
+        )}
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
           <button
