@@ -1665,7 +1665,7 @@ export const useTfpStore = create<State>()(
         });
       },
 
-
+      syncFromJira: () => {
         const items = get().shaping.filter(
           (s) => s.jira_key && s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
         );
