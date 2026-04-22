@@ -503,7 +503,7 @@ function RoadmapCard({
   draggable: boolean;
   onDragStart: (e: React.DragEvent) => void;
 }) {
-  const pts = sh.tech_estimate_pts ?? Number((sh.solution_effort.match(/\d+/) ?? [])[0]) || null;
+  const pts = sh.tech_estimate_pts ?? (Number((sh.solution_effort.match(/\d+/) ?? [])[0]) || null);
   const needsShaping = sh.shaping_status === "Unshaped" && sh.roadmap_bucket === "Now";
   let goLiveIcon = null as string | null;
   if (gl) {
