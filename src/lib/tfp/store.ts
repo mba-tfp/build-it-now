@@ -1252,6 +1252,8 @@ type State = {
     tier_override?: Signal["tier"];
     displacement_flag: boolean;
     displacement_note: string | null;
+    priority?: import("./types").IntakePriority;
+    attachments?: Attachment[];
   }) => Signal;
   triageDecision: (
     signalId: string,
