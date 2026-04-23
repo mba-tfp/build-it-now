@@ -351,6 +351,12 @@ function TriagePanel({
   );
   const suggestedSla = useMemo(() => slaDueAt(suggestion.tier), [suggestion.tier]);
   const matchesSuggestion = sig.issue_type === suggestion.issue_type && sig.tier === suggestion.tier;
+
+  function tryUpdateInPanel(patch: Partial<Signal>) {
+    const res = updateSignal(sig.id, patch);
+    if (res.ok) toast.success("Saved");
+    else toast.error(res.error ?? "Couldn't save");
+  }
   const owner = users.find((u) => u.id === sig.created_by);
   const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
   const [reason, setReason] = useState("");
