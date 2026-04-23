@@ -10,18 +10,11 @@ import {
   HelpCircle,
   Search,
   Inbox,
-  Filter,
   Layers,
   Truck,
   Map as MapIcon,
-  Rocket,
-  MessageSquare,
-  ClipboardCheck,
-  RotateCcw,
-  Gavel,
-  ShieldAlert,
   Crown,
-  HeartPulse,
+  Gavel,
   ShieldCheck,
   BookOpen,
   Workflow as WorkflowIcon,
@@ -45,20 +38,19 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { to: "/intake", label: "Intake", icon: Inbox },
-  { to: "/triage", label: "Triage", icon: Filter },
+const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
   { to: "/roadmap", label: "Roadmap", icon: MapIcon },
-  { to: "/golive", label: "Go-Live", icon: Rocket },
-  { to: "/comms", label: "Comms", icon: MessageSquare },
-  { to: "/review", label: "Reviews", icon: ClipboardCheck },
-  { to: "/retros", label: "Retros", icon: RotateCcw },
-  { to: "/decisions", label: "Decisions", icon: Gavel },
-  { to: "/overrides", label: "Overrides", icon: ShieldAlert },
+];
+
+const LEADERSHIP_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { to: "/leadership", label: "Leadership", icon: Crown },
-  { to: "/health", label: "Queue Health", icon: HeartPulse },
+];
+
+const GOVERNANCE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/governance", label: "Governance", icon: Gavel },
 ];
 
 const ADMIN_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }>; flag?: "helpCenterEnabled" | "workflowBuilderEnabled" | "adminPanelEnabled" }> = [
