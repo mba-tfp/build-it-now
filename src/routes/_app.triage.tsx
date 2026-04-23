@@ -2,13 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
+import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
-import type { IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
+import type { IntakePriority, IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
-import { Pencil, Save, Search, X } from "lucide-react";
+import { Pencil, Save, Search, Sparkles, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/triage")({
   component: TriageQueuePage,
@@ -48,7 +49,7 @@ function TriageQueuePage() {
   const updateSignal = useTfpStore((s) => s.updateSignal);
   const navigate = useNavigate();
 
-  const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("All");
+  const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("New");
   const [sourceF, setSourceF] = useState<(typeof SOURCES)[number]>("All");
   const [productF, setProductF] = useState<(typeof PRODUCTS)[number]>("All");
   const [tierF, setTierF] = useState<(typeof TIERS)[number]>("All");
