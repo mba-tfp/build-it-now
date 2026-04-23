@@ -80,6 +80,8 @@ export type Signal = {
   displacement_note: string | null;
   attachments?: Attachment[];
   parent_signal_id?: string | null;
+  /** Intake-stage prioritisation. Defaults to "Nice to have" for legacy/seed signals. */
+  priority?: IntakePriority;
 };
 
 export type ShapingStatus =
