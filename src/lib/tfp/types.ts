@@ -254,14 +254,21 @@ export type Override = {
   attachments?: Attachment[];
 };
 
-export type GoLiveCriterion =
-  | "Clinic staff trained"
-  | "Data migrated and verified"
-  | "UAT completed by clinic contact"
-  | "Rollback plan confirmed and tested"
-  | "Go-live comms sent to clinic staff";
+/** Default criteria seeded into every new go-live checklist. Stored as plain strings so each release can customise. */
+export const DEFAULT_GOLIVE_CRITERIA: readonly string[] = [
+  "Clinic staff trained",
+  "Data migrated and verified",
+  "UAT completed by clinic contact",
+  "Rollback plan confirmed and tested",
+  "Go-live comms sent to clinic staff",
+];
+
+/** @deprecated Use plain string keys — checklists are now per-release customizable. Kept for legacy seed compatibility. */
+export type GoLiveCriterion = string;
 
 export type GoLiveStatus = "Not Started" | "In Progress" | "Ready" | "Live" | "Rolled Back";
+
+export type GoLiveCriterionState = { done: boolean; note: string; checked_by: string | null; checked_at: string | null };
 
 export type GoLiveChecklist = {
   id: string;
@@ -271,7 +278,7 @@ export type GoLiveChecklist = {
   scheduled_for: string;
   status: GoLiveStatus;
   war_room: boolean;
-  criteria: Record<GoLiveCriterion, { done: boolean; note: string; checked_by: string | null; checked_at: string | null }>;
+  criteria: Record<string, GoLiveCriterionState>;
   go_no_go_decision: "Go" | "No-Go" | null;
   go_no_go_by: string | null;
   go_no_go_at: string | null;
