@@ -21,7 +21,7 @@ const TYPE_TONE: Record<DecisionType, string> = {
   Vendor: "bg-muted text-muted-foreground",
 };
 
-function DecisionsPage() {
+export function DecisionsPage() {
   const decisions = useTfpStore((s) => s.decisions);
   const signals = useTfpStore((s) => s.signals);
   const create = useTfpStore((s) => s.createDecision);

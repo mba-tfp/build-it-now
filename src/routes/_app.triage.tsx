@@ -57,7 +57,7 @@ function priorityClasses(p: IntakePriority | undefined): string {
   }
 }
 
-function TriageQueuePage() {
+export function TriageQueuePage() {
   const signals = useTfpStore((s) => s.signals);
   const users = useTfpStore((s) => s.users);
   const triageDecision = useTfpStore((s) => s.triageDecision);

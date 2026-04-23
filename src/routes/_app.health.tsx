@@ -42,7 +42,7 @@ type Tab = (typeof TABS)[number];
 
 const MONITORING_SYSTEMS: MonitoringSystem[] = ["Accuro", "Phelix AI", "Olive EngagedMD", "Tia Health", "EngagedMD"];
 
-function QueueHealthPage() {
+export function QueueHealthPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);

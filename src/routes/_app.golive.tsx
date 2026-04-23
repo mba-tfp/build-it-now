@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/golive")({
   component: GoLivePage,
 });
 
-function GoLivePage() {
+export function GoLivePage() {
   const goLives = useTfpStore((s) => s.goLives);
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);

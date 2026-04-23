@@ -29,7 +29,7 @@ const KIND_TONE: Record<OverrideKind, string> = {
   Other: "bg-muted text-muted-foreground",
 };
 
-function OverridesPage() {
+export function OverridesPage() {
   const overrides = useTfpStore((s) => s.overrides);
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);

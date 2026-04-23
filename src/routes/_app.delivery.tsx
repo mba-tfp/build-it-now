@@ -48,7 +48,7 @@ function canMove(user: User, sh: ShapingItem, target: DeliveryStatus): boolean {
   return false;
 }
 
-function DeliveryPage() {
+export function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);

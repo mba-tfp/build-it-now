@@ -31,7 +31,7 @@ function defaultSourceForRole(role: string): Source {
   return "Internal";
 }
 
-function SignalIntakePage() {
+export function SignalIntakePage() {
   const navigate = useNavigate();
   const me = useTfpStore((s) => s.users.find((u) => u.id === s.currentUserId)!);
   const currentUserId = useTfpStore((s) => s.currentUserId);

@@ -47,7 +47,7 @@ const RATING_TONE: Record<OutcomeRating, string> = {
   Missed: "bg-destructive/10 text-destructive",
 };
 
-function ReviewsPage() {
+export function ReviewsPage() {
   const reviews = useTfpStore((s) => s.reviews);
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);

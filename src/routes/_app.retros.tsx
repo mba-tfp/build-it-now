@@ -23,7 +23,7 @@ const THEME_TONE: Record<RetroTheme, string> = {
   Other: "bg-muted text-muted-foreground",
 };
 
-function RetrosPage() {
+export function RetrosPage() {
   const retros = useTfpStore((s) => s.retros);
   const sprint = useTfpStore((s) => s.sprint);
   const create = useTfpStore((s) => s.createRetro);

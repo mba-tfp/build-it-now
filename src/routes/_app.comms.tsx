@@ -32,7 +32,7 @@ const CHANNEL_ICON: Record<CommsChannel, typeof Mail> = {
   Phone: Phone,
 };
 
-function CommsPage() {
+export function CommsPage() {
   const comms = useTfpStore((s) => s.comms);
   const me = useTfpStore((s) => s.currentUserId);
   const meUser = USERS.find((u) => u.id === me)!;
