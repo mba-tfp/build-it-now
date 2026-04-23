@@ -432,12 +432,126 @@ function TriagePanel({
                   <TierBadge tier={sig.tier} />
                   <StatusBadge status={sig.status} />
                   <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(sig.priority))}>
+                    {sig.priority ?? "Nice to have"}
+                  </span>
                   <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
                 </div>
               </div>
 
               <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
                 {sig.description}
+              </div>
+
+              {/* Auto-classification suggestion (moved from Intake) */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <Sparkles className="h-3 w-3" /> Auto-classification suggestion
+                </div>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Suggested type</span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-muted px-1.5 py-0.5">{suggestion.issue_type}</span>
+                      {sig.issue_type !== suggestion.issue_type && (
+                        <button
+                          type="button"
+                          onClick={() => tryUpdateInPanel({ issue_type: suggestion.issue_type })}
+                          className="text-primary hover:underline"
+                        >
+                          apply
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Suggested tier</span>
+                    <div className="flex items-center gap-2">
+                      <TierBadge tier={suggestion.tier} />
+                      {sig.tier !== suggestion.tier && (
+                        <button
+                          type="button"
+                          onClick={() => tryUpdateInPanel({ tier: suggestion.tier })}
+                          className="text-primary hover:underline"
+                        >
+                          apply
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Would set SLA due</span>
+                    <span>{fmtDateTime(suggestedSla.toISOString())}</span>
+                  </div>
+                  <p className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+                    <strong className="text-foreground">Why:</strong> {suggestion.reason}
+                    {matchesSuggestion && <span className="ml-1">· current values match.</span>}
+                  </p>
+                </div>
+              </div>
+
+              {/* Priority editor */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Priority</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_PRIORITIES.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => tryUpdateInPanel({ priority: p })}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] transition",
+                        (sig.priority ?? "Nice to have") === p
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conflicts with committed item (moved from Intake) */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sig.displacement_flag}
+                    onChange={(e) =>
+                      tryUpdateInPanel({
+                        displacement_flag: e.target.checked,
+                        displacement_note: e.target.checked ? sig.displacement_note ?? "" : null,
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                  />
+                  <span>
+                    Conflicts with a currently committed item
+                    <span className="block text-[11px] text-muted-foreground">
+                      Tick if accepting this signal would displace something already in this sprint.
+                    </span>
+                  </span>
+                </label>
+                {sig.displacement_flag && (
+                  <input
+                    value={sig.displacement_note ?? ""}
+                    onChange={(e) => tryUpdateInPanel({ displacement_note: e.target.value })}
+                    placeholder="Which item gets displaced?"
+                    className="mt-2 w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                  />
+                )}
+              </div>
+
+              {/* Attachments — links + uploads */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Attachments</p>
+                <AttachmentsField
+                  attachments={sig.attachments ?? []}
+                  onChange={(next) => setSignalAttachments(sig.id, next)}
+                  currentUserId={currentUserId}
+                  compact
+                />
               </div>
             </>
           ) : (
