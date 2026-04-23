@@ -208,6 +208,41 @@ function DeliveryPage() {
         </div>
       )}
 
+      {/* Backlog rail (jira_key but not yet in sprint) */}
+      {backlogRows.length > 0 && (
+        <section className="mb-5 rounded-lg border border-border bg-surface-2 p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Inbox className="h-4 w-4 text-muted-foreground" />
+            Backlog ({backlogRows.length})
+            <span className="text-[11px] font-normal text-muted-foreground">
+              · Pushed to Jira, not yet in {sprint.name}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {backlogRows.map(({ sh, sig }) => (
+              <div key={sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="font-mono">{sh.jira_key}</span>
+                  <span className="font-mono">{sh.tech_estimate_pts ?? "—"}p</span>
+                </div>
+                <p className="mt-1 line-clamp-2 font-medium leading-snug">{sig?.title}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{sig?.product}</p>
+                <div className="mt-2 flex gap-1.5">
+                  <button
+                    onClick={() => addToSprint(sh.id)}
+                    disabled={sprintLocked}
+                    title={sprintLocked ? "Sprint locked — use Override log" : `Add ${sh.jira_key} to ${sprint.name}`}
+                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    + Add to Sprint
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Blocked rail */}
       {blocked.length > 0 && (
         <section className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
