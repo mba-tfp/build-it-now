@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore } from "@/lib/tfp/store";
-import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime } from "@/lib/tfp/format";
-import type { Attachment, IssueType, Product, Source, Tier } from "@/lib/tfp/types";
+import type { Attachment, IntakePriority, Product, Source } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { MultiSelectPills } from "@/components/tfp/MultiSelectPills";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/intake")({
   component: SignalIntakePage,
@@ -23,16 +23,7 @@ const PRODUCTS: readonly Product[] = [
   "StimSmart",
   "Platform",
 ];
-const ISSUE_TYPES: IssueType[] = [
-  "Feature",
-  "Bug",
-  "Enhancement",
-  "Leadership Input",
-  "Support",
-  "Incident",
-  "Dependency Change",
-];
-const TIERS: Tier[] = ["T1", "T2", "T3", "T4"];
+const PRIORITIES: IntakePriority[] = ["Must have", "Nice to have", "Food for thought"];
 
 function defaultSourceForRole(role: string): Source {
   if (role === "Leadership") return "Leadership";
@@ -53,44 +44,30 @@ function SignalIntakePage() {
   const [description, setDescription] = useState("");
   const [sources, setSources] = useState<Source[]>([defaultSourceForRole(me.role)]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [displacementFlag, setDisplacementFlag] = useState(false);
-  const [displacementNote, setDisplacementNote] = useState("");
-  const [overrideType, setOverrideType] = useState<IssueType | null>(null);
-  const [overrideTier, setOverrideTier] = useState<Tier | null>(null);
+  const [priority, setPriority] = useState<IntakePriority>("Nice to have");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
   const primarySource = sources[0] ?? defaultSourceForRole(me.role);
   const primaryProduct = products[0] ?? null;
 
-  const classification = useMemo(
-    () => classifySignal({ source: primarySource, description }),
-    [primarySource, description],
-  );
-  const finalType = overrideType ?? classification.issue_type;
-  const finalTier = overrideTier ?? classification.tier;
-  const sla = slaDueAt(finalTier);
+  const titleOk = title.trim().length >= 3;
+  const descOk = description.trim().length >= 20;
 
-  const canSubmit =
-    description.trim().length >= 20 &&
-    sources.length > 0 &&
-    !!primaryProduct &&
-    (!displacementFlag || displacementNote.trim().length > 0);
+  const canSubmit = titleOk && descOk && sources.length > 0 && !!primaryProduct;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || !primaryProduct) return;
     const sig = createSignal({
-      title: title || description.slice(0, 80),
+      title: title.trim(),
       description,
       source: primarySource,
       product: primaryProduct,
-      issue_type_override: overrideType ?? undefined,
-      tier_override: overrideTier ?? undefined,
-      displacement_flag: displacementFlag,
-      displacement_note: displacementFlag ? displacementNote : null,
+      displacement_flag: false,
+      displacement_note: null,
+      priority,
     });
-    // Persist multi-select extras + attachments via updateSignal.
     const additional_sources = sources.slice(1);
     const additional_products = products.slice(1);
     if (additional_sources.length > 0 || additional_products.length > 0) {
@@ -116,16 +93,17 @@ function SignalIntakePage() {
             ID <span className="font-mono text-foreground">{sig?.id}</span> · SLA due{" "}
             {sig && fmtDateTime(sig.sla_due_at)}
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {sig && <TierBadge tier={sig.tier} />}
             {sig && <StatusBadge status={sig.status} />}
             <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{sig?.issue_type}</span>
+            {sig?.priority && (
+              <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-xs">{sig.priority}</span>
+            )}
           </div>
-          {sig?.issue_type === "Incident" && (
-            <div className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-left text-sm text-destructive">
-              <strong>Incident triggered.</strong> Bazil and Waseem will receive an immediate notification.
-            </div>
-          )}
+          <p className="mt-4 text-xs text-muted-foreground">
+            Type and SLA tier will be confirmed in Triage.
+          </p>
           <div className="mt-6 flex justify-center gap-2">
             <button
               type="button"
@@ -134,10 +112,7 @@ function SignalIntakePage() {
                 setDescription("");
                 setTitle("");
                 setProducts([]);
-                setOverrideType(null);
-                setOverrideTier(null);
-                setDisplacementFlag(false);
-                setDisplacementNote("");
+                setPriority("Nice to have");
                 setPendingAttachments([]);
               }}
               className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
@@ -158,207 +133,122 @@ function SignalIntakePage() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-      <div>
-        <header className="mb-6">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 1</p>
-          <h1 className="mt-1 font-display text-3xl">Signal Intake</h1>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            The single entry point for all work. Frictionless submission. No signal is ignored.
+    <div className="mx-auto max-w-3xl">
+      <header className="mb-6">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 1</p>
+        <h1 className="mt-1 font-display text-3xl">Signal Intake</h1>
+        <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+          The single entry point for all work. Frictionless submission. Type and tier are decided in Triage.
+        </p>
+      </header>
+
+      <form onSubmit={onSubmit} className="tfp-card divide-y divide-border">
+        <Field
+          label="Title"
+          required
+          hint={`Min 3 chars · ${title.trim().length} so far`}
+          error={title.length > 0 && !titleOk ? "Title is required." : undefined}
+        >
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+            placeholder="e.g. Patients can't reset password in StimSmart"
+            suppressHydrationWarning
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </Field>
+
+        <Field
+          label="Description"
+          required
+          hint={`Min 20 chars · ${description.trim().length} so far`}
+          error={
+            description.length > 0 && !descOk ? "Add a little more detail." : undefined
+          }
+        >
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={5}
+            placeholder="Describe what you heard, observed, or what was asked..."
+            suppressHydrationWarning
+            className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </Field>
+
+        <Field
+          label="Source"
+          required
+          hint={
+            flags.multiSelectIntake
+              ? "Tap to toggle. The first selected source is treated as primary for SLA routing."
+              : undefined
+          }
+        >
+          <MultiSelectPills options={SOURCES} selected={sources} onChange={setSources} primaryLabel="Primary" />
+        </Field>
+
+        <Field
+          label="Product"
+          required
+          hint={
+            flags.multiSelectIntake
+              ? "Pick one or more. The first selected product is treated as primary."
+              : undefined
+          }
+        >
+          <MultiSelectPills options={PRODUCTS} selected={products} onChange={setProducts} primaryLabel="Primary" />
+        </Field>
+
+        <Field
+          label="Priority"
+          required
+          hint="How important does the requester think this is? Triage may adjust."
+        >
+          <div className="flex flex-wrap gap-2">
+            {PRIORITIES.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                className={cn(
+                  "rounded-full border px-4 py-1.5 text-sm transition",
+                  priority === p
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        {flags.attachmentsEnabled && (
+          <Field label="Attachments" hint="Add reference links or upload screenshots, PDFs, docs.">
+            <AttachmentsField
+              attachments={pendingAttachments}
+              onChange={setPendingAttachments}
+              currentUserId={currentUserId}
+              compact
+            />
+          </Field>
+        )}
+
+        <div className="flex items-center justify-between gap-3 p-5">
+          <p className="text-xs text-muted-foreground">
+            You're logging this as <span className="font-medium text-foreground">{me.name}</span> ({me.role}).
           </p>
-        </header>
-
-        <form onSubmit={onSubmit} className="tfp-card divide-y divide-border">
-          <Field
-            label="Title"
-            hint="A short headline. Optional — we'll use the first line of your description if blank."
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={100}
-              placeholder="e.g. Patients can't reset password in StimSmart"
-              suppressHydrationWarning
-              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </Field>
-
-          <Field
-            label="Description"
-            required
-            hint={`Min 20 chars · ${description.trim().length} so far`}
-            error={
-              description.length > 0 && description.trim().length < 20
-                ? "Add a little more detail."
-                : undefined
-            }
-          >
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              placeholder="Describe what you heard, observed, or what was asked..."
-              suppressHydrationWarning
-              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </Field>
-
-          <Field
-            label="Source"
-            required
-            hint={
-              flags.multiSelectIntake
-                ? "Tap to toggle. The first selected source is treated as primary for SLA routing."
-                : undefined
-            }
-          >
-            <MultiSelectPills options={SOURCES} selected={sources} onChange={setSources} primaryLabel="Primary" />
-          </Field>
-
-          <Field
-            label="Product"
-            required
-            hint={
-              flags.multiSelectIntake
-                ? "Pick one or more. The first selected product is treated as primary."
-                : undefined
-            }
-          >
-            <MultiSelectPills options={PRODUCTS} selected={products} onChange={setProducts} primaryLabel="Primary" />
-          </Field>
-
-          {flags.attachmentsEnabled && (
-            <Field label="Attachments" hint="Add reference links (Figma, Drive, Notion, JIRA).">
-              <AttachmentsField
-                attachments={pendingAttachments}
-                onChange={setPendingAttachments}
-                currentUserId={currentUserId}
-                compact
-              />
-            </Field>
-          )}
-
-          <Field
-            label="Conflicts with a committed item?"
-            hint="Tick if this signal would displace something already in this sprint."
-          >
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={displacementFlag}
-                onChange={(e) => setDisplacementFlag(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              This signal conflicts with a currently committed item.
-            </label>
-            {displacementFlag && (
-              <input
-                value={displacementNote}
-                onChange={(e) => setDisplacementNote(e.target.value)}
-                placeholder="Which item?"
-                className="mt-2 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            )}
-          </Field>
-
-          <div className="flex items-center justify-between gap-3 p-5">
-            <p className="text-xs text-muted-foreground">
-              You're logging this as <span className="font-medium text-foreground">{me.name}</span> ({me.role}).
-            </p>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Log signal
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Live classification */}
-      <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="tfp-card p-5">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> Auto-classification
-          </div>
-
-          {!description || description.trim().length < 5 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Pick a source and start typing — the type and SLA tier will appear here.
-            </p>
-          ) : (
-            <>
-              <div className="mt-4 space-y-3">
-                <Row label="Issue type">
-                  <select
-                    value={finalType}
-                    onChange={(e) => setOverrideType(e.target.value as IssueType)}
-                    className="rounded-md border border-input bg-surface px-2 py-1 text-sm"
-                  >
-                    {ISSUE_TYPES.map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </Row>
-                <Row label="SLA tier">
-                  <div className="flex items-center gap-2">
-                    <TierBadge tier={finalTier} />
-                    <select
-                      value={finalTier}
-                      onChange={(e) => setOverrideTier(e.target.value as Tier)}
-                      className="rounded-md border border-input bg-surface px-2 py-1 text-xs"
-                    >
-                      {TIERS.map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                </Row>
-                <Row label="Due by">
-                  <span className="text-sm text-foreground">{fmtDateTime(sla.toISOString())}</span>
-                </Row>
-                {sources.length > 1 && (
-                  <Row label="Also from">
-                    <span className="text-xs text-muted-foreground">{sources.slice(1).join(", ")}</span>
-                  </Row>
-                )}
-                {products.length > 1 && (
-                  <Row label="Also affects">
-                    <span className="text-xs text-muted-foreground">{products.slice(1).join(", ")}</span>
-                  </Row>
-                )}
-                {classification.labels.length > 0 && (
-                  <Row label="Labels">
-                    <div className="flex gap-1">
-                      {classification.labels.map((l) => (
-                        <span key={l} className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                          {l}
-                        </span>
-                      ))}
-                    </div>
-                  </Row>
-                )}
-              </div>
-              <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">Why:</strong> {classification.reason}
-              </p>
-              {(overrideType || overrideTier) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOverrideType(null);
-                    setOverrideTier(null);
-                  }}
-                  className="mt-3 text-xs text-primary hover:underline"
-                >
-                  Reset to auto-classification
-                </button>
-              )}
-            </>
-          )}
+            Log signal
+          </button>
         </div>
-      </aside>
+      </form>
     </div>
   );
 }
@@ -387,15 +277,6 @@ function Field({
       </label>
       {children}
       {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      {children}
     </div>
   );
 }
