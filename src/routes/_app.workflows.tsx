@@ -80,7 +80,7 @@ const HELP_KEY = "tfp:workflows:help-dismissed";
 function defaultConfigFor(kind: WorkflowNodeKind): Record<string, string> {
   switch (kind) {
     case "trigger":
-      return { event: "signal_created" in {} ? "signal_created" : "leadership_signal" };
+      return { event: "leadership_signal" };
     case "decision":
       return { yesLabel: "Yes", noLabel: "No" };
     case "action":
