@@ -384,6 +384,16 @@ function DeliveryPage() {
                           >
                             <Pause className="mr-1 inline h-3 w-3" /> Block
                           </button>
+                          {status !== "Done" && (
+                            <button
+                              onClick={() => removeFromSprint(sh.id)}
+                              disabled={sprintLocked}
+                              title={sprintLocked ? "Sprint locked" : "Move back to backlog"}
+                              className="rounded-md border border-input bg-surface px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-40"
+                            >
+                              ← Backlog
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
