@@ -70,7 +70,7 @@ function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/intake" className="flex items-center gap-2 px-2 py-1.5">
+        <Link to="/inbox" className="flex items-center gap-2 px-2 py-1.5">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
             <Activity className="h-4 w-4" strokeWidth={2.25} />
           </span>
@@ -85,29 +85,42 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((n) => {
-                const active =
-                  location.pathname === n.to ||
-                  (n.to !== "/intake" && location.pathname.startsWith(n.to));
-                const Icon = n.icon;
-                return (
-                  <SidebarMenuItem key={n.to}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
-                      <Link to={n.to}>
-                        <Icon className="h-4 w-4" />
-                        <span>{n.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {([
+          { label: "Pipeline", items: PIPELINE_NAV },
+          { label: "Leadership", items: LEADERSHIP_NAV },
+          { label: "Governance", items: GOVERNANCE_NAV },
+        ] as const).map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((n) => {
+                  const active =
+                    location.pathname === n.to ||
+                    location.pathname.startsWith(n.to + "/") ||
+                    (n.to === "/inbox" &&
+                      (location.pathname === "/intake" || location.pathname === "/triage")) ||
+                    (n.to === "/delivery" && location.pathname === "/golive") ||
+                    (n.to === "/governance" &&
+                      ["/comms", "/review", "/decisions", "/overrides", "/retros", "/health"].includes(
+                        location.pathname,
+                      ));
+                  const Icon = n.icon;
+                  return (
+                    <SidebarMenuItem key={n.to}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
+                        <Link to={n.to}>
+                          <Icon className="h-4 w-4" />
+                          <span>{n.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
         {adminItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>System</SidebarGroupLabel>
