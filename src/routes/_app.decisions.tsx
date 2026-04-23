@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type { DecisionType } from "@/lib/tfp/types";
@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/decisions")({
-  component: DecisionsPage,
+  component: () => <Navigate to="/governance" search={{ tab: "decisions" }} />,
 });
 
 const TYPES: DecisionType[] = ["Architectural", "Product", "Process", "Vendor"];
@@ -21,7 +21,7 @@ const TYPE_TONE: Record<DecisionType, string> = {
   Vendor: "bg-muted text-muted-foreground",
 };
 
-function DecisionsPage() {
+export function DecisionsPage() {
   const decisions = useTfpStore((s) => s.decisions);
   const signals = useTfpStore((s) => s.signals);
   const create = useTfpStore((s) => s.createDecision);

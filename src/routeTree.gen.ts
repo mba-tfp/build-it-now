@@ -21,8 +21,10 @@ import { Route as AppRetrosRouteImport } from './routes/_app.retros'
 import { Route as AppOverridesRouteImport } from './routes/_app.overrides'
 import { Route as AppLeadershipRouteImport } from './routes/_app.leadership'
 import { Route as AppIntakeRouteImport } from './routes/_app.intake'
+import { Route as AppInboxRouteImport } from './routes/_app.inbox'
 import { Route as AppHelpRouteImport } from './routes/_app.help'
 import { Route as AppHealthRouteImport } from './routes/_app.health'
+import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppGoliveRouteImport } from './routes/_app.golive'
 import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
 import { Route as AppDecisionsRouteImport } from './routes/_app.decisions'
@@ -89,6 +91,11 @@ const AppIntakeRoute = AppIntakeRouteImport.update({
   path: '/intake',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInboxRoute = AppInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHelpRoute = AppHelpRouteImport.update({
   id: '/help',
   path: '/help',
@@ -97,6 +104,11 @@ const AppHelpRoute = AppHelpRouteImport.update({
 const AppHealthRoute = AppHealthRouteImport.update({
   id: '/health',
   path: '/health',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGovernanceRoute = AppGovernanceRouteImport.update({
+  id: '/governance',
+  path: '/governance',
   getParentRoute: () => AppRoute,
 } as any)
 const AppGoliveRoute = AppGoliveRouteImport.update({
@@ -138,8 +150,10 @@ export interface FileRoutesByFullPath {
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
   '/golive': typeof AppGoliveRoute
+  '/governance': typeof AppGovernanceRoute
   '/health': typeof AppHealthRoute
   '/help': typeof AppHelpRouteWithChildren
+  '/inbox': typeof AppInboxRoute
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
   '/overrides': typeof AppOverridesRoute
@@ -158,8 +172,10 @@ export interface FileRoutesByTo {
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
   '/golive': typeof AppGoliveRoute
+  '/governance': typeof AppGovernanceRoute
   '/health': typeof AppHealthRoute
   '/help': typeof AppHelpRouteWithChildren
+  '/inbox': typeof AppInboxRoute
   '/intake': typeof AppIntakeRoute
   '/leadership': typeof AppLeadershipRoute
   '/overrides': typeof AppOverridesRoute
@@ -181,8 +197,10 @@ export interface FileRoutesById {
   '/_app/decisions': typeof AppDecisionsRoute
   '/_app/delivery': typeof AppDeliveryRoute
   '/_app/golive': typeof AppGoliveRoute
+  '/_app/governance': typeof AppGovernanceRoute
   '/_app/health': typeof AppHealthRoute
   '/_app/help': typeof AppHelpRouteWithChildren
+  '/_app/inbox': typeof AppInboxRoute
   '/_app/intake': typeof AppIntakeRoute
   '/_app/leadership': typeof AppLeadershipRoute
   '/_app/overrides': typeof AppOverridesRoute
@@ -205,8 +223,10 @@ export interface FileRouteTypes {
     | '/decisions'
     | '/delivery'
     | '/golive'
+    | '/governance'
     | '/health'
     | '/help'
+    | '/inbox'
     | '/intake'
     | '/leadership'
     | '/overrides'
@@ -225,8 +245,10 @@ export interface FileRouteTypes {
     | '/decisions'
     | '/delivery'
     | '/golive'
+    | '/governance'
     | '/health'
     | '/help'
+    | '/inbox'
     | '/intake'
     | '/leadership'
     | '/overrides'
@@ -247,8 +269,10 @@ export interface FileRouteTypes {
     | '/_app/decisions'
     | '/_app/delivery'
     | '/_app/golive'
+    | '/_app/governance'
     | '/_app/health'
     | '/_app/help'
+    | '/_app/inbox'
     | '/_app/intake'
     | '/_app/leadership'
     | '/_app/overrides'
@@ -353,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntakeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/inbox': {
+      id: '/_app/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AppInboxRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/help': {
       id: '/_app/help'
       path: '/help'
@@ -365,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/health'
       fullPath: '/health'
       preLoaderRoute: typeof AppHealthRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/governance': {
+      id: '/_app/governance'
+      path: '/governance'
+      fullPath: '/governance'
+      preLoaderRoute: typeof AppGovernanceRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/golive': {
@@ -429,8 +467,10 @@ interface AppRouteChildren {
   AppDecisionsRoute: typeof AppDecisionsRoute
   AppDeliveryRoute: typeof AppDeliveryRoute
   AppGoliveRoute: typeof AppGoliveRoute
+  AppGovernanceRoute: typeof AppGovernanceRoute
   AppHealthRoute: typeof AppHealthRoute
   AppHelpRoute: typeof AppHelpRouteWithChildren
+  AppInboxRoute: typeof AppInboxRoute
   AppIntakeRoute: typeof AppIntakeRoute
   AppLeadershipRoute: typeof AppLeadershipRoute
   AppOverridesRoute: typeof AppOverridesRoute
@@ -449,8 +489,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppDecisionsRoute: AppDecisionsRoute,
   AppDeliveryRoute: AppDeliveryRoute,
   AppGoliveRoute: AppGoliveRoute,
+  AppGovernanceRoute: AppGovernanceRoute,
   AppHealthRoute: AppHealthRoute,
   AppHelpRoute: AppHelpRouteWithChildren,
+  AppInboxRoute: AppInboxRoute,
   AppIntakeRoute: AppIntakeRoute,
   AppLeadershipRoute: AppLeadershipRoute,
   AppOverridesRoute: AppOverridesRoute,
@@ -472,12 +514,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

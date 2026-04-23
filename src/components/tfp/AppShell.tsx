@@ -10,18 +10,11 @@ import {
   HelpCircle,
   Search,
   Inbox,
-  Filter,
   Layers,
   Truck,
   Map as MapIcon,
-  Rocket,
-  MessageSquare,
-  ClipboardCheck,
-  RotateCcw,
-  Gavel,
-  ShieldAlert,
   Crown,
-  HeartPulse,
+  Gavel,
   ShieldCheck,
   BookOpen,
   Workflow as WorkflowIcon,
@@ -45,20 +38,19 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { to: "/intake", label: "Intake", icon: Inbox },
-  { to: "/triage", label: "Triage", icon: Filter },
+const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
   { to: "/roadmap", label: "Roadmap", icon: MapIcon },
-  { to: "/golive", label: "Go-Live", icon: Rocket },
-  { to: "/comms", label: "Comms", icon: MessageSquare },
-  { to: "/review", label: "Reviews", icon: ClipboardCheck },
-  { to: "/retros", label: "Retros", icon: RotateCcw },
-  { to: "/decisions", label: "Decisions", icon: Gavel },
-  { to: "/overrides", label: "Overrides", icon: ShieldAlert },
+];
+
+const LEADERSHIP_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { to: "/leadership", label: "Leadership", icon: Crown },
-  { to: "/health", label: "Queue Health", icon: HeartPulse },
+];
+
+const GOVERNANCE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/governance", label: "Governance", icon: Gavel },
 ];
 
 const ADMIN_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }>; flag?: "helpCenterEnabled" | "workflowBuilderEnabled" | "adminPanelEnabled" }> = [
@@ -78,7 +70,7 @@ function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/intake" className="flex items-center gap-2 px-2 py-1.5">
+        <Link to="/inbox" className="flex items-center gap-2 px-2 py-1.5">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
             <Activity className="h-4 w-4" strokeWidth={2.25} />
           </span>
@@ -93,29 +85,42 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((n) => {
-                const active =
-                  location.pathname === n.to ||
-                  (n.to !== "/intake" && location.pathname.startsWith(n.to));
-                const Icon = n.icon;
-                return (
-                  <SidebarMenuItem key={n.to}>
-                    <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
-                      <Link to={n.to}>
-                        <Icon className="h-4 w-4" />
-                        <span>{n.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {([
+          { label: "Pipeline", items: PIPELINE_NAV },
+          { label: "Leadership", items: LEADERSHIP_NAV },
+          { label: "Governance", items: GOVERNANCE_NAV },
+        ] as const).map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((n) => {
+                  const active =
+                    location.pathname === n.to ||
+                    location.pathname.startsWith(n.to + "/") ||
+                    (n.to === "/inbox" &&
+                      (location.pathname === "/intake" || location.pathname === "/triage")) ||
+                    (n.to === "/delivery" && location.pathname === "/golive") ||
+                    (n.to === "/governance" &&
+                      ["/comms", "/review", "/decisions", "/overrides", "/retros", "/health"].includes(
+                        location.pathname,
+                      ));
+                  const Icon = n.icon;
+                  return (
+                    <SidebarMenuItem key={n.to}>
+                      <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
+                        <Link to={n.to}>
+                          <Icon className="h-4 w-4" />
+                          <span>{n.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
         {adminItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel>System</SidebarGroupLabel>

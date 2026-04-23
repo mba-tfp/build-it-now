@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
@@ -13,7 +13,7 @@ import { Pencil, Save, Search, Sparkles, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_app/triage")({
-  component: TriageQueuePage,
+  component: () => <Navigate to="/inbox" search={{ tab: "triage" }} />,
 });
 
 const STATUSES: Array<SignalStatus | "All"> = ["All", "New", "In Review", "Proceed", "Hold", "Rejected"];
@@ -57,7 +57,7 @@ function priorityClasses(p: IntakePriority | undefined): string {
   }
 }
 
-function TriageQueuePage() {
+export function TriageQueuePage() {
   const signals = useTfpStore((s) => s.signals);
   const users = useTfpStore((s) => s.users);
   const triageDecision = useTfpStore((s) => s.triageDecision);

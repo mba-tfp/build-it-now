@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type { CommsChannel, CommsStatus, CommsType, Product } from "@/lib/tfp/types";
@@ -11,7 +11,7 @@ import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 
 export const Route = createFileRoute("/_app/comms")({
-  component: CommsPage,
+  component: () => <Navigate to="/governance" search={{ tab: "comms" }} />,
 });
 
 const CHANNELS: CommsChannel[] = ["Email", "In-app banner", "Teams", "Phone"];
@@ -32,7 +32,7 @@ const CHANNEL_ICON: Record<CommsChannel, typeof Mail> = {
   Phone: Phone,
 };
 
-function CommsPage() {
+export function CommsPage() {
   const comms = useTfpStore((s) => s.comms);
   const me = useTfpStore((s) => s.currentUserId);
   const meUser = USERS.find((u) => u.id === me)!;
