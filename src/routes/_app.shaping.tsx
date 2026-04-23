@@ -690,25 +690,6 @@ function RoadmapFit({ item }: { item: ShapingItem }) {
   );
 }
 
-const COMPLEX_FIELDS: Record<Complexity, Array<keyof ShapingItem>> = {
-  Simple: ["solution_approach", "solution_criteria", "solution_effort"],
-  Medium: [
-    "solution_approach",
-    "solution_criteria",
-    "solution_effort",
-    "solution_decisions",
-    "solution_questions",
-    "solution_risks",
-  ],
-  Complex: [
-    "solution_approach",
-    "solution_criteria",
-    "solution_effort",
-    "solution_decisions",
-    "solution_questions",
-    "solution_risks",
-  ],
-};
 
 const FIELD_LABELS: Partial<Record<keyof ShapingItem, string>> = {
   solution_approach: "Approach",
