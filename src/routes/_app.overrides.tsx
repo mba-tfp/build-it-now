@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore, usableCapacity } from "@/lib/tfp/store";
 import type { OverrideKind } from "@/lib/tfp/types";
@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/overrides")({
-  component: OverridesPage,
+  component: () => <Navigate to="/governance" search={{ tab: "overrides" }} />,
 });
 
 const KINDS: OverrideKind[] = [

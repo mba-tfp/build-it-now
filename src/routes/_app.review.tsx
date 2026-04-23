@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type {
@@ -26,7 +26,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/review")({
-  component: ReviewsPage,
+  component: () => <Navigate to="/governance" search={{ tab: "reviews" }} />,
 });
 
 const SIZE_TONE: Record<Review["size"], string> = {

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { DEFAULT_GOLIVE_CRITERIA, type Product } from "@/lib/tfp/types";
@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/golive")({
-  component: GoLivePage,
+  component: () => <Navigate to="/delivery" search={{ tab: "golive" }} />,
 });
 
 export function GoLivePage() {

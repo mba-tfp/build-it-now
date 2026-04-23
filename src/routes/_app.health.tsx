@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, daysSince, useTfpStore, usableCapacity } from "@/lib/tfp/store";
 import { fmtDate, fmtDateTime, slaState } from "@/lib/tfp/format";
@@ -23,7 +23,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import type { MonitoringSeverity, MonitoringSystem } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/health")({
-  component: QueueHealthPage,
+  component: () => <Navigate to="/governance" search={{ tab: "health" }} />,
 });
 
 const BANDWIDTH: Array<{ id: string; weeklyHours: number }> = [

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore } from "@/lib/tfp/store";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/intake")({
-  component: SignalIntakePage,
+  component: () => <Navigate to="/inbox" search={{ tab: "submit" }} />,
 });
 
 const SOURCES: readonly Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
