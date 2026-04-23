@@ -540,7 +540,7 @@ function ProblemBrief({ item }: { item: ShapingItem }) {
                   </p>
                   <AttachmentsField
                     attachments={item.attachments ?? []}
-                    onChange={(next) => setShapingAttachments(item.id, next)}
+                    onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)}
                     currentUserId={currentUserId}
                     compact
                   />
