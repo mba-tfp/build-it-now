@@ -153,7 +153,7 @@ function DeliveryPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 4</p>
           <h1 className="mt-1 font-display text-3xl">Delivery Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sprint.name} · {rows.length} items · viewing as {me.name} ({me.role})
+            {sprint.name} · {sprintRows.length} in sprint · {backlogRows.length} in backlog · viewing as {me.name} ({me.role})
           </p>
         </div>
         <div className="flex items-center gap-2">
