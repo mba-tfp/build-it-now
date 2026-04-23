@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type { RetroTheme } from "@/lib/tfp/types";
@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/retros")({
-  component: RetrosPage,
+  component: () => <Navigate to="/governance" search={{ tab: "retros" }} />,
 });
 
 const THEMES: RetroTheme[] = ["Process", "Tools", "Communication", "Quality", "Capacity", "Other"];
