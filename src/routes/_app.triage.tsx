@@ -435,8 +435,6 @@ function TriagePanel({
             <>
               <div>
                 <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
-              <div>
-                <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <TierBadge tier={sig.tier} />
                   <StatusBadge status={sig.status} />
