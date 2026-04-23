@@ -132,16 +132,16 @@ function GoLivePage() {
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full bg-primary transition-all"
-                      style={{ width: `${(doneCount / CRITERIA.length) * 100}%` }}
+                      style={{ width: `${totalCount > 0 ? (doneCount / totalCount) * 100 : 0}%` }}
                     />
                   </div>
                   <span className="font-mono text-xs text-muted-foreground">
-                    {doneCount}/{CRITERIA.length}
+                    {doneCount}/{totalCount}
                   </span>
                 </div>
 
                 <ul className="mt-4 space-y-2">
-                  {CRITERIA.map((c) => {
+                  {criteriaKeys.map((c) => {
                     const cr = g.criteria[c];
                     const checker = cr.checked_by ? USERS.find((u) => u.id === cr.checked_by) : null;
 
@@ -187,7 +187,7 @@ function GoLivePage() {
                     <p className="text-xs text-muted-foreground">
                       {ready
                         ? "All criteria complete — make a Go/No-Go call."
-                        : `${CRITERIA.length - doneCount} criteria outstanding.`}
+                        : `${totalCount - doneCount} criteria outstanding.`}
                     </p>
                   )}
                   <div className="flex gap-2">
