@@ -40,9 +40,6 @@ function GoLivePage() {
     }
     return [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
   }, [goLives, sort]);
-    // default: scheduled asc (preserves existing behaviour)
-    return [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
-  }, [goLives, sort]);
 
   return (
     <div>
@@ -83,8 +80,10 @@ function GoLivePage() {
           {sorted.map((g) => {
             const sh = shaping.find((s) => s.id === g.shaping_id);
             const sig = sh ? signals.find((s) => s.id === sh.signal_id) : null;
-            const doneCount = CRITERIA.filter((c) => g.criteria[c].done).length;
-            const ready = doneCount === CRITERIA.length;
+            const criteriaKeys = Object.keys(g.criteria);
+            const doneCount = criteriaKeys.filter((c) => g.criteria[c].done).length;
+            const totalCount = criteriaKeys.length;
+            const ready = totalCount > 0 && doneCount === totalCount;
 
             return (
               <div
