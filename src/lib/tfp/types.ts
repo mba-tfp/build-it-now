@@ -47,7 +47,13 @@ export type Attachment = {
   url: string;
   added_by: string;
   added_at: string;
+  /** "link" = external URL, "file" = inline data URL of an uploaded file. Defaults to "link" when absent. */
+  kind?: "link" | "file";
+  /** MIME type for uploaded files (e.g. "image/png", "application/pdf"). */
+  mime_type?: string;
 };
+
+export type IntakePriority = "Must have" | "Nice to have" | "Food for thought";
 
 export type Signal = {
   id: string;
