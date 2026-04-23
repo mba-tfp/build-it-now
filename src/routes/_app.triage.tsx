@@ -41,6 +41,20 @@ const ALL_TYPES: IssueType[] = [
   "Incident",
   "Dependency Change",
 ];
+const ALL_PRIORITIES: IntakePriority[] = ["Must have", "Nice to have", "Food for thought"];
+
+function priorityClasses(p: IntakePriority | undefined): string {
+  switch (p) {
+    case "Must have":
+      return "bg-destructive/10 text-destructive";
+    case "Nice to have":
+      return "bg-primary/10 text-primary";
+    case "Food for thought":
+      return "bg-muted text-muted-foreground";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
 
 function TriageQueuePage() {
   const signals = useTfpStore((s) => s.signals);
