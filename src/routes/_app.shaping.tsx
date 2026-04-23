@@ -719,53 +719,58 @@ const FIELD_LABELS: Partial<Record<keyof ShapingItem, string>> = {
   solution_risks: "Risks",
 };
 
+const ALL_SOLUTION_FIELDS: Array<keyof ShapingItem> = [
+  "solution_approach",
+  "solution_criteria",
+  "solution_effort",
+  "solution_decisions",
+  "solution_questions",
+  "solution_risks",
+];
+
 function SolutionBrief({ item }: { item: ShapingItem }) {
   const setComplexity = useTfpStore((s) => s.setComplexity);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const c = item.solution_complexity;
-  const fields = c ? COMPLEX_FIELDS[c] : [];
   const ready = solutionComplete(item);
 
   return (
     <div className="tfp-card p-5">
       <h3 className="font-display text-lg">Solution Brief</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Choose complexity — the form expands to match.
+        Pick a complexity tag, then fill in as much detail as the work needs.
       </p>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {(["Simple", "Medium", "Complex"] as Complexity[]).map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => setComplexity(item.id, opt)}
-            className={cn(
-              "rounded-full border px-4 py-1.5 text-sm transition",
-              c === opt
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
-            )}
-          >
-            {opt}
-          </button>
-        ))}
+      <div className="mt-5 max-w-xs">
+        <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Complexity</label>
+        <select
+          value={c ?? ""}
+          onChange={(e) => {
+            const v = e.target.value as Complexity | "";
+            if (v) setComplexity(item.id, v);
+          }}
+          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="" disabled>Select complexity…</option>
+          {(["Simple", "Medium", "Complex"] as Complexity[]).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
       </div>
 
-      {c && (
-        <div className="mt-6 space-y-4">
-          {fields.map((key) => (
-            <div key={key}>
-              <label className="mb-1 block text-sm font-medium">{FIELD_LABELS[key]}</label>
-              <textarea
-                value={String(item[key] ?? "")}
-                onChange={(e) => updateShaping(item.id, { [key]: e.target.value } as Partial<ShapingItem>)}
-                rows={3}
-                className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-6 space-y-4">
+        {ALL_SOLUTION_FIELDS.map((key) => (
+          <div key={key}>
+            <label className="mb-1 block text-sm font-medium">{FIELD_LABELS[key]}</label>
+            <textarea
+              value={String(item[key] ?? "")}
+              onChange={(e) => updateShaping(item.id, { [key]: e.target.value } as Partial<ShapingItem>)}
+              rows={3}
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        ))}
+      </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
         <button
