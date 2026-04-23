@@ -10,6 +10,7 @@ import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { Pencil, Save, Search, Sparkles, X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_app/triage")({
   component: TriageQueuePage,

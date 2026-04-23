@@ -166,8 +166,8 @@ const seedSprint: Sprint = {
   start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
   status: "Active",
-  scope_locked_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
-  scope_locked_by: "u-alizar",
+  scope_locked_at: null,
+  scope_locked_by: null,
   gross_capacity_pts: 60,
   leave_deduction_pts: 5,
   interrupt_buffer_pts: 6,
@@ -487,6 +487,7 @@ const shapingInDelivery: ShapingItem = {
   approval_notes: "Approved for Sprint 6. Push to Jira.",
   approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
   jira_key: "TFP-1042",
+  in_sprint: true,
   delivery_status: "In Progress",
   delivery_assignee_id: "u-farooq",
   created_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
@@ -536,6 +537,7 @@ const shapingInQA: ShapingItem = {
   approval_notes: "Approved.",
   approved_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
   jira_key: "TFP-1038",
+  in_sprint: true,
   delivery_status: "In QA",
   delivery_assignee_id: "u-zeeshan",
   created_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
@@ -585,6 +587,7 @@ const shapingBlocked: ShapingItem = {
   approval_notes: "Ship.",
   approved_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
   jira_key: "TFP-1045",
+  in_sprint: true,
   delivery_status: "Blocked",
   blocked_since: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
   blocker_description: "Awaiting SMTP provider response — needed before we can validate retry path.",
@@ -636,6 +639,7 @@ const shapingDone: ShapingItem = {
   approval_notes: "Ship.",
   approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
   jira_key: "TFP-1031",
+  in_sprint: true,
   delivery_status: "Done",
   delivery_assignee_id: "u-farooq",
   dev_complete: {
@@ -1272,6 +1276,8 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
+  addToSprint: (id: string) => boolean;
+  removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
   unblock: (id: string, next: DeliveryStatus) => void;
@@ -1748,19 +1754,38 @@ export const useTfpStore = create<State>()(
           type: "issue.created",
           jira_key: key,
           shaping_id: id,
-          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: get().sprint.name },
+          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: "backlog" },
         };
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, jira_key: key, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
+              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira as ${key}` });
-        // Soft-warn: capacity check
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira backlog as ${key}` });
+        if (typeof window !== "undefined") {
+          import("sonner").then(({ toast }) => {
+            toast.success(`Pushed to Jira as ${key} — sitting in Backlog. Use "Add to Sprint" on the Delivery board.`);
+          });
+        }
+        return key;
+      },
+
+      addToSprint: (id) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.jira_key) return false;
+        if (item.in_sprint) return true;
         const sp = get().sprint;
+        if (sp.status === "Locked" || sp.scope_locked_at) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error("Sprint is locked. Use the Override log to add new items.");
+            });
+          }
+          return false;
+        }
         const usable = Math.max(
           0,
           sp.gross_capacity_pts -
@@ -1772,17 +1797,50 @@ export const useTfpStore = create<State>()(
             sp.golive_deduction_pts,
         );
         const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
-        if (sp.status === "Locked" || newAlloc / Math.max(1, usable) > 0.85) {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, in_sprint: true, updated_at: new Date().toISOString() } : s,
+          ),
+          sprint: { ...sp, allocated_pts: newAlloc },
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
+        if (newAlloc / Math.max(1, usable) > 0.85) {
           get().pushNotification({
             trigger: "scope_change",
             title: "Sprint capacity > 85%",
-            body: `${key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
+            body: `${item.jira_key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
             link_to: "/overrides",
             entity_id: id,
           });
         }
-        set({ sprint: { ...sp, allocated_pts: newAlloc } });
-        return key;
+        if (typeof window !== "undefined") {
+          import("sonner").then(({ toast }) => {
+            toast.success(`${item.jira_key} added to ${sp.name}`);
+          });
+        }
+        return true;
+      },
+
+      removeFromSprint: (id) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.in_sprint) return false;
+        const sp = get().sprint;
+        if (sp.status === "Locked" || sp.scope_locked_at) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error("Sprint is locked. Cannot remove items.");
+            });
+          }
+          return false;
+        }
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, in_sprint: false, updated_at: new Date().toISOString() } : s,
+          ),
+          sprint: { ...sp, allocated_pts: Math.max(0, sp.allocated_pts - (item.tech_estimate_pts ?? 0)) },
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Removed from ${sp.name}` });
+        return true;
       },
 
       setDeliveryStatus: (id, next) => {
@@ -2402,6 +2460,8 @@ export const useTfpStore = create<State>()(
       approveFastTrack: (id, approverId) => {
         get().approveShaping(id, approverId, "Fast-track approved");
         get().pushToJira(id);
+        // Fast-track skips backlog by design — auto-add to active sprint (subject to lock).
+        get().addToSprint(id);
       },
       offboardClinic: (clinicId, reason) => {
         const me = get().currentUserId;
@@ -2630,11 +2690,17 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
+        const shaping = (p.shaping ?? []).map((s) => ({
+          ...s,
+          // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
+          in_sprint: typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
+        }));
         return {
           ...p,
+          shaping,
           flags: p.flags ?? DEFAULT_FLAGS,
           helpArticles: p.helpArticles ?? SEED_HELP,
           workflows: p.workflows ?? [],

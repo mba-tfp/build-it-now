@@ -138,6 +138,8 @@ export type ShapingItem = {
   approved_at: string | null;
   // Delivery
   jira_key: string | null;
+  /** True once explicitly added to the active sprint. False = sits in Backlog after Push to Jira. */
+  in_sprint?: boolean;
   delivery_status: DeliveryStatus | null;
   blocked_since: string | null;
   blocker_description: string;

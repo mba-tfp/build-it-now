@@ -965,12 +965,17 @@ function Approval({ item }: { item: ShapingItem }) {
                 <span className="font-mono font-semibold text-foreground">{item.jira_key}</span>
               </div>
             ) : (
-              <button
-                onClick={() => pushToJira(item.id)}
-                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-              >
-                Push to Jira
-              </button>
+              <>
+                <button
+                  onClick={() => pushToJira(item.id)}
+                  className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+                >
+                  Push to Jira (Backlog)
+                </button>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Creates the Jira issue in the backlog. Use <strong>Add to Sprint</strong> on the Delivery board to commit it to the current sprint.
+                </p>
+              </>
             )}
           </div>
         </div>

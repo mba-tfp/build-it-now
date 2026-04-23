@@ -4,7 +4,7 @@ import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
 import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
@@ -60,6 +60,8 @@ function DeliveryPage() {
   const unblock = useTfpStore((s) => s.unblock);
   const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
   const signOff = useTfpStore((s) => s.signOffDevComplete);
+  const addToSprint = useTfpStore((s) => s.addToSprint);
+  const removeFromSprint = useTfpStore((s) => s.removeFromSprint);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
 
   const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
@@ -67,10 +69,11 @@ function DeliveryPage() {
   const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
   const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
 
+  // All shaping with a Jira key (backlog + in-sprint)
   const allRows: Row[] = useMemo(
     () =>
       shaping
-        .filter((s) => s.jira_key && s.delivery_status)
+        .filter((s) => s.jira_key)
         .map((s) => ({
           sh: s,
           sig: signals.find((sig) => sig.id === s.signal_id),
@@ -79,14 +82,14 @@ function DeliveryPage() {
     [shaping, signals],
   );
 
-  const rows = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
+  const filteredAll = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
 
   type SortKey = "updated" | "status" | "assignee" | "stale";
   const { sort, setSort } = useSortMenu<SortKey>("delivery", { key: "updated", dir: "desc" });
 
   const sortedRows = useMemo(
     () =>
-      sortRows(rows, sort, (r, k) => {
+      sortRows(filteredAll, sort, (r, k) => {
         if (k === "updated") return new Date(r.sh.updated_at ?? r.sh.created_at).getTime();
         if (k === "status") return r.sh.delivery_status ?? "";
         if (k === "assignee") {
@@ -96,10 +99,14 @@ function DeliveryPage() {
         if (k === "stale") return -1 * daysSince(r.sh.updated_at ?? r.sh.created_at);
         return null;
       }),
-    [rows, sort],
+    [filteredAll, sort],
   );
 
-  const blocked = sortedRows.filter((r) => r.sh.delivery_status === "Blocked");
+  // Split: backlog (jira_key but not yet in sprint) vs in-sprint (kanban)
+  const backlogRows = sortedRows.filter((r) => !r.sh.in_sprint);
+  const sprintRows = sortedRows.filter((r) => r.sh.in_sprint && r.sh.delivery_status);
+
+  const blocked = sprintRows.filter((r) => r.sh.delivery_status === "Blocked");
   const grouped: Record<DeliveryStatus, Row[]> = {
     "To Do": [],
     "In Progress": [],
@@ -107,7 +114,7 @@ function DeliveryPage() {
     Blocked: [],
     Done: [],
   };
-  sortedRows.forEach((r) => {
+  sprintRows.forEach((r) => {
     if (r.sh.delivery_status) grouped[r.sh.delivery_status].push(r);
   });
 
@@ -146,7 +153,7 @@ function DeliveryPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 4</p>
           <h1 className="mt-1 font-display text-3xl">Delivery Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sprint.name} · {rows.length} items · viewing as {me.name} ({me.role})
+            {sprint.name} · {sprintRows.length} in sprint · {backlogRows.length} in backlog · viewing as {me.name} ({me.role})
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -199,6 +206,41 @@ function DeliveryPage() {
             Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Use the Override log to add new items.
           </span>
         </div>
+      )}
+
+      {/* Backlog rail (jira_key but not yet in sprint) */}
+      {backlogRows.length > 0 && (
+        <section className="mb-5 rounded-lg border border-border bg-surface-2 p-3">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Inbox className="h-4 w-4 text-muted-foreground" />
+            Backlog ({backlogRows.length})
+            <span className="text-[11px] font-normal text-muted-foreground">
+              · Pushed to Jira, not yet in {sprint.name}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {backlogRows.map(({ sh, sig }) => (
+              <div key={sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="font-mono">{sh.jira_key}</span>
+                  <span className="font-mono">{sh.tech_estimate_pts ?? "—"}p</span>
+                </div>
+                <p className="mt-1 line-clamp-2 font-medium leading-snug">{sig?.title}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{sig?.product}</p>
+                <div className="mt-2 flex gap-1.5">
+                  <button
+                    onClick={() => addToSprint(sh.id)}
+                    disabled={sprintLocked}
+                    title={sprintLocked ? "Sprint locked — use Override log" : `Add ${sh.jira_key} to ${sprint.name}`}
+                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    + Add to Sprint
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Blocked rail */}
@@ -342,6 +384,16 @@ function DeliveryPage() {
                           >
                             <Pause className="mr-1 inline h-3 w-3" /> Block
                           </button>
+                          {status !== "Done" && (
+                            <button
+                              onClick={() => removeFromSprint(sh.id)}
+                              disabled={sprintLocked}
+                              title={sprintLocked ? "Sprint locked" : "Move back to backlog"}
+                              className="rounded-md border border-input bg-surface px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-40"
+                            >
+                              ← Backlog
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
