@@ -2,13 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
+import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
-import type { IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
+import type { IntakePriority, IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
-import { Pencil, Save, Search, X } from "lucide-react";
+import { Pencil, Save, Search, Sparkles, X } from "lucide-react";
 
 export const Route = createFileRoute("/_app/triage")({
   component: TriageQueuePage,
@@ -40,6 +41,20 @@ const ALL_TYPES: IssueType[] = [
   "Incident",
   "Dependency Change",
 ];
+const ALL_PRIORITIES: IntakePriority[] = ["Must have", "Nice to have", "Food for thought"];
+
+function priorityClasses(p: IntakePriority | undefined): string {
+  switch (p) {
+    case "Must have":
+      return "bg-destructive/10 text-destructive";
+    case "Nice to have":
+      return "bg-primary/10 text-primary";
+    case "Food for thought":
+      return "bg-muted text-muted-foreground";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
 
 function TriageQueuePage() {
   const signals = useTfpStore((s) => s.signals);
@@ -48,7 +63,7 @@ function TriageQueuePage() {
   const updateSignal = useTfpStore((s) => s.updateSignal);
   const navigate = useNavigate();
 
-  const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("All");
+  const [statusF, setStatusF] = useState<(typeof STATUSES)[number]>("New");
   const [sourceF, setSourceF] = useState<(typeof SOURCES)[number]>("All");
   const [productF, setProductF] = useState<(typeof PRODUCTS)[number]>("All");
   const [tierF, setTierF] = useState<(typeof TIERS)[number]>("All");
@@ -123,6 +138,7 @@ function TriageQueuePage() {
             <tr>
               <th className="px-3 py-2.5 font-medium">ID</th>
               <th className="px-3 py-2.5 font-medium">Title</th>
+              <th className="px-3 py-2.5 font-medium">Priority</th>
               <th className="px-3 py-2.5 font-medium">Source</th>
               <th className="px-3 py-2.5 font-medium">Product</th>
               <th className="px-3 py-2.5 font-medium">Type</th>
@@ -149,6 +165,11 @@ function TriageQueuePage() {
                 >
                   <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</td>
                   <td className="px-3 py-2.5 font-medium">{s.title}</td>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(s.priority))}>
+                      {s.priority ?? "Nice to have"}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.product}</td>
                   <td className="px-3 py-2.5" onClick={stop}>
@@ -193,7 +214,7 @@ function TriageQueuePage() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                <td colSpan={11} className="px-3 py-12 text-center text-sm text-muted-foreground">
                   No signals match these filters.
                 </td>
               </tr>
@@ -320,6 +341,22 @@ function TriagePanel({
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
   const users = useTfpStore((s) => s.users);
   const updateSignal = useTfpStore((s) => s.updateSignal);
+  const setSignalAttachments = useTfpStore((s) => s.setSignalAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+
+  // Live auto-classification suggestion (re-runs against current source + description)
+  const suggestion = useMemo(
+    () => classifySignal({ source: sig.source, description: sig.description }),
+    [sig.source, sig.description],
+  );
+  const suggestedSla = useMemo(() => slaDueAt(suggestion.tier), [suggestion.tier]);
+  const matchesSuggestion = sig.issue_type === suggestion.issue_type && sig.tier === suggestion.tier;
+
+  function tryUpdateInPanel(patch: Partial<Signal>) {
+    const res = updateSignal(sig.id, patch);
+    if (res.ok) toast.success("Saved");
+    else toast.error(res.error ?? "Couldn't save");
+  }
   const owner = users.find((u) => u.id === sig.created_by);
   const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
   const [reason, setReason] = useState("");
@@ -401,12 +438,126 @@ function TriagePanel({
                   <TierBadge tier={sig.tier} />
                   <StatusBadge status={sig.status} />
                   <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(sig.priority))}>
+                    {sig.priority ?? "Nice to have"}
+                  </span>
                   <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
                 </div>
               </div>
 
               <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
                 {sig.description}
+              </div>
+
+              {/* Auto-classification suggestion (moved from Intake) */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <Sparkles className="h-3 w-3" /> Auto-classification suggestion
+                </div>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Suggested type</span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-muted px-1.5 py-0.5">{suggestion.issue_type}</span>
+                      {sig.issue_type !== suggestion.issue_type && (
+                        <button
+                          type="button"
+                          onClick={() => tryUpdateInPanel({ issue_type: suggestion.issue_type })}
+                          className="text-primary hover:underline"
+                        >
+                          apply
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Suggested tier</span>
+                    <div className="flex items-center gap-2">
+                      <TierBadge tier={suggestion.tier} />
+                      {sig.tier !== suggestion.tier && (
+                        <button
+                          type="button"
+                          onClick={() => tryUpdateInPanel({ tier: suggestion.tier })}
+                          className="text-primary hover:underline"
+                        >
+                          apply
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Would set SLA due</span>
+                    <span>{fmtDateTime(suggestedSla.toISOString())}</span>
+                  </div>
+                  <p className="border-t border-border pt-2 text-[11px] text-muted-foreground">
+                    <strong className="text-foreground">Why:</strong> {suggestion.reason}
+                    {matchesSuggestion && <span className="ml-1">· current values match.</span>}
+                  </p>
+                </div>
+              </div>
+
+              {/* Priority editor */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Priority</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_PRIORITIES.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => tryUpdateInPanel({ priority: p })}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] transition",
+                        (sig.priority ?? "Nice to have") === p
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conflicts with committed item (moved from Intake) */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sig.displacement_flag}
+                    onChange={(e) =>
+                      tryUpdateInPanel({
+                        displacement_flag: e.target.checked,
+                        displacement_note: e.target.checked ? sig.displacement_note ?? "" : null,
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                  />
+                  <span>
+                    Conflicts with a currently committed item
+                    <span className="block text-[11px] text-muted-foreground">
+                      Tick if accepting this signal would displace something already in this sprint.
+                    </span>
+                  </span>
+                </label>
+                {sig.displacement_flag && (
+                  <input
+                    value={sig.displacement_note ?? ""}
+                    onChange={(e) => tryUpdateInPanel({ displacement_note: e.target.value })}
+                    placeholder="Which item gets displaced?"
+                    className="mt-2 w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                  />
+                )}
+              </div>
+
+              {/* Attachments — links + uploads */}
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Attachments</p>
+                <AttachmentsField
+                  attachments={sig.attachments ?? []}
+                  onChange={(next) => setSignalAttachments(sig.id, next)}
+                  currentUserId={currentUserId}
+                  compact
+                />
               </div>
             </>
           ) : (

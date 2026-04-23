@@ -21,6 +21,8 @@ import { ArrowLeft, Check, Lock, ShieldCheck } from "lucide-react";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
+import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import type { Attachment } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
@@ -495,6 +497,8 @@ const PROBLEM_FIELDS: Array<{
 
 function ProblemBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
+  const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const score = completenessScore(item);
   const canAdvance = score >= 5;
 
@@ -526,6 +530,22 @@ function ProblemBrief({ item }: { item: ShapingItem }) {
                   len > 0 && !ok ? "border-destructive/50" : "border-input",
                 )}
               />
+              {f.key === "problem_evidence" && (
+                <div className="mt-3 rounded-md border border-border bg-surface-2 p-3">
+                  <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Supporting attachments
+                  </p>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Attach screenshots, recordings, tickets, or links that back this evidence up.
+                  </p>
+                  <AttachmentsField
+                    attachments={item.attachments ?? []}
+                    onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)}
+                    currentUserId={currentUserId}
+                    compact
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -670,25 +690,6 @@ function RoadmapFit({ item }: { item: ShapingItem }) {
   );
 }
 
-const COMPLEX_FIELDS: Record<Complexity, Array<keyof ShapingItem>> = {
-  Simple: ["solution_approach", "solution_criteria", "solution_effort"],
-  Medium: [
-    "solution_approach",
-    "solution_criteria",
-    "solution_effort",
-    "solution_decisions",
-    "solution_questions",
-    "solution_risks",
-  ],
-  Complex: [
-    "solution_approach",
-    "solution_criteria",
-    "solution_effort",
-    "solution_decisions",
-    "solution_questions",
-    "solution_risks",
-  ],
-};
 
 const FIELD_LABELS: Partial<Record<keyof ShapingItem, string>> = {
   solution_approach: "Approach",
@@ -699,53 +700,58 @@ const FIELD_LABELS: Partial<Record<keyof ShapingItem, string>> = {
   solution_risks: "Risks",
 };
 
+const ALL_SOLUTION_FIELDS: Array<keyof ShapingItem> = [
+  "solution_approach",
+  "solution_criteria",
+  "solution_effort",
+  "solution_decisions",
+  "solution_questions",
+  "solution_risks",
+];
+
 function SolutionBrief({ item }: { item: ShapingItem }) {
   const setComplexity = useTfpStore((s) => s.setComplexity);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const c = item.solution_complexity;
-  const fields = c ? COMPLEX_FIELDS[c] : [];
   const ready = solutionComplete(item);
 
   return (
     <div className="tfp-card p-5">
       <h3 className="font-display text-lg">Solution Brief</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Choose complexity — the form expands to match.
+        Pick a complexity tag, then fill in as much detail as the work needs.
       </p>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {(["Simple", "Medium", "Complex"] as Complexity[]).map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => setComplexity(item.id, opt)}
-            className={cn(
-              "rounded-full border px-4 py-1.5 text-sm transition",
-              c === opt
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
-            )}
-          >
-            {opt}
-          </button>
-        ))}
+      <div className="mt-5 max-w-xs">
+        <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Complexity</label>
+        <select
+          value={c ?? ""}
+          onChange={(e) => {
+            const v = e.target.value as Complexity | "";
+            if (v) setComplexity(item.id, v);
+          }}
+          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="" disabled>Select complexity…</option>
+          {(["Simple", "Medium", "Complex"] as Complexity[]).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
       </div>
 
-      {c && (
-        <div className="mt-6 space-y-4">
-          {fields.map((key) => (
-            <div key={key}>
-              <label className="mb-1 block text-sm font-medium">{FIELD_LABELS[key]}</label>
-              <textarea
-                value={String(item[key] ?? "")}
-                onChange={(e) => updateShaping(item.id, { [key]: e.target.value } as Partial<ShapingItem>)}
-                rows={3}
-                className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-6 space-y-4">
+        {ALL_SOLUTION_FIELDS.map((key) => (
+          <div key={key}>
+            <label className="mb-1 block text-sm font-medium">{FIELD_LABELS[key]}</label>
+            <textarea
+              value={String(item[key] ?? "")}
+              onChange={(e) => updateShaping(item.id, { [key]: e.target.value } as Partial<ShapingItem>)}
+              rows={3}
+              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        ))}
+      </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
         <button
