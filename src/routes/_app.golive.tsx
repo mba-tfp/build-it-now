@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import type { GoLiveCriterion, Product } from "@/lib/tfp/types";
+import { DEFAULT_GOLIVE_CRITERIA, type Product } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { AlertOctagon, Check, Plus, Radio, Rocket, X } from "lucide-react";
+import { AlertOctagon, Check, Plus, Radio, Rocket, Trash2, X } from "lucide-react";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
@@ -12,14 +12,6 @@ import { ScrollTable } from "@/components/tfp/ScrollTable";
 export const Route = createFileRoute("/_app/golive")({
   component: GoLivePage,
 });
-
-const CRITERIA: GoLiveCriterion[] = [
-  "Clinic staff trained",
-  "Data migrated and verified",
-  "UAT completed by clinic contact",
-  "Rollback plan confirmed and tested",
-  "Go-live comms sent to clinic staff",
-];
 
 function GoLivePage() {
   const goLives = useTfpStore((s) => s.goLives);
@@ -38,11 +30,16 @@ function GoLivePage() {
     if (sort.key && sort.dir) {
       return sortRows(goLives, sort, (g, k) => {
         if (k === "scheduled_for") return new Date(g.scheduled_for).getTime();
-        if (k === "readiness") return CRITERIA.filter((c) => g.criteria[c].done).length;
+        if (k === "readiness") {
+          const keys = Object.keys(g.criteria);
+          return keys.filter((c) => g.criteria[c].done).length;
+        }
         if (k === "product") return g.product;
         return null;
       });
     }
+    return [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
+  }, [goLives, sort]);
     // default: scheduled asc (preserves existing behaviour)
     return [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime());
   }, [goLives, sort]);
