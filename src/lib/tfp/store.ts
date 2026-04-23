@@ -2460,6 +2460,8 @@ export const useTfpStore = create<State>()(
       approveFastTrack: (id, approverId) => {
         get().approveShaping(id, approverId, "Fast-track approved");
         get().pushToJira(id);
+        // Fast-track skips backlog by design — auto-add to active sprint (subject to lock).
+        get().addToSprint(id);
       },
       offboardClinic: (clinicId, reason) => {
         const me = get().currentUserId;
