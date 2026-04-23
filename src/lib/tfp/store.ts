@@ -1272,6 +1272,8 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
+  addToSprint: (id: string) => boolean;
+  removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
   unblock: (id: string, next: DeliveryStatus) => void;
@@ -1748,19 +1750,38 @@ export const useTfpStore = create<State>()(
           type: "issue.created",
           jira_key: key,
           shaping_id: id,
-          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: get().sprint.name },
+          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: "backlog" },
         };
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, jira_key: key, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
+              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira as ${key}` });
-        // Soft-warn: capacity check
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira backlog as ${key}` });
+        if (typeof window !== "undefined") {
+          import("sonner").then(({ toast }) => {
+            toast.success(`Pushed to Jira as ${key} — sitting in Backlog. Use "Add to Sprint" on the Delivery board.`);
+          });
+        }
+        return key;
+      },
+
+      addToSprint: (id) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.jira_key) return false;
+        if (item.in_sprint) return true;
         const sp = get().sprint;
+        if (sp.status === "Locked" || sp.scope_locked_at) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error("Sprint is locked. Use the Override log to add new items.");
+            });
+          }
+          return false;
+        }
         const usable = Math.max(
           0,
           sp.gross_capacity_pts -
@@ -1772,17 +1793,50 @@ export const useTfpStore = create<State>()(
             sp.golive_deduction_pts,
         );
         const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
-        if (sp.status === "Locked" || newAlloc / Math.max(1, usable) > 0.85) {
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, in_sprint: true, updated_at: new Date().toISOString() } : s,
+          ),
+          sprint: { ...sp, allocated_pts: newAlloc },
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
+        if (newAlloc / Math.max(1, usable) > 0.85) {
           get().pushNotification({
             trigger: "scope_change",
             title: "Sprint capacity > 85%",
-            body: `${key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
+            body: `${item.jira_key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
             link_to: "/overrides",
             entity_id: id,
           });
         }
-        set({ sprint: { ...sp, allocated_pts: newAlloc } });
-        return key;
+        if (typeof window !== "undefined") {
+          import("sonner").then(({ toast }) => {
+            toast.success(`${item.jira_key} added to ${sp.name}`);
+          });
+        }
+        return true;
+      },
+
+      removeFromSprint: (id) => {
+        const item = get().shaping.find((s) => s.id === id);
+        if (!item || !item.in_sprint) return false;
+        const sp = get().sprint;
+        if (sp.status === "Locked" || sp.scope_locked_at) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error("Sprint is locked. Cannot remove items.");
+            });
+          }
+          return false;
+        }
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, in_sprint: false, updated_at: new Date().toISOString() } : s,
+          ),
+          sprint: { ...sp, allocated_pts: Math.max(0, sp.allocated_pts - (item.tech_estimate_pts ?? 0)) },
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Removed from ${sp.name}` });
+        return true;
       },
 
       setDeliveryStatus: (id, next) => {
