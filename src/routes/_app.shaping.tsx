@@ -495,6 +495,8 @@ const PROBLEM_FIELDS: Array<{
 
 function ProblemBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
+  const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const score = completenessScore(item);
   const canAdvance = score >= 5;
 
@@ -526,6 +528,22 @@ function ProblemBrief({ item }: { item: ShapingItem }) {
                   len > 0 && !ok ? "border-destructive/50" : "border-input",
                 )}
               />
+              {f.key === "problem_evidence" && (
+                <div className="mt-3 rounded-md border border-border bg-surface-2 p-3">
+                  <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Supporting attachments
+                  </p>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Attach screenshots, recordings, tickets, or links that back this evidence up.
+                  </p>
+                  <AttachmentsField
+                    attachments={item.attachments ?? []}
+                    onChange={(next) => setShapingAttachments(item.id, next)}
+                    currentUserId={currentUserId}
+                    compact
+                  />
+                </div>
+              )}
             </div>
           );
         })}
