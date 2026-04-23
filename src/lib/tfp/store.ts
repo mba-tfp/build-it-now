@@ -1428,7 +1428,7 @@ export const useTfpStore = create<State>()(
         const created = new Date();
         const sig: Signal = {
           id: "sig-" + uid(),
-          title: data.title || data.description.slice(0, 60),
+          title: (data.title ?? "").trim() || data.description.slice(0, 60),
           description: data.description,
           source: data.source,
           product: data.product,
@@ -1445,6 +1445,8 @@ export const useTfpStore = create<State>()(
           labels: c.labels,
           displacement_flag: data.displacement_flag,
           displacement_note: data.displacement_note,
+          priority: data.priority ?? "Nice to have",
+          attachments: data.attachments,
         };
         set({ signals: [sig, ...get().signals] });
         get().audit_log({ entity_type: "signal", entity_id: sig.id, action: "Signal created" });
