@@ -341,6 +341,16 @@ function TriagePanel({
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
   const users = useTfpStore((s) => s.users);
   const updateSignal = useTfpStore((s) => s.updateSignal);
+  const setSignalAttachments = useTfpStore((s) => s.setSignalAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+
+  // Live auto-classification suggestion (re-runs against current source + description)
+  const suggestion = useMemo(
+    () => classifySignal({ source: sig.source, description: sig.description }),
+    [sig.source, sig.description],
+  );
+  const suggestedSla = useMemo(() => slaDueAt(suggestion.tier), [suggestion.tier]);
+  const matchesSuggestion = sig.issue_type === suggestion.issue_type && sig.tier === suggestion.tier;
   const owner = users.find((u) => u.id === sig.created_by);
   const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
   const [reason, setReason] = useState("");
