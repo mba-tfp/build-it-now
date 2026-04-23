@@ -2684,11 +2684,17 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
+        const shaping = (p.shaping ?? []).map((s) => ({
+          ...s,
+          // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
+          in_sprint: typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
+        }));
         return {
           ...p,
+          shaping,
           flags: p.flags ?? DEFAULT_FLAGS,
           helpArticles: p.helpArticles ?? SEED_HELP,
           workflows: p.workflows ?? [],
