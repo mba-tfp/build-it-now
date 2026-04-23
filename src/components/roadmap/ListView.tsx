@@ -7,6 +7,9 @@ import {
   type RoadmapItem,
 } from "@/lib/roadmap/types";
 import { cn } from "@/lib/utils";
+import { ScrollTable } from "@/components/tfp/ScrollTable";
+import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
+import { sortRows } from "@/components/tfp/SortableHeader";
 
 type Props = {
   roadmap: Roadmap;
@@ -22,6 +25,10 @@ type Node = {
   items: RoadmapItem[];
   children: Node[];
 };
+
+type SortKey = "title" | "product" | "status" | "priority" | "owner" | "start" | "end";
+
+const PRIORITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 function getValue(roadmap: Roadmap, item: RoadmapItem, field: GroupByField): { key: string; label: string } {
   switch (field) {
@@ -67,32 +74,66 @@ function buildTree(roadmap: Roadmap, items: RoadmapItem[], fields: GroupByField[
   return recurse(items, 0);
 }
 
+function sortItems(roadmap: Roadmap, items: RoadmapItem[], sort: ReturnType<typeof useSortMenu<SortKey>>["sort"]): RoadmapItem[] {
+  return sortRows(items, sort, (it, k) => {
+    if (k === "title") return it.title.toLowerCase();
+    if (k === "product") return roadmap.products.find((p) => p.id === it.product_id)?.name ?? "";
+    if (k === "status") return it.status;
+    if (k === "priority") return PRIORITY_ORDER[it.priority] ?? 99;
+    if (k === "owner") return it.owner || "";
+    if (k === "start") return it.months[0] ?? "";
+    if (k === "end") return it.months[it.months.length - 1] ?? "";
+    return null;
+  });
+}
+
 export function ListView({ roadmap, filteredItems, groupBy, onOpenItem }: Props) {
-  const tree = useMemo(() => buildTree(roadmap, filteredItems, groupBy), [roadmap, filteredItems, groupBy]);
+  const { sort, setSort } = useSortMenu<SortKey>(`roadmap.list.${roadmap.id}`, { key: "title", dir: "asc" });
+
+  const sortedItems = useMemo(() => sortItems(roadmap, filteredItems, sort), [roadmap, filteredItems, sort]);
+  const tree = useMemo(() => buildTree(roadmap, sortedItems, groupBy), [roadmap, sortedItems, groupBy]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-      <table className="w-full text-sm">
-        <thead className="border-b border-border bg-muted/30 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2">Title</th>
-            <th className="px-3 py-2">Stream</th>
-            <th className="px-3 py-2">Sub-Stream</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Priority</th>
-            <th className="px-3 py-2">Owner</th>
-            <th className="px-3 py-2">Months</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tree.length === 0 && (
+    <div className="space-y-2">
+      <div className="flex items-center justify-end">
+        <SortMenu
+          tableId={`roadmap.list.${roadmap.id}`}
+          sort={sort}
+          onChange={setSort}
+          options={[
+            { key: "title", label: "Title" },
+            { key: "product", label: "Stream" },
+            { key: "status", label: "Status" },
+            { key: "priority", label: "Priority" },
+            { key: "owner", label: "Owner" },
+            { key: "start", label: "Start month" },
+            { key: "end", label: "End month" },
+          ]}
+        />
+      </div>
+      <ScrollTable maxHeight="calc(100vh - 360px)" className="border border-border bg-surface">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10 border-b border-border bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground backdrop-blur">
             <tr>
-              <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No items match your filters.</td>
+              <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2">Stream</th>
+              <th className="px-3 py-2">Sub-Stream</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Priority</th>
+              <th className="px-3 py-2">Owner</th>
+              <th className="px-3 py-2">Months</th>
             </tr>
-          )}
-          {tree.map((node) => <NodeRows key={node.key} node={node} roadmap={roadmap} onOpenItem={onOpenItem} />)}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tree.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No items match your filters.</td>
+              </tr>
+            )}
+            {tree.map((node) => <NodeRows key={node.key} node={node} roadmap={roadmap} onOpenItem={onOpenItem} />)}
+          </tbody>
+        </table>
+      </ScrollTable>
     </div>
   );
 }
