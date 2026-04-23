@@ -431,48 +431,9 @@ function TriagePanel({
         </div>
 
         <div className="space-y-4 px-5 py-4">
-          {!editing && (
-            <div>
-              <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <TierBadge tier={sig.tier} />
-                <StatusBadge status={sig.status} />
-                <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(sig.priority))}>
-                  {sig.priority ?? "Nice to have"}
-                </span>
-                <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
-              </div>
-            </div>
-          )}
           {!editing ? (
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="classify">Classify</TabsTrigger>
-                <TabsTrigger value="decide">
-                  Files & Decision
-                  {(sig.attachments?.length ?? 0) > 0 && (
-                    <span className="ml-1 rounded bg-primary/20 px-1 text-[10px] text-primary">{sig.attachments!.length}</span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="details" className="mt-4 space-y-3">
-                <div className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-                  {sig.description}
-                </div>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                  <Detail label="Logged by" value={owner?.name ?? "—"} />
-                  <Detail label="Logged" value={fmtDateTime(sig.created_at)} />
-                  <Detail label="SLA due" value={fmtDateTime(sig.sla_due_at)} />
-                  <Detail label="Days in stage" value={`${daysSince(sig.created_at)} days`} />
-                  {sig.triage_reason && <Detail label="Reason" value={sig.triage_reason} />}
-                  {sig.hold_until && <Detail label="Review on" value={fmtDateTime(sig.hold_until)} />}
-                </dl>
-              </TabsContent>
-              <TabsContent value="classify" className="mt-4 space-y-3">
             <>
-              <div className="hidden">
+              <div>
                 <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
               <div>
                 <h2 className="font-display text-xl leading-snug">{sig.title}</h2>
