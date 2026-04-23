@@ -21,6 +21,8 @@ import { ArrowLeft, Check, Lock, ShieldCheck } from "lucide-react";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
+import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import type { Attachment } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
