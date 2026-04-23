@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
 import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
@@ -8,10 +10,37 @@ import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-re
 import { toast } from "sonner";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { GoLivePage } from "./_app.golive";
+
+const deliverySearchSchema = z.object({
+  tab: fallback(z.enum(["sprint", "golive"]), "sprint").default("sprint"),
+});
 
 export const Route = createFileRoute("/_app/delivery")({
-  component: DeliveryPage,
+  validateSearch: zodValidator(deliverySearchSchema),
+  component: DeliveryHubPage,
 });
+
+function DeliveryHubPage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  return (
+    <div className="space-y-4">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => navigate({ search: { tab: v as "sprint" | "golive" } })}
+      >
+        <TabsList>
+          <TabsTrigger value="sprint">Sprint</TabsTrigger>
+          <TabsTrigger value="golive">Go-Live</TabsTrigger>
+        </TabsList>
+        <TabsContent value="sprint" className="mt-4"><DeliveryPage /></TabsContent>
+        <TabsContent value="golive" className="mt-4"><GoLivePage /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
 const COLUMNS: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
 
