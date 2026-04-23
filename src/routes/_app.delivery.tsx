@@ -4,7 +4,7 @@ import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
 import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
@@ -60,6 +60,8 @@ function DeliveryPage() {
   const unblock = useTfpStore((s) => s.unblock);
   const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
   const signOff = useTfpStore((s) => s.signOffDevComplete);
+  const addToSprint = useTfpStore((s) => s.addToSprint);
+  const removeFromSprint = useTfpStore((s) => s.removeFromSprint);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
 
   const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
@@ -67,10 +69,11 @@ function DeliveryPage() {
   const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
   const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
 
+  // All shaping with a Jira key (backlog + in-sprint)
   const allRows: Row[] = useMemo(
     () =>
       shaping
-        .filter((s) => s.jira_key && s.delivery_status)
+        .filter((s) => s.jira_key)
         .map((s) => ({
           sh: s,
           sig: signals.find((sig) => sig.id === s.signal_id),
@@ -79,14 +82,14 @@ function DeliveryPage() {
     [shaping, signals],
   );
 
-  const rows = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
+  const filteredAll = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
 
   type SortKey = "updated" | "status" | "assignee" | "stale";
   const { sort, setSort } = useSortMenu<SortKey>("delivery", { key: "updated", dir: "desc" });
 
   const sortedRows = useMemo(
     () =>
-      sortRows(rows, sort, (r, k) => {
+      sortRows(filteredAll, sort, (r, k) => {
         if (k === "updated") return new Date(r.sh.updated_at ?? r.sh.created_at).getTime();
         if (k === "status") return r.sh.delivery_status ?? "";
         if (k === "assignee") {
@@ -96,10 +99,14 @@ function DeliveryPage() {
         if (k === "stale") return -1 * daysSince(r.sh.updated_at ?? r.sh.created_at);
         return null;
       }),
-    [rows, sort],
+    [filteredAll, sort],
   );
 
-  const blocked = sortedRows.filter((r) => r.sh.delivery_status === "Blocked");
+  // Split: backlog (jira_key but not yet in sprint) vs in-sprint (kanban)
+  const backlogRows = sortedRows.filter((r) => !r.sh.in_sprint);
+  const sprintRows = sortedRows.filter((r) => r.sh.in_sprint && r.sh.delivery_status);
+
+  const blocked = sprintRows.filter((r) => r.sh.delivery_status === "Blocked");
   const grouped: Record<DeliveryStatus, Row[]> = {
     "To Do": [],
     "In Progress": [],
@@ -107,7 +114,7 @@ function DeliveryPage() {
     Blocked: [],
     Done: [],
   };
-  sortedRows.forEach((r) => {
+  sprintRows.forEach((r) => {
     if (r.sh.delivery_status) grouped[r.sh.delivery_status].push(r);
   });
 
