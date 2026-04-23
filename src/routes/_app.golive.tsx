@@ -231,9 +231,30 @@ function ComposeGoLive({
   const [name, setName] = useState("");
   const [when, setWhen] = useState(() => new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 16));
   const [warRoom, setWarRoom] = useState(false);
+  const [criteria, setCriteria] = useState<string[]>([...DEFAULT_GOLIVE_CRITERIA]);
+  const [newCriterion, setNewCriterion] = useState("");
 
   const sh = shaping.find((s) => s.id === shapingId);
   const product = sh ? signals.find((x) => x.id === sh.signal_id)?.product : null;
+
+  function addCriterion() {
+    const v = newCriterion.trim();
+    if (!v) return;
+    if (criteria.includes(v)) {
+      setNewCriterion("");
+      return;
+    }
+    setCriteria([...criteria, v]);
+    setNewCriterion("");
+  }
+
+  function moveCriterion(idx: number, dir: -1 | 1) {
+    const next = [...criteria];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setCriteria(next);
+  }
 
   return (
     <div className="mb-6 tfp-card p-5">
@@ -260,10 +281,52 @@ function ComposeGoLive({
           </label>
         </Field>
       </div>
+
+      <div className="mt-5 rounded-md border border-border bg-surface-2 p-3">
+        <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+          Checklist items · {criteria.length}
+        </p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Every release is different — tweak the criteria you actually need to verify before going live.
+        </p>
+        <ul className="space-y-1.5">
+          {criteria.map((c, idx) => (
+            <li key={c + idx} className="flex items-center gap-2 rounded border border-border bg-surface px-2 py-1.5 text-sm">
+              <input
+                value={c}
+                onChange={(e) => {
+                  const next = [...criteria];
+                  next[idx] = e.target.value;
+                  setCriteria(next);
+                }}
+                className="flex-1 rounded border border-input bg-surface px-2 py-1 text-xs"
+              />
+              <button type="button" onClick={() => moveCriterion(idx, -1)} disabled={idx === 0} className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" aria-label="Move up">↑</button>
+              <button type="button" onClick={() => moveCriterion(idx, 1)} disabled={idx === criteria.length - 1} className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" aria-label="Move down">↓</button>
+              <button type="button" onClick={() => setCriteria(criteria.filter((_, i) => i !== idx))} className="rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Remove">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            value={newCriterion}
+            onChange={(e) => setNewCriterion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCriterion(); } }}
+            placeholder="Add a checklist item…"
+            className="flex-1 rounded border border-input bg-surface px-2 py-1 text-xs"
+          />
+          <button type="button" onClick={addCriterion} className="inline-flex items-center gap-1 rounded border border-input bg-surface px-2 py-1 text-[11px] hover:bg-accent/40">
+            <Plus className="h-3 w-3" /> Add
+          </button>
+        </div>
+      </div>
+
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onDone} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm">Cancel</button>
         <button
-          disabled={!shapingId || !name.trim()}
+          disabled={!shapingId || !name.trim() || criteria.length === 0 || criteria.some((c) => !c.trim())}
           onClick={() => {
             upsert({
               shaping_id: shapingId,
@@ -271,6 +334,7 @@ function ComposeGoLive({
               release_name: name,
               scheduled_for: new Date(when).toISOString(),
               war_room: warRoom,
+              criteria_keys: criteria.map((c) => c.trim()),
             });
             onDone();
           }}
