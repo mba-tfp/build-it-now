@@ -138,6 +138,7 @@ function TriageQueuePage() {
             <tr>
               <th className="px-3 py-2.5 font-medium">ID</th>
               <th className="px-3 py-2.5 font-medium">Title</th>
+              <th className="px-3 py-2.5 font-medium">Priority</th>
               <th className="px-3 py-2.5 font-medium">Source</th>
               <th className="px-3 py-2.5 font-medium">Product</th>
               <th className="px-3 py-2.5 font-medium">Type</th>
@@ -164,6 +165,11 @@ function TriageQueuePage() {
                 >
                   <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{s.id.slice(0, 8)}</td>
                   <td className="px-3 py-2.5 font-medium">{s.title}</td>
+                  <td className="px-3 py-2.5" onClick={stop}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(s.priority))}>
+                      {s.priority ?? "Nice to have"}
+                    </span>
+                  </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.product}</td>
                   <td className="px-3 py-2.5" onClick={stop}>
@@ -208,7 +214,7 @@ function TriageQueuePage() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                <td colSpan={11} className="px-3 py-12 text-center text-sm text-muted-foreground">
                   No signals match these filters.
                 </td>
               </tr>
