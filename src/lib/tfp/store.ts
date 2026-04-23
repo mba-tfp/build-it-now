@@ -1301,8 +1301,8 @@ type State = {
     shahid_visible?: boolean;
   }) => Override;
   ackOverride: (id: string) => void;
-  upsertGoLive: (data: Partial<GoLiveChecklist> & { id?: string; shaping_id: string; product: Product; release_name: string; scheduled_for: string }) => GoLiveChecklist;
-  toggleGoLiveCriterion: (id: string, criterion: GoLiveCriterion, done: boolean, note?: string) => void;
+  upsertGoLive: (data: Partial<GoLiveChecklist> & { id?: string; shaping_id: string; product: Product; release_name: string; scheduled_for: string; criteria_keys?: string[] }) => GoLiveChecklist;
+  toggleGoLiveCriterion: (id: string, criterion: string, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
   createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason" | "requires_pm_approval"> & { requires_pm_approval?: boolean }) => CommsItem;
@@ -2188,6 +2188,24 @@ export const useTfpStore = create<State>()(
           set({ goLives: get().goLives.map((g) => (g.id === existing.id ? updated : g)) });
           return updated;
         }
+        // Build criteria from explicit keys, an explicit Record, or fall back to defaults.
+        let criteria: Record<string, { done: boolean; note: string; checked_by: string | null; checked_at: string | null }>;
+        if (data.criteria) {
+          criteria = data.criteria;
+        } else if (data.criteria_keys && data.criteria_keys.length > 0) {
+          criteria = {};
+          for (const k of data.criteria_keys) {
+            criteria[k] = { done: false, note: "", checked_by: null, checked_at: null };
+          }
+        } else {
+          criteria = {
+            "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
+            "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
+            "UAT completed by clinic contact": { done: false, note: "", checked_by: null, checked_at: null },
+            "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
+            "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
+          };
+        }
         const fresh: GoLiveChecklist = {
           id: "gl-" + uid(),
           shaping_id: data.shaping_id,
@@ -2196,13 +2214,7 @@ export const useTfpStore = create<State>()(
           scheduled_for: data.scheduled_for,
           status: data.status ?? "Not Started",
           war_room: data.war_room ?? false,
-          criteria: data.criteria ?? {
-            "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
-            "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
-            "UAT completed by clinic contact": { done: false, note: "", checked_by: null, checked_at: null },
-            "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
-            "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
-          },
+          criteria,
           go_no_go_decision: null,
           go_no_go_by: null,
           go_no_go_at: null,
