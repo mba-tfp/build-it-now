@@ -54,27 +54,26 @@ const STATUS_TONE: Record<DeliveryStatus, string> = {
   Done: "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]",
 };
 
-// Role permission matrix
-function canMove(user: User, sh: ShapingItem, target: DeliveryStatus): boolean {
+function movementWarning(user: User, sh: ShapingItem, target: DeliveryStatus): string | null {
   const role = user.role;
   const isAssignee = sh.delivery_assignee_id === user.id;
   if (target === "Blocked") return true; // anyone can flag a blocker (with reason)
   if (role === "Developer" || role === "Tech Lead") {
-    if (!isAssignee) return false;
-    if (sh.delivery_status === "To Do" && target === "In Progress") return true;
-    if (sh.delivery_status === "In Progress" && target === "Done") return true; // gate-enforced separately
-    return false;
+    if (!isAssignee) return "This is not assigned to you. Continue?";
+    if (sh.delivery_status === "To Do" && target === "In Progress") return null;
+    if (sh.delivery_status === "In Progress" && target === "Done") return null;
+    return `This move is usually handled by QA or the item owner. Continue?`;
   }
   if (role === "QA Scrum Master") {
-    if (sh.delivery_status === "Done" && target === "In QA") return false;
-    if (target === "In QA" && sh.delivery_status === "In Progress") return true;
-    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return true;
-    return false;
+    if (sh.delivery_status === "Done" && target === "In QA") return "This reopens completed work. Continue?";
+    if (target === "In QA" && sh.delivery_status === "In Progress") return null;
+    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return null;
+    return `This is outside the usual QA flow. Continue?`;
   }
   if (role === "PM" || role === "Senior PM" || role === "Associate PM") {
-    return false; // PMs can flag blockers / hold but not move QA items
+    return `This is usually moved by delivery or QA. Continue?`;
   }
-  return false;
+  return `This is outside your usual delivery role. Continue?`;
 }
 
 export function DeliveryPage() {
