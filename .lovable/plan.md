@@ -1,76 +1,213 @@
+# Revised cleanup plan
 
+We will proceed with the recommended simplification pass, excluding items **5**, **7**, and **9**.
 
-## Sidebar consolidation: pipeline tabs + governance hub
+That means:
 
-You're right — 16 sidebar items is too many, and several of them are operationally one workflow. Here's the proposal.
+- Do **not** demote Go-Live further right now.
+- Do **not** simplify Roadmap aggressively right now.
+- Do **not** collapse Shaping below the current 3-step model.
 
-### New sidebar (7 items, down from 16)
+The goal is to improve adoption clarity without touching the areas you want to preserve for now.
+
+## Locked scope
+
+### 1. Remove stale references to old surfaces
+
+Clean user-facing language so the app consistently reflects the simplified model.
+
+Remove or update references to:
+
+- “5-step shaping”
+- old Step 4 / Step 5 wording where it appears in user-facing copy
+- “Tier” wording where users should now see P1 / P2 / P3
+- old “View X” labels
+- Queue Health as a primary user destination
+- Decision Log / Override Log as onboarding destinations
+- Go-Live as a standalone onboarding destination
+
+Target language:
 
 ```text
-PIPELINE
-  ● Inbox          (Intake + Triage as tabs)
-  ● Shaping
-  ● Delivery       (Delivery + Go-Live as tabs)
-  ● Roadmap
-
-  ● Leadership
-
-GOVERNANCE
-  ● Governance     (Comms · Reviews · Decisions · Overrides · Retros · Queue Health as tabs)
-
-SYSTEM (flag-gated, unchanged)
-  ● Help · Workflows · Admin
+Home → Inbox → Shaping → Delivery → Roadmap
 ```
 
-### Consolidations
+Governance remains available, but secondary.
 
-**1. Inbox = Intake + Triage** — same queue, two views. New route `/inbox` with tabs:
-- "Submit" → current Intake form
-- "Triage" → current Triage list
+---
 
-Keeps `/intake` and `/triage` as redirects to `/inbox?tab=submit` / `/inbox?tab=triage` so deep links and notifications keep working.
+### 2. Make Home the true command center
 
-**2. Delivery = Delivery + Go-Live** — Go-Live is the tail end of Delivery. New tabs on `/delivery`:
-- "Sprint" → existing kanban + backlog
-- "Go-Live" → existing Go-Live checklist
+Refine Home from a dashboard into a practical daily work surface.
 
-`/golive` redirects to `/delivery?tab=golive`.
+Home should focus on:
 
-**3. Governance hub = Comms + Reviews + Decisions + Overrides + Retros + Queue Health** — all six are reporting/audit surfaces, opened occasionally, never daily. New route `/governance` with a horizontal tab bar:
-- Comms · Reviews · Decisions · Overrides · Retros · Queue Health
+- items needing action
+- blocked work
+- stale shaping/delivery items
+- pending approvals
+- open questions
+- recent changes worth knowing
 
-Each tab renders the existing page body. Old routes (`/comms`, `/review`, `/decisions`, `/overrides`, `/retros`, `/health`) redirect to `/governance?tab=<name>`.
+The intent is that a user can start from Home and know what to do next without understanding every route in the app.
 
-**One nuance on Comms in Governance:** Comms is slightly higher-frequency than the others (PMs draft updates weekly). If it feels buried, we can promote it back to its own sidebar item later — easy to revert. For now, grouping it keeps the sidebar clean and "Governance" is one click away.
+---
 
-### What stays top-level
+### 3. Simplify onboarding
 
-- **Shaping** — daily PM work, distinct from intake and delivery
-- **Roadmap** — planning surface, distinct audience (cross-product view)
-- **Leadership** — exec-only audience, deserves its own entry
+Replace the current role-heavy onboarding with a simpler universal guide.
 
-### Sidebar UX
+New onboarding flow:
 
-- Active tab in a hub determines which sidebar item is highlighted (e.g. `/governance?tab=retros` lights up "Governance").
-- Tab state lives in the URL `?tab=` search param (TanStack `validateSearch` with zod), so links and refreshes work.
-- Default tab when none specified: first tab of each hub.
+1. Start at Home
+2. Capture/review work in Inbox
+3. Shape approved work
+4. Track work in Delivery
+5. Plan with Roadmap
+6. Use Leadership/Governance only when needed
 
-### Files affected
+This removes onboarding instructions that teach users to navigate old or secondary surfaces first.
 
-- `src/components/tfp/AppShell.tsx` — collapse `NAV` to 5 items + Governance + System.
-- New: `src/routes/_app.inbox.tsx` — tab shell that imports the existing Intake and Triage page bodies (extracted into components).
-- New: `src/routes/_app.governance.tsx` — tab shell mounting Comms, Reviews, Decisions, Overrides, Retros, Queue Health bodies.
-- Refactor (extract page body into a component, route file becomes a thin wrapper):
-  - `src/routes/_app.intake.tsx`, `_app.triage.tsx` → bodies moved to `src/components/tfp/pages/IntakePage.tsx` and `TriagePage.tsx`; routes become redirects.
-  - `_app.golive.tsx` → body moved to `GoLivePage.tsx`; route redirects to `/delivery?tab=golive`.
-  - `_app.delivery.tsx` → body moved to `DeliveryPage.tsx`; route renders tabs + `DeliveryPage` / `GoLivePage`.
-  - `_app.comms.tsx`, `_app.review.tsx`, `_app.decisions.tsx`, `_app.overrides.tsx`, `_app.retros.tsx`, `_app.health.tsx` → bodies moved to matching `*Page.tsx` components; routes become redirects to `/governance?tab=<name>`.
+---
 
-No data model changes. No store changes. No new dependencies. Tabs use the existing shadcn `<Tabs>` component, controlled by the URL.
+### 4. Consolidate Inbox language
 
-### Out of scope
+Make Inbox the clear home for incoming work.
 
-- Renaming "Intake" to "Inbox" anywhere except the sidebar label and the new route
-- Restyling the page bodies — they get moved verbatim
-- Removing any feature
+Inbox should own the user mental model for:
 
+- creating new signals
+- reviewing incoming requests
+- deciding whether work proceeds, waits, or is rejected
+
+Old Intake/Triage concepts can remain internally if needed, but should not be presented as separate concepts to normal users.
+
+---
+
+### 6. Inline Decisions and Overrides completely
+
+Proceed with simplifying Decisions and Overrides as standalone concepts.
+
+User-facing model:
+
+- Decisions happen on the relevant signal/shaping/delivery item.
+- Overrides happen where the risky change is being made.
+- The app can still keep logs/audit history in the background.
+
+Implementation direction:
+
+- Remove Decision Log and Override Log from primary navigation/onboarding.
+- Add inline decision/override affordances where appropriate.
+- Keep existing data structures if useful, but stop requiring users to manage separate log pages.
+
+---
+
+### 8. Reduce Delivery permissions complexity
+
+Soften strict delivery role restrictions where they create friction.
+
+Preferred model:
+
+- allow users to update most delivery statuses
+- show warnings for unusual transitions
+- require reasons only for risky actions
+- preserve audit trail where necessary
+
+Example:
+
+```text
+This is usually moved by QA. Continue?
+```
+
+Instead of blocking the action entirely.
+
+---
+
+### 10. Consider dropping Governance as a primary concept
+
+Proceed with demoting Governance as a primary mental model, while keeping the useful functions available.
+
+Direction:
+
+- Governance should not feel like a main workflow stage.
+- Comms and Lookback can remain accessible as supporting tools.
+- Decisions and Overrides move inline.
+- Sidebar should prioritize the core work loop.
+
+Target primary workflow:
+
+```text
+Home
+Inbox
+Shaping
+Delivery
+Roadmap
+Leadership
+```
+
+Governance can remain secondary if needed.
+
+---
+
+### 11. Reposition the app as a workflow app first
+
+Update visible language away from “operating system” complexity and toward a simpler product workflow.
+
+Preferred positioning:
+
+```text
+One place to manage product work from signal to delivery.
+```
+
+Avoid leading with:
+
+```text
+Operating system for governance, shaping, delivery, reviews, comms, overrides, and roadmap planning.
+```
+
+This should show up in onboarding/help/empty-state copy where applicable.
+
+## Explicitly excluded
+
+### 5. Go-Live demotion
+
+No change for now.
+
+Go-Live can remain as a Delivery tab/surface. We will not move it into an inline Release Checklist in this pass.
+
+### 7. Aggressive Roadmap simplification
+
+No change for now.
+
+Roadmap keeps its current advanced planning capabilities. We will not remove timeline tooling, roadmap switchers, filters, import, or settings in this pass.
+
+### 9. Further Shaping collapse
+
+No change for now.
+
+Shaping stays as:
+
+```text
+Define → Tech Review → Approve
+```
+
+We will only clean stale references to old step numbering; we will not collapse Tech Review into the brief.
+
+## Technical implementation notes
+
+- Update user-facing copy in onboarding, help articles, Home, navigation, and relevant route headers.
+- Review routes/components for stale terminology using targeted searches for legacy labels.
+- Keep legacy route files where needed for redirects/backward compatibility, but make them feel non-primary.
+- Avoid deleting data models unless clearly unused; this pass is primarily UX and mental-model simplification.
+- Run typecheck/build after implementation and fix any regressions.
+
+## Acceptance criteria
+
+- A new user sees the product as a simple workflow: Home → Inbox → Shaping → Delivery → Roadmap.
+- No visible copy teaches five-step shaping.
+- No primary onboarding path sends users to old/secondary surfaces.
+- Decisions and overrides are presented inline rather than as separate logs.
+- Delivery updates are less blocked by role rules and use warnings where appropriate.
+- Go-Live remains unchanged as requested.
+- Roadmap remains unchanged as requested.
+- Shaping remains three steps as requested.
