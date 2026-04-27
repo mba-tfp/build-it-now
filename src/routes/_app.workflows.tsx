@@ -382,7 +382,7 @@ function WorkflowsPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Workflows</p>
           <h1 className="mt-1 font-display text-3xl">Workflow Builder</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Visualise the Signal → Triage → Shaping → Delivery flow. Active workflows emit observability notifications.
+            Visualise the Signal → Inbox review → Shaping → Delivery flow. Active workflows emit observability notifications.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -636,7 +636,7 @@ function WorkflowsPage() {
                 <label className="flex flex-col text-xs text-muted-foreground">
                   App stage
                   <select
-                    value={selectedNode.config.route ?? "/triage"}
+                    value={selectedNode.config.route ?? "/inbox"}
                     onChange={(e) => updateSelectedConfig("route", e.target.value)}
                     className="mt-1 rounded border border-input bg-surface px-2 py-1 text-sm"
                   >
