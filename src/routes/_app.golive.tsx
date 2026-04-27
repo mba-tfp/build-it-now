@@ -45,7 +45,7 @@ export function GoLivePage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 9</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
           <h1 className="mt-1 font-display text-3xl">Go-Live Readiness</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Five-criterion checklist + war-room mode. Go/No-Go gate before any release.

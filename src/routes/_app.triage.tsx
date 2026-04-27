@@ -104,10 +104,10 @@ export function TriageQueuePage() {
     <div>
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 2</p>
-          <h1 className="mt-1 font-display text-3xl">Triage Queue</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Inbox</p>
+          <h1 className="mt-1 font-display text-3xl">Review Incoming Work</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Click a row to make a triage decision. Status, Tier, Type, and Owner can be edited inline.
+            Click a row to decide whether a signal should proceed, wait, or be rejected.
           </p>
         </div>
         {breaches > 0 && (
@@ -121,7 +121,7 @@ export function TriageQueuePage() {
         <FilterSelect label="Status" value={statusF} onChange={setStatusF} options={STATUSES} />
         <FilterSelect label="Source" value={sourceF} onChange={setSourceF} options={SOURCES} />
         <FilterSelect label="Product" value={productF} onChange={setProductF} options={PRODUCTS} />
-        <FilterSelect label="Tier" value={tierF} onChange={setTierF} options={TIERS} />
+        <FilterSelect label="P1/P2/P3" value={tierF} onChange={setTierF} options={TIERS} />
         <div className="relative ml-auto">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -143,7 +143,7 @@ export function TriageQueuePage() {
               <th className="px-3 py-2.5 font-medium">Source</th>
               <th className="px-3 py-2.5 font-medium">Product</th>
               <th className="px-3 py-2.5 font-medium">Type</th>
-              <th className="px-3 py-2.5 font-medium">Tier</th>
+              <th className="px-3 py-2.5 font-medium">P1/P2/P3</th>
               <th className="px-3 py-2.5 font-medium">Status</th>
               <th className="px-3 py-2.5 font-medium">Owner</th>
               <th className="px-3 py-2.5 font-medium">Days</th>
@@ -260,7 +260,7 @@ export function TriageQueuePage() {
         onConfirm={(reason) => {
           if (!bypass) return;
           const res = updateSignal(bypass.signalId, bypass.patch, { force: true, reason });
-          if (res.ok) toast.success("Bypass saved — Override logged");
+          if (res.ok) toast.success("Bypass saved — override recorded");
           else toast.error(res.error ?? "Couldn't save");
           setBypass(null);
         }}
@@ -601,7 +601,7 @@ function TriagePanel({
                     onChange={(v) => setDraft({ ...draft, issue_type: v as IssueType })}
                   />
                 </EditField>
-                <EditField label="Tier" hint="Changing tier resets SLA">
+                <EditField label="P1/P2/P3" hint="Changing priority resets SLA">
                   <SelectInput
                     value={draft.tier ?? sig.tier}
                     options={ALL_TIERS}

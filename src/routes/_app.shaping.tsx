@@ -12,6 +12,7 @@ import {
 } from "@/lib/tfp/store";
 import type {
   Complexity,
+  DecisionType,
   RoadmapBucket,
   ShapingItem,
 } from "@/lib/tfp/types";
@@ -41,7 +42,7 @@ function ShapingPage() {
   const signals = useTfpStore((s) => s.signals);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  type SortKey = "started" | "completeness" | "tier";
+  type SortKey = "started" | "completeness" | "priority";
   const { sort, setSort } = useSortMenu<SortKey>("shaping");
 
   const cards = useMemo(
@@ -54,7 +55,7 @@ function ShapingPage() {
       return sortRows(cards, sort, (c, k) => {
         if (k === "started") return c.sh.shaping_started_at ? new Date(c.sh.shaping_started_at).getTime() : 0;
         if (k === "completeness") return completenessScore(c.sh);
-        if (k === "tier") return c.sig?.tier ?? "Z";
+        if (k === "priority") return c.sig?.tier ?? "Z";
         return null;
       });
     }
@@ -80,7 +81,7 @@ function ShapingPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 3</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping</p>
           <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Approved signals move through Define → Tech Review → Approve before delivery.
@@ -93,7 +94,7 @@ function ShapingPage() {
           options={[
             { key: "started", label: "Started date" },
             { key: "completeness", label: "Completeness" },
-            { key: "tier", label: "Tier" },
+            { key: "priority", label: "Priority" },
           ]}
         />
       </header>
@@ -101,10 +102,10 @@ function ShapingPage() {
       {cards.length === 0 ? (
         <div className="tfp-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Nothing in shaping yet. Triage a signal as <strong>Proceed</strong> to start.
+            Nothing in shaping yet. Mark an Inbox signal as <strong>Proceed</strong> to start.
           </p>
-          <Link to="/triage" className="mt-4 inline-block text-sm text-primary hover:underline">
-            Open Triage Queue →
+          <Link to="/inbox" className="mt-4 inline-block text-sm text-primary hover:underline">
+            Open Inbox →
           </Link>
         </div>
       ) : (
@@ -264,9 +265,54 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
           {displayStep(sh.current_step) === 1 && <DefineBrief item={sh} />}
           {displayStep(sh.current_step) === 2 && <TechReview item={sh} />}
           {displayStep(sh.current_step) === 3 && <Approval item={sh} />}
+          <InlineDecisions item={sh} />
         </>
       )}
     </div>
+  );
+}
+
+function InlineDecisions({ item }: { item: ShapingItem }) {
+  const decisions = useTfpStore((s) => s.decisions.filter((d) => d.linked_shaping_id === item.id));
+  const createDecision = useTfpStore((s) => s.createDecision);
+  const [title, setTitle] = useState("");
+  const [decision, setDecision] = useState("");
+  const [type, setType] = useState<DecisionType>("Product");
+  const ready = title.trim().length > 2 && decision.trim().length > 2;
+
+  return (
+    <section className="mt-6 tfp-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg">Decisions on this item</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Record decisions here instead of sending people to a separate log.</p>
+        </div>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{decisions.length} recorded</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-[160px_1fr_1fr_auto]">
+        <select value={type} onChange={(e) => setType(e.target.value as DecisionType)} className="rounded-md border border-input bg-surface px-2 py-1.5 text-sm">
+          {(["Product", "Architectural", "Process", "Vendor"] as DecisionType[]).map((t) => <option key={t}>{t}</option>)}
+        </select>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Decision title" className="rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
+        <input value={decision} onChange={(e) => setDecision(e.target.value)} placeholder="What was decided?" className="rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
+        <button
+          disabled={!ready}
+          onClick={() => {
+            createDecision({ title, type, context: item.problem_what || "Shaping decision", options_considered: "Recorded inline on shaping item", decision, consequences: item.solution_risks || "None noted", linked_signal_id: item.signal_id, linked_shaping_id: item.id });
+            setTitle("");
+            setDecision("");
+          }}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40"
+        >
+          Record
+        </button>
+      </div>
+      {decisions.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {decisions.slice(0, 3).map((d) => <div key={d.id} className="rounded-md border border-border bg-surface px-3 py-2 text-sm"><span className="font-medium">{d.title}</span><span className="text-muted-foreground"> · {d.decision}</span></div>)}
+        </div>
+      )}
+    </section>
   );
 }
 

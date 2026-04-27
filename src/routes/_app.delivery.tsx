@@ -54,27 +54,26 @@ const STATUS_TONE: Record<DeliveryStatus, string> = {
   Done: "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]",
 };
 
-// Role permission matrix
-function canMove(user: User, sh: ShapingItem, target: DeliveryStatus): boolean {
+function movementWarning(user: User, sh: ShapingItem, target: DeliveryStatus): string | null {
   const role = user.role;
   const isAssignee = sh.delivery_assignee_id === user.id;
-  if (target === "Blocked") return true; // anyone can flag a blocker (with reason)
+  if (target === "Blocked") return null; // anyone can flag a blocker (with reason)
   if (role === "Developer" || role === "Tech Lead") {
-    if (!isAssignee) return false;
-    if (sh.delivery_status === "To Do" && target === "In Progress") return true;
-    if (sh.delivery_status === "In Progress" && target === "Done") return true; // gate-enforced separately
-    return false;
+    if (!isAssignee) return "This is not assigned to you. Continue?";
+    if (sh.delivery_status === "To Do" && target === "In Progress") return null;
+    if (sh.delivery_status === "In Progress" && target === "Done") return null;
+    return `This move is usually handled by QA or the item owner. Continue?`;
   }
   if (role === "QA Scrum Master") {
-    if (sh.delivery_status === "Done" && target === "In QA") return false;
-    if (target === "In QA" && sh.delivery_status === "In Progress") return true;
-    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return true;
-    return false;
+    if (sh.delivery_status === "Done" && target === "In QA") return "This reopens completed work. Continue?";
+    if (target === "In QA" && sh.delivery_status === "In Progress") return null;
+    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return null;
+    return `This is outside the usual QA flow. Continue?`;
   }
   if (role === "PM" || role === "Senior PM" || role === "Associate PM") {
-    return false; // PMs can flag blockers / hold but not move QA items
+    return `This is usually moved by delivery or QA. Continue?`;
   }
-  return false;
+  return `This is outside your usual delivery role. Continue?`;
 }
 
 export function DeliveryPage() {
@@ -155,10 +154,8 @@ export function DeliveryPage() {
       setBlockerFor(sh);
       return;
     }
-    if (!canMove(me, sh, next)) {
-      toast.error("Not allowed", {
-        description: `${me.role} cannot move this item to ${next}.`,
-      });
+    const warning = movementWarning(me, sh, next);
+    if (warning && !window.confirm(warning)) {
       return;
     }
     if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
@@ -179,7 +176,7 @@ export function DeliveryPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 4</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
           <h1 className="mt-1 font-display text-3xl">Delivery Board</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {sprint.name} · {sprintRows.length} in sprint · {backlogRows.length} in backlog · viewing as {me.name} ({me.role})
@@ -232,7 +229,7 @@ export function DeliveryPage() {
         <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
           <Lock className="h-3.5 w-3.5 text-amber-600" />
           <span>
-            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Use the Override log to add new items.
+            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Add new scope only with an inline override reason.
           </span>
         </div>
       )}
@@ -260,7 +257,7 @@ export function DeliveryPage() {
                   <button
                     onClick={() => addToSprint(sh.id)}
                     disabled={sprintLocked}
-                    title={sprintLocked ? "Sprint locked — use Override log" : `Add ${sh.jira_key} to ${sprint.name}`}
+                    title={sprintLocked ? "Sprint locked — inline override required" : `Add ${sh.jira_key} to ${sprint.name}`}
                     className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     + Add to Sprint
@@ -381,23 +378,22 @@ export function DeliveryPage() {
                         )}
                         <div className="flex flex-wrap gap-1.5">
                           {COLUMNS.filter((s) => s !== status).map((target) => {
-                            const allowed = canMove(me, sh, target);
+                            const warning = movementWarning(me, sh, target);
                             const needsGate =
                               status === "In Progress" && target === "Done" && !gateReady && me.role !== "QA Scrum Master";
                             return (
                               <button
                                 key={target}
-                                disabled={!allowed && me.role !== "QA Scrum Master" ? !allowed : false}
                                 onClick={() => handleMove(sh, target)}
                                 className={cn(
                                   "rounded-md border px-2 py-1 text-[11px]",
-                                  allowed
-                                    ? "border-input bg-surface hover:bg-muted"
-                                    : "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/60",
+                                  warning
+                                    ? "border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 text-[var(--color-status-hold)] hover:bg-[var(--color-status-hold)]/10"
+                                    : "border-input bg-surface hover:bg-muted",
                                 )}
                                 title={
-                                  !allowed
-                                    ? `${me.role} cannot move to ${target}`
+                                  warning
+                                    ? warning
                                     : needsGate
                                       ? "Dev Complete gate required"
                                       : ""

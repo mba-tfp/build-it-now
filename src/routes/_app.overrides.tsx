@@ -69,10 +69,10 @@ export function OverridesPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 8</p>
-          <h1 className="mt-1 font-display text-3xl">Override Log</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Support</p>
+          <h1 className="mt-1 font-display text-3xl">Overrides</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every deviation from the standard flow lives here. {pending} pending Shahid acknowledgement.
+            Exceptions are recorded from the work item or sprint action. {pending} pending Shahid acknowledgement.
           </p>
         </div>
         <button

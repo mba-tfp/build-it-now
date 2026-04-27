@@ -41,7 +41,7 @@ function ClinicFeedbackPage() {
             <Activity className="h-4 w-4" strokeWidth={2.25} />
           </span>
           <div className="leading-tight">
-            <div className="font-display text-[15px] tracking-tight">TFP OS</div>
+            <div className="font-display text-[15px] tracking-tight">TFP Workflow</div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Clinic Feedback</div>
           </div>
         </div>

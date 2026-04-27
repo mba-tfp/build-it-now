@@ -11,14 +11,14 @@ function NotFoundComponent() {
         <h1 className="font-display text-7xl text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          That route doesn't exist in the TFP OS Tool.
+          That route doesn't exist in TFP Workflow.
         </p>
         <div className="mt-6">
           <Link
-            to="/intake"
+            to="/inbox"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Back to Signal Intake
+            Back to Inbox
           </Link>
         </div>
       </div>
@@ -31,11 +31,11 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "TFP OS Tool — Signal → Shaping → Delivery" },
+      { title: "TFP Workflow — Signal → Delivery" },
       {
         name: "description",
         content:
-          "Internal product operations platform for The Fertility Partners — manages the Signal, Shaping, and Delivery loop.",
+          "Internal product workflow for The Fertility Partners — manages product work from signal to delivery.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],

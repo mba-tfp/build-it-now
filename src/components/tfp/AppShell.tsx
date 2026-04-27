@@ -51,8 +51,8 @@ const LEADERSHIP_NAV: Array<{ to: string; label: string; icon: React.ComponentTy
   { to: "/leadership", label: "Leadership", icon: Crown },
 ];
 
-const GOVERNANCE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { to: "/governance", label: "Governance", icon: Gavel },
+const SUPPORT_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/governance", label: "Comms & Lookback", icon: Gavel },
 ];
 
 const ADMIN_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }>; flag?: "helpCenterEnabled" | "workflowBuilderEnabled" | "adminPanelEnabled" }> = [
@@ -78,7 +78,7 @@ function AppSidebar() {
           </span>
           {!collapsed && (
             <div className="leading-tight">
-              <div className="font-display text-[15px] tracking-tight">TFP OS</div>
+              <div className="font-display text-[15px] tracking-tight">TFP Workflow</div>
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 Signal → Delivery
               </div>
@@ -90,7 +90,7 @@ function AppSidebar() {
         {([
           { label: "Pipeline", items: PIPELINE_NAV },
           { label: "Leadership", items: LEADERSHIP_NAV },
-          { label: "Governance", items: GOVERNANCE_NAV },
+          { label: "Support", items: SUPPORT_NAV },
         ] as const).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

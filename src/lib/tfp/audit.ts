@@ -11,7 +11,7 @@ const FIELD_LABELS: Record<string, string> = {
   additional_sources: "Additional sources",
   additional_products: "Additional products",
   issue_type: "Issue type",
-  tier: "Tier",
+  tier: "Priority",
   status: "Status",
   owner_id: "Owner",
   delivery_assignee_id: "Delivery assignee",

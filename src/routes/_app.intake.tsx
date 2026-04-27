@@ -102,7 +102,7 @@ export function SignalIntakePage() {
             )}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Type and SLA tier will be confirmed in Triage.
+            Type and P1/P2/P3 priority will be confirmed in Inbox.
           </p>
           <div className="mt-6 flex justify-center gap-2">
             <button
@@ -121,10 +121,10 @@ export function SignalIntakePage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate({ to: "/triage" })}
+              onClick={() => navigate({ to: "/inbox", search: { tab: "triage" } })}
               className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
             >
-              Open Triage Queue
+              Review in Inbox
             </button>
           </div>
         </div>
@@ -135,10 +135,10 @@ export function SignalIntakePage() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 1</p>
-        <h1 className="mt-1 font-display text-3xl">Signal Intake</h1>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Inbox</p>
+        <h1 className="mt-1 font-display text-3xl">New Signal</h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          The single entry point for all work. Frictionless submission. Type and tier are decided in Triage.
+          The single entry point for all work. Capture the request now; type and priority can be refined during review.
         </p>
       </header>
 

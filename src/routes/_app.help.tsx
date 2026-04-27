@@ -52,7 +52,7 @@ function HelpLayout() {
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Help</p>
         <h1 className="mt-1 font-display text-3xl">Help Center</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          How to use TFP OS — articles per section. Search across all content.
+          How to manage product work from signal to delivery. Search across all content.
         </p>
       </header>
 
@@ -98,8 +98,8 @@ function HelpLayout() {
             <div className="prose prose-sm max-w-none">
               <h2 className="font-display text-2xl">Welcome</h2>
               <p className="text-sm text-muted-foreground">
-                TFP OS captures every signal — from the first clinic email to the leadership ask — and
-                walks it through Triage → Shaping → Delivery → Review without anything getting dropped.
+                TFP Workflow captures every signal — from the first clinic email to the leadership ask — and
+                walks it through Home → Inbox → Shaping → Delivery → Roadmap without anything getting dropped.
               </p>
               <p className="mt-3 text-sm text-muted-foreground">
                 Pick a topic on the left to learn how each step works. Admins can edit articles in the
