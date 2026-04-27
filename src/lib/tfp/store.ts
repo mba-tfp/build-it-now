@@ -1175,7 +1175,7 @@ const seedNotifications: Notification[] = [
     trigger: "sla_breach",
     title: "SLA breach: Patients cannot complete intake on Safari",
     body: "P1 signal past SLA. Owner: Bazil.",
-    link_to: "/triage",
+    link_to: "/inbox",
     entity_id: seedSignals[0].id,
     ts: new Date(SEED_EPOCH - 3600000).toISOString(),
   }),
@@ -1198,7 +1198,7 @@ const seedNotifications: Notification[] = [
     trigger: "override_logged",
     title: "OVR-005 awaiting Shahid acknowledgement",
     body: "Scope added mid-sprint: board KPI dashboard.",
-    link_to: "/overrides",
+    link_to: "/delivery",
     entity_id: "OVR-005",
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
   }),
@@ -1206,7 +1206,7 @@ const seedNotifications: Notification[] = [
     trigger: "review_overdue",
     title: "Outcome review pending: Coordinator dashboard load time",
     body: "Item shipped 4 days ago — review still in Pending.",
-    link_to: "/review",
+    link_to: "/governance",
     ts: new Date(SEED_EPOCH - 14400000).toISOString(),
   }),
   buildNotification({
@@ -1557,9 +1557,9 @@ export const useTfpStore = create<State>()(
           if (new Date(next.sla_due_at).getTime() < Date.now()) {
             get().pushNotification({
               trigger: "sla_breach",
-              title: `SLA already breached after tier change`,
+              title: `SLA already breached after priority change`,
               body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
-              link_to: "/triage",
+              link_to: "/inbox",
               entity_id: signalId,
             });
           }
@@ -2563,7 +2563,7 @@ export const useTfpStore = create<State>()(
           trigger: "clinic_feedback",
           title: `Clinic feedback from ${data.clinic_name}`,
           body: data.description.slice(0, 100),
-          link_to: "/triage",
+          link_to: "/inbox",
           for_user_id: "u-sami",
           entity_id: sig.id,
         });
