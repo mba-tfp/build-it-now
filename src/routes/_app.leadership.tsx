@@ -250,7 +250,7 @@ function LeadershipPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 6 · Leadership</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Leadership</p>
           <h1 className="mt-1 font-display text-3xl">Portfolio Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Live read-out of signals, throughput, capacity and outcomes across the TFP product surface.
@@ -419,7 +419,7 @@ function LeadershipPage() {
           </div>
         </Panel>
 
-        {/* Tier mix */}
+        {/* Priority mix */}
         <Panel title="Priority mix" subtitle="All signals by P1/P2/P3">
           <div className="flex items-center gap-6">
             <DonutChart segments={tierMix.map((t) => ({
@@ -537,7 +537,7 @@ function LeadershipPage() {
                 <th className="px-3 py-2 text-left font-medium">Title</th>
                 <th className="px-3 py-2 text-left font-medium">Source</th>
                 <th className="px-3 py-2 text-left font-medium">Product</th>
-                <th className="px-3 py-2 text-left font-medium">Tier</th>
+                  <th className="px-3 py-2 text-left font-medium">Priority</th>
                 <th className="px-3 py-2 text-left font-medium">Status</th>
                 <th className="px-3 py-2 text-left font-medium">Owner</th>
                 <th className="px-3 py-2 text-left font-medium">Created</th>
@@ -826,7 +826,7 @@ function OverrideLogPanel({
     <div className="tfp-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h3 className="font-display text-base">Override log · this sprint</h3>
+          <h3 className="font-display text-base">Sprint overrides</h3>
           <p className="text-[11px] text-muted-foreground">
             {sprintOverrides.length} total
             {pending > 0 && (
