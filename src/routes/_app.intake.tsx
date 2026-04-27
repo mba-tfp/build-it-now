@@ -204,7 +204,7 @@ export function SignalIntakePage() {
         <Field
           label="Priority"
           required
-          hint="How important does the requester think this is? Triage may adjust."
+          hint="How important does the requester think this is? Inbox review may adjust."
         >
           <div className="flex flex-wrap gap-2">
             {PRIORITIES.map((p) => (
