@@ -70,20 +70,20 @@ const SEED_HELP: HelpArticle[] = [
   {
     id: "h-intake",
     slug: "intake",
-    title: "Signal Intake",
+    title: "Inbox",
     section: "Workflow",
     body_markdown:
-      "# Signal Intake\n\nThe single entry point for all work. Log every customer, leadership, or internal signal here — frictionless, never ignored.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests Type and SLA Tier — override only when you have a strong reason.",
+      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests type and P1/P2/P3 priority — override only when you have a strong reason.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
   {
     id: "h-triage",
     slug: "triage",
-    title: "Triage Queue",
+    title: "Review incoming work",
     section: "Workflow",
     body_markdown:
-      "# Triage Queue\n\nClick a signal to make a triage decision: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, Tier, Type, and Owner can be edited inline in the table.\n\n## Status guard\nMoving to **Proceed**, **Hold**, or **Rejected** from a non-allowed state requires a written reason and creates an Override entry.",
+      "# Review incoming work\n\nClick a signal in Inbox to decide: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, P1/P2/P3 priority, type, and owner can be edited inline.\n\n## Risky changes\nUnusual status changes ask for a reason and record the override in the background.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -93,7 +93,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Shaping",
     section: "Workflow",
     body_markdown:
-      "# Shaping\n\nFive steps from problem framing to tech-approved. The Shaping queue tracks completeness and unblocks the next stage.",
+      "# Shaping\n\nApproved signals move through three stages: Define → Tech Review → Approve. The Shaping workspace keeps the brief, tech concerns, open questions, and approval in one place.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -123,7 +123,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Workflow Builder",
     section: "Features",
     body_markdown:
-      "# Workflow Builder\n\nVisualise and tweak the Signal → Triage → Shaping → Delivery flow. v1 is observational: active workflows emit additional notifications when signals progress.",
+      "# Workflow Builder\n\nVisualise and tweak the Signal → Inbox → Shaping → Delivery flow. v1 is observational: active workflows emit additional notifications when signals progress.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
