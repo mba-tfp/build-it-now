@@ -248,7 +248,7 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
                     <span
                       className={cn(
                         "grid h-5 w-5 place-items-center rounded-full text-[10px] font-medium",
-                        done && "bg-[var(--color-status-proceed)] text-white",
+                        done && "bg-[var(--color-status-proceed)] text-primary-foreground",
                         active && "bg-primary text-primary-foreground",
                         future && "bg-muted text-muted-foreground",
                       )}
@@ -1127,7 +1127,7 @@ function Approval({ item }: { item: ShapingItem }) {
                   className={cn(
                     "grid h-4 w-4 place-items-center rounded-full text-[10px]",
                     g.ok
-                      ? "bg-[var(--color-status-proceed)] text-white"
+                      ? "bg-[var(--color-status-proceed)] text-primary-foreground"
                       : "bg-muted-foreground/30 text-muted-foreground",
                   )}
                 >
