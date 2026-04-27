@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { AlertTriangle, CheckCircle2, Clock, HelpCircle, MessageSquare, Sprint, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, HelpCircle, MessageSquare, TrendingUp } from "lucide-react";
 import { USERS, useTfpStore, usableCapacity } from "@/lib/tfp/store";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ function DashboardPage() {
       </header>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Sprint className="h-4 w-4" />} label="Sprint allocation" value={`${sprint.allocated_pts}/${usable} pts`} detail={`${Math.round((sprint.allocated_pts / Math.max(1, usable)) * 100)}% of usable capacity`} tone={sprint.allocated_pts > usable ? "bad" : "neutral"} />
+        <Metric icon={<TrendingUp className="h-4 w-4" />} label="Sprint allocation" value={`${sprint.allocated_pts}/${usable} pts`} detail={`${Math.round((sprint.allocated_pts / Math.max(1, usable)) * 100)}% of usable capacity`} tone={sprint.allocated_pts > usable ? "bad" : "neutral"} />
         <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Blocked" value={`${blocked.length}`} detail="items needing unblock" tone={blocked.length ? "bad" : "good"} />
         <Metric icon={<Clock className="h-4 w-4" />} label="Stale shaping" value={`${staleShaping.length}`} detail="no update in 7+ days" tone={staleShaping.length ? "warn" : "good"} />
         <Metric icon={<HelpCircle className="h-4 w-4" />} label="Needs attention" value={`${openDecisions.length + commsNeedsApproval.length}`} detail={`${openDecisions.length} decisions · ${commsNeedsApproval.length} comms`} tone={openDecisions.length + commsNeedsApproval.length ? "warn" : "good"} />
@@ -112,7 +112,7 @@ function DashboardPage() {
           <div className="grid gap-2 sm:grid-cols-2">
             <QuickLink to="/inbox" icon={<MessageSquare className="h-4 w-4" />} title="Triage inbox" detail={`${signals.filter((s) => s.status === "New" || s.status === "In Review").length} open signals`} />
             <QuickLink to="/shaping" icon={<TrendingUp className="h-4 w-4" />} title="Shape work" detail={`${shaping.filter((s) => s.shaping_status !== "In Delivery").length} active items`} />
-            <QuickLink to="/delivery" icon={<Sprint className="h-4 w-4" />} title="Delivery board" detail={`${blocked.length} blocked`} />
+            <QuickLink to="/delivery" icon={<TrendingUp className="h-4 w-4" />} title="Delivery board" detail={`${blocked.length} blocked`} />
             <QuickLink to="/leadership" icon={<CheckCircle2 className="h-4 w-4" />} title="Briefing" detail={`Updated ${fmtDate(new Date().toISOString())}`} />
           </div>
         </Panel>
@@ -136,6 +136,6 @@ function Panel({ title, subtitle, children }: { title: string; subtitle: string;
   return <section className="tfp-card p-5"><div className="mb-4"><h2 className="font-display text-lg">{title}</h2><p className="text-xs text-muted-foreground">{subtitle}</p></div>{children}</section>;
 }
 
-function QuickLink({ to, icon, title, detail }: { to: string; icon: React.ReactNode; title: string; detail: string }) {
+function QuickLink({ to, icon, title, detail }: { to: "/inbox" | "/shaping" | "/delivery" | "/leadership"; icon: React.ReactNode; title: string; detail: string }) {
   return <Link to={to} className="rounded-md border border-border bg-surface p-4 hover:bg-muted/40"><div className="mb-2 text-primary">{icon}</div><div className="font-medium">{title}</div><div className="mt-1 text-xs text-muted-foreground">{detail}</div></Link>;
 }
