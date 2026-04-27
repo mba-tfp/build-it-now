@@ -535,11 +535,12 @@ function DefineBrief({ item }: { item: ShapingItem }) {
   const setComplexity = useTfpStore((s) => s.setComplexity);
   const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
   const currentUserId = useTfpStore((s) => s.currentUserId);
-  const ready =
-    item.problem_what.trim().length >= 20 &&
-    item.problem_why.trim().length >= 20 &&
-    item.solution_approach.trim().length >= 20 &&
-    !!item.solution_complexity;
+  const missingRequired = [
+    !item.problem_what.trim() && "Problem",
+    !item.problem_why.trim() && "Why now / evidence",
+    !item.solution_approach.trim() && "Proposed approach",
+  ].filter(Boolean) as string[];
+  const ready = missingRequired.length === 0;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -576,10 +577,18 @@ function DefineBrief({ item }: { item: ShapingItem }) {
           </div>
         </div>
         <div className="flex items-center justify-between p-5">
-          <p className="text-xs text-muted-foreground">Autosaves. Required: problem, why/evidence, approach and complexity.</p>
+          <p className="text-xs text-muted-foreground">
+            {ready ? "Ready to send." : `Required: ${missingRequired.join(", ")}.`}
+          </p>
           <button
             disabled={!ready}
-            onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
+            onClick={() =>
+              updateShaping(item.id, {
+                current_step: 4,
+                shaping_status: "In Tech Review",
+                solution_complexity: item.solution_complexity ?? "Medium",
+              })
+            }
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
             Send to Tech Review
