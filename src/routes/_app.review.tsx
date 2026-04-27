@@ -26,7 +26,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/review")({
-  component: () => <Navigate to="/governance" search={{ tab: "reviews" }} />,
+  component: () => <Navigate to="/governance" search={{ tab: "lookback" }} />,
 });
 
 const SIZE_TONE: Record<Review["size"], string> = {

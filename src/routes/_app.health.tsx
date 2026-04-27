@@ -23,7 +23,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import type { MonitoringSeverity, MonitoringSystem } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/health")({
-  component: () => <Navigate to="/governance" search={{ tab: "health" }} />,
+  component: () => <Navigate to="/governance" search={{ tab: "comms" }} />,
 });
 
 const BANDWIDTH: Array<{ id: string; weeklyHours: number }> = [

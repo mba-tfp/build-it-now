@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/overrides")({
-  component: () => <Navigate to="/governance" search={{ tab: "overrides" }} />,
+  component: () => <Navigate to="/governance" search={{ tab: "comms" }} />,
 });
 
 const KINDS: OverrideKind[] = [
