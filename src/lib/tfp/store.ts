@@ -2704,7 +2704,7 @@ export function techReviewComplete(s: ShapingItem): boolean {
 
 export function canApprove(s: ShapingItem): boolean {
   return (
-    completenessScore(s) >= 5 &&
+    completenessScore(s) >= 3 &&
     solutionComplete(s) &&
     techReviewComplete(s)
   );
