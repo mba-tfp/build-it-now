@@ -68,7 +68,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
                     >
                       <span className={cn(
                         "grid h-5 w-5 place-items-center rounded-full",
-                        done ? "bg-[var(--color-status-proceed)] text-white" : "bg-muted text-muted-foreground",
+                        done ? "bg-[var(--color-status-proceed)] text-primary-foreground" : "bg-muted text-muted-foreground",
                       )}>
                         {done ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
                       </span>
