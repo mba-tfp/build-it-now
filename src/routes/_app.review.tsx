@@ -100,11 +100,11 @@ export function ReviewsPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 5</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Lookback</p>
           <h1 className="mt-1 font-display text-3xl">Outcome Reviews</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            S/M/L retros on delivered work — capture what worked, what didn't, and log follow-on
-            signals back into intake.
+            S/M/L reviews on delivered work — capture what worked, what didn't, and log follow-on
+            signals back into Inbox.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
