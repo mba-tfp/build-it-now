@@ -41,7 +41,7 @@ function ShapingPage() {
   const signals = useTfpStore((s) => s.signals);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  type SortKey = "started" | "completeness" | "tier";
+  type SortKey = "started" | "completeness" | "priority";
   const { sort, setSort } = useSortMenu<SortKey>("shaping");
 
   const cards = useMemo(
@@ -54,7 +54,7 @@ function ShapingPage() {
       return sortRows(cards, sort, (c, k) => {
         if (k === "started") return c.sh.shaping_started_at ? new Date(c.sh.shaping_started_at).getTime() : 0;
         if (k === "completeness") return completenessScore(c.sh);
-        if (k === "tier") return c.sig?.tier ?? "Z";
+        if (k === "priority") return c.sig?.tier ?? "Z";
         return null;
       });
     }
@@ -80,7 +80,7 @@ function ShapingPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 3</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping</p>
           <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Approved signals move through Define → Tech Review → Approve before delivery.
@@ -93,7 +93,7 @@ function ShapingPage() {
           options={[
             { key: "started", label: "Started date" },
             { key: "completeness", label: "Completeness" },
-            { key: "tier", label: "Tier" },
+            { key: "priority", label: "Priority" },
           ]}
         />
       </header>
@@ -101,10 +101,10 @@ function ShapingPage() {
       {cards.length === 0 ? (
         <div className="tfp-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Nothing in shaping yet. Triage a signal as <strong>Proceed</strong> to start.
+            Nothing in shaping yet. Mark an Inbox signal as <strong>Proceed</strong> to start.
           </p>
-          <Link to="/triage" className="mt-4 inline-block text-sm text-primary hover:underline">
-            Open Triage Queue →
+          <Link to="/inbox" className="mt-4 inline-block text-sm text-primary hover:underline">
+            Open Inbox →
           </Link>
         </div>
       ) : (
