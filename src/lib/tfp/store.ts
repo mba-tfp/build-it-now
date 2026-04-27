@@ -1651,7 +1651,7 @@ export const useTfpStore = create<State>()(
                   tech_reviewer_id: reviewerId,
                   tech_signed_off_at: new Date().toISOString(),
                   shaping_status: "Tech Approved",
-                  current_step: 3,
+                  current_step: 5,
                   updated_at: new Date().toISOString(),
                 }
               : s,
