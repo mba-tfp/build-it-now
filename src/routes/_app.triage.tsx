@@ -27,12 +27,12 @@ const PRODUCTS: Array<Product | "All"> = [
   "StimSmart",
   "Platform",
 ];
-const TIERS: Array<Tier | "All"> = ["All", "T1", "T2", "T3", "T4"];
+const TIERS: Array<Tier | "All"> = ["All", "P1", "P2", "P3"];
 
 const ALL_STATUSES: SignalStatus[] = ["New", "In Review", "Proceed", "Hold", "Rejected"];
 const ALL_SOURCES: Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
 const ALL_PRODUCTS: Product[] = ["Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"];
-const ALL_TIERS: Tier[] = ["T1", "T2", "T3", "T4"];
+const ALL_TIERS: Tier[] = ["P1", "P2", "P3"];
 const ALL_TYPES: IssueType[] = [
   "Feature",
   "Bug",
@@ -42,15 +42,15 @@ const ALL_TYPES: IssueType[] = [
   "Incident",
   "Dependency Change",
 ];
-const ALL_PRIORITIES: IntakePriority[] = ["Must have", "Nice to have", "Food for thought"];
+const ALL_PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
 
 function priorityClasses(p: IntakePriority | undefined): string {
   switch (p) {
-    case "Must have":
+    case "P1":
       return "bg-destructive/10 text-destructive";
-    case "Nice to have":
+    case "P2":
       return "bg-primary/10 text-primary";
-    case "Food for thought":
+    case "P3":
       return "bg-muted text-muted-foreground";
     default:
       return "bg-muted text-muted-foreground";
@@ -168,7 +168,7 @@ export function TriageQueuePage() {
                   <td className="px-3 py-2.5 font-medium">{s.title}</td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(s.priority))}>
-                      {s.priority ?? "Nice to have"}
+                      {s.priority ?? s.tier}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
@@ -440,7 +440,7 @@ function TriagePanel({
                   <StatusBadge status={sig.status} />
                   <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
                   <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(sig.priority))}>
-                    {sig.priority ?? "Nice to have"}
+                    {sig.priority ?? sig.tier}
                   </span>
                   <span className="text-xs text-muted-foreground">· {sig.source} → {sig.product}</span>
                 </div>
@@ -508,7 +508,7 @@ function TriagePanel({
                       onClick={() => tryUpdateInPanel({ priority: p })}
                       className={cn(
                         "rounded-full border px-2.5 py-0.5 text-[11px] transition",
-                        (sig.priority ?? "Nice to have") === p
+                        (sig.priority ?? sig.tier) === p
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
                       )}

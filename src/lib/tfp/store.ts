@@ -345,7 +345,7 @@ const shapingInProgress: ShapingItem = {
   problem_evidence:
     "Three clinics raised this in the November ops call; Sami logged 6 separate signals in the past 4 weeks.",
   problem_out_of_scope: "PDF export, scheduled email delivery, custom date ranges (Phase 2).",
-  roadmap_bucket: "Next",
+  roadmap_bucket: "Backlog",
   created_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
@@ -378,7 +378,7 @@ const shapingInTechReview: ShapingItem = {
   problem_evidence:
     "15 weekly tickets, two clinics gating expansion on this, raised in three ops calls.",
   problem_out_of_scope: "SCIM provisioning, Google Workspace SSO (later).",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "Defer the inline-comment polish on Notes",
   solution_complexity: "Medium",
   solution_approach:
@@ -421,7 +421,7 @@ const shapingForApproval: ShapingItem = {
   problem_evidence:
     "Two of the three clinics named this as a blocker in their onboarding kickoff.",
   problem_out_of_scope: "Historical appointment / treatment history import (Phase 2).",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "Push the cycle-summary export to Sprint 7",
   solution_complexity: "Medium",
   solution_approach:
@@ -467,7 +467,7 @@ const shapingInDelivery: ShapingItem = {
   problem_where: "Otto login + admin profile settings.",
   problem_evidence: "Compliance email from clinic IT, escalated by leadership.",
   problem_out_of_scope: "WebAuthn / hardware key support (Phase 2).",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "",
   solution_complexity: "Simple",
   solution_approach: "TOTP enrollment flow + recovery codes; enforce on next login.",
@@ -517,7 +517,7 @@ const shapingInQA: ShapingItem = {
   problem_where: "Otto Notes > patient note editor.",
   problem_evidence: "12 signals in two months from coordinators.",
   problem_out_of_scope: "Offline editing (Phase 2).",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "",
   solution_complexity: "Simple",
   solution_approach: "Add a status indicator: Saved · Saving… · Failed (retry).",
@@ -567,7 +567,7 @@ const shapingBlocked: ShapingItem = {
   problem_where: "FertiWise > Get in touch form.",
   problem_evidence: "APM 500-rate spike since deploy 2026-04-08.",
   problem_out_of_scope: "Form redesign.",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "",
   solution_complexity: "Simple",
   solution_approach: "Patch validator handling for blank phone fields, add observability.",
@@ -619,7 +619,7 @@ const shapingDone: ShapingItem = {
   problem_where: "Otto Pulse > Coordinator Dashboard.",
   problem_evidence: "Five clinics complained; APM shows p95 6.4s on 4G.",
   problem_out_of_scope: "Native mobile rewrite (Phase 2).",
-  roadmap_bucket: "Now",
+  roadmap_bucket: "Committed",
   displacement: "",
   solution_complexity: "Simple",
   solution_approach: "Cache aggregations, defer non-critical widgets, add skeleton states.",
@@ -1450,7 +1450,7 @@ export const useTfpStore = create<State>()(
           labels: c.labels,
           displacement_flag: data.displacement_flag,
           displacement_note: data.displacement_note,
-          priority: data.priority ?? "Nice to have",
+          priority: data.priority ?? tier,
           attachments: data.attachments,
         };
         set({ signals: [sig, ...get().signals] });
@@ -1464,7 +1464,7 @@ export const useTfpStore = create<State>()(
         const signals = get().signals.map((s) => {
           if (s.id !== signalId) return s;
           if (decision === "Proceed") {
-            const isFastTrack = s.issue_type === "Bug" && (s.tier === "T1" || s.tier === "T2");
+            const isFastTrack = s.issue_type === "Bug" && s.tier === "P1";
             const ownerId = isFastTrack ? "u-waseem" : me;
             const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
             // B1: Leadership signals always have shaping started with a context note prefilled
@@ -1529,7 +1529,7 @@ export const useTfpStore = create<State>()(
         // B2: status → Proceed should create the ShapingItem (mirror triageDecision)
         if (patch.status === "Proceed" && prev.status !== "Proceed" && !prev.shaping_item_id) {
           const me = get().currentUserId;
-          const isFastTrack = next.issue_type === "Bug" && (next.tier === "T1" || next.tier === "T2");
+          const isFastTrack = next.issue_type === "Bug" && next.tier === "P1";
           const ownerId = isFastTrack ? "u-waseem" : me;
           const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
           set({
@@ -1624,10 +1624,10 @@ export const useTfpStore = create<State>()(
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Roadmap bucket set to ${bucket}` });
         // B9: if sprint is locked AND we leave "Now" mid-sprint, log an Override for visibility.
-        if (prev && prev.roadmap_bucket === "Now" && bucket !== "Now" && sp.status === "Locked") {
+        if (prev && prev.roadmap_bucket === "Committed" && bucket !== "Committed" && sp.status === "Locked") {
           get().logOverride({
             kind: "Scope added mid-sprint",
-            reason: `Bucket moved from Now → ${bucket} mid-sprint. Displacement: ${displacement || "—"}`,
+            reason: `Bucket moved from Committed → ${bucket} mid-sprint. Displacement: ${displacement || "—"}`,
             shaping_id: id,
             shahid_visible: true,
           });
@@ -2506,7 +2506,7 @@ export const useTfpStore = create<State>()(
             source: "Internal",
             product: "Platform",
             issue_type_override: "Incident",
-            tier_override: "T1",
+            tier_override: "P1",
             displacement_flag: false,
             displacement_note: null,
           });
@@ -2546,7 +2546,7 @@ export const useTfpStore = create<State>()(
           source: "Clinic",
           product: "Platform",
           issue_type_override: data.urgent ? "Bug" : "Enhancement",
-          tier_override: data.urgent ? "T2" : "T3",
+          tier_override: data.urgent ? "P1" : "P2",
           displacement_flag: false,
           displacement_note: null,
         });

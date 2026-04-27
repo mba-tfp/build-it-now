@@ -76,17 +76,17 @@ export function classifySignal(input: { source: Source; description: string }): 
   // Tier
   let tier: Tier;
   if (issue_type === "Incident" || matches(text, T1_KEYWORDS)) {
-    tier = "T1";
+    tier = "P1";
   } else if (issue_type === "Bug") {
-    tier = "T2";
+    tier = "P1";
   } else if (issue_type === "Dependency Change") {
-    tier = "T2";
+    tier = "P1";
   } else if (source === "Leadership" && matches(text, LEADERSHIP_URGENT)) {
-    tier = "T2";
+    tier = "P1";
   } else if (source === "Dev Team" || labels.includes("Tech-Debt")) {
-    tier = "T4";
+    tier = "P3";
   } else {
-    tier = "T3";
+    tier = "P2";
   }
 
   return { issue_type, tier, labels, reason };
@@ -95,16 +95,13 @@ export function classifySignal(input: { source: Source; description: string }): 
 export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
   const d = new Date(from);
   switch (tier) {
-    case "T1":
-      d.setHours(d.getHours() + 8);
+    case "P1":
+      d.setHours(d.getHours() + 24);
       return d;
-    case "T2":
-      d.setHours(d.getHours() + 48);
-      return d;
-    case "T3":
+    case "P2":
       d.setDate(d.getDate() + 7);
       return d;
-    case "T4":
+    case "P3":
       d.setDate(d.getDate() + 30);
       return d;
   }

@@ -736,8 +736,8 @@ function TechDebtTab() {
   }
 
   function completeReview() {
-    const scheduled = dueForReview.filter((s) => s.roadmap_bucket === "Now" || s.roadmap_bucket === "Next").length;
-    const deferred = dueForReview.filter((s) => s.roadmap_bucket === "Later" || s.roadmap_bucket === "Not Now").length;
+    const scheduled = dueForReview.filter((s) => s.roadmap_bucket === "Committed" || s.roadmap_bucket === "Backlog").length;
+    const deferred = dueForReview.filter((s) => s.roadmap_bucket === "Not Now").length;
     const q = `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`;
     recordReview({ quarter: q, items_scheduled: scheduled, items_deferred: deferred, notes: stagedNotes });
     dueForReview.forEach((s) => markReviewed(s.id));
@@ -805,7 +805,7 @@ function TechDebtTab() {
           <div className="relative w-full max-w-2xl max-h-[86vh] overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl">
             <h4 className="font-display text-lg">Quarterly tech debt review</h4>
             <p className="mt-1 text-xs text-muted-foreground">
-              Set a bucket per item. Now/Next = scheduled · Later/Not Now = deferred.
+              Set a bucket per item. Committed/Backlog = scheduled · Not Now = deferred.
             </p>
             <div className="mt-4 space-y-3">
               {dueForReview.map((it) => {
@@ -815,7 +815,7 @@ function TechDebtTab() {
                     <p className="text-sm font-medium">{sig?.title ?? "(untitled)"}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{sig?.product} · {it.tech_estimate_pts ?? "—"} pts</p>
                     <div className="mt-2 flex gap-1.5">
-                      {(["Now", "Next", "Later", "Not Now"] as const).map((b) => (
+                      {(["Committed", "Backlog", "Not Now"] as const).map((b) => (
                         <button
                           key={b}
                           onClick={() => setBucket(it.id, b, "Tech debt review")}
