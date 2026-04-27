@@ -260,7 +260,7 @@ export function TriageQueuePage() {
         onConfirm={(reason) => {
           if (!bypass) return;
           const res = updateSignal(bypass.signalId, bypass.patch, { force: true, reason });
-          if (res.ok) toast.success("Bypass saved — Override logged");
+          if (res.ok) toast.success("Bypass saved — override recorded");
           else toast.error(res.error ?? "Couldn't save");
           setBypass(null);
         }}
