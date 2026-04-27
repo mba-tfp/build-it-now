@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_app/review")({
 const SIZE_TONE: Record<Review["size"], string> = {
   Small: "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]",
   Medium: "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]",
-  Large: "bg-[var(--color-tier-t1)]/10 text-[var(--color-tier-t1)]",
+  Large: "bg-[var(--color-tier-p1)]/10 text-[var(--color-tier-p1)]",
 };
 
 const STATUS_TONE: Record<ReviewStatus, string> = {

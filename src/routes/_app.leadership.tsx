@@ -517,7 +517,7 @@ function LeadershipPage() {
             <SelectFilter value={statusFilter} onChange={(v) => setStatusFilter(v as typeof statusFilter)} options={["All", "Open", "Breached", "Hold", "Done"]} />
             <SelectFilter value={sourceFilter} onChange={(v) => setSourceFilter(v as Source | "All")} options={["All", "Leadership", "Clinic", "Internal", "Dev Team"]} />
             <SelectFilter value={productFilter} onChange={(v) => setProductFilter(v as Product | "All")} options={["All", "Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"]} />
-            <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "T1", "T2", "T3", "T4"]} />
+            <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "P1", "P2", "P3"]} />
             <SortMenu
               tableId="leadership-signals"
               sort={signalSort}
@@ -525,7 +525,7 @@ function LeadershipPage() {
               options={[
                 { key: "created_at", label: "Created date" },
                 { key: "source", label: "Source" },
-                { key: "tier", label: "Tier" },
+                { key: "tier", label: "Priority" },
               ]}
             />
           </div>

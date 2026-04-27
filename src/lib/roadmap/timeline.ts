@@ -78,18 +78,18 @@ export function rangeMonths(startKey: string, endKey: string, visible: MonthCell
   return keys.slice(lo, hi + 1);
 }
 
-// Now/Next/Later derivation from an item's months relative to today.
-export function bucketFor(itemMonths: string[]): "Now" | "Next" | "Later" | "Unscheduled" {
+// Committed/Backlog derivation from an item's months relative to today.
+export function bucketFor(itemMonths: string[]): "Committed" | "Backlog" | "Unscheduled" {
   if (itemMonths.length === 0) return "Unscheduled";
   const now = new Date();
   const currentKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const sorted = [...itemMonths].sort();
   const earliest = sorted[0];
   const latest = sorted[sorted.length - 1];
-  if (earliest <= currentKey && latest >= currentKey) return "Now";
-  // 3 months ahead = Next
+  if (earliest <= currentKey && latest >= currentKey) return "Committed";
+  // 3 months ahead = Backlog
   const next = new Date(now.getUTCFullYear(), now.getUTCMonth() + 3, 1);
   const nextKey = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
-  if (earliest <= nextKey) return "Next";
-  return "Later";
+  if (earliest <= nextKey) return "Backlog";
+  return "Backlog";
 }

@@ -1074,7 +1074,7 @@ const seedRetros: SprintRetro[] = [
     sprint_id: "s-5",
     what_worked: "WIP limit kept reviewers focused.",
     what_didnt: "Capacity still tight — 4 mid-sprint adds, all overrides.",
-    one_change: "Stop accepting Now-bucket items in week 2 of sprint.",
+    one_change: "Stop accepting Committed-bucket items in week 2 of sprint.",
     primary_theme: "Capacity",
     created_by: "u-alizar",
     created_at: new Date(SEED_EPOCH - 14 * 86400000).toISOString(),
@@ -1174,7 +1174,7 @@ const seedNotifications: Notification[] = [
   buildNotification({
     trigger: "sla_breach",
     title: "SLA breach: Patients cannot complete intake on Safari",
-    body: "T1 signal past SLA. Owner: Bazil.",
+    body: "P1 signal past SLA. Owner: Bazil.",
     link_to: "/triage",
     entity_id: seedSignals[0].id,
     ts: new Date(SEED_EPOCH - 3600000).toISOString(),
@@ -1623,7 +1623,7 @@ export const useTfpStore = create<State>()(
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Roadmap bucket set to ${bucket}` });
-        // B9: if sprint is locked AND we leave "Now" mid-sprint, log an Override for visibility.
+        // B9: if sprint is locked AND we leave "Committed" mid-sprint, log an Override for visibility.
         if (prev && prev.roadmap_bucket === "Committed" && bucket !== "Committed" && sp.status === "Locked") {
           get().logOverride({
             kind: "Scope added mid-sprint",

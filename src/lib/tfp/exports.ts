@@ -244,7 +244,7 @@ export function buildQuarterlySummary(args: {
   ovrQ.slice(0, 5).forEach((o) => lines.push(`  - ${o.id} · ${o.kind} — ${o.reason.slice(0, 80)}`));
   lines.push("");
   lines.push("## 🔭 Next quarter preview");
-  if (upcomingByProduct.size === 0) lines.push("_No approved items in Now/Next._");
+  if (upcomingByProduct.size === 0) lines.push("_No approved items in Committed/Backlog._");
   upcomingByProduct.forEach((items, product) => {
     lines.push(`### ${product}`);
     items.forEach((it) => lines.push(`- ${signals.find((s) => s.id === it.signal_id)?.title ?? "(untitled)"} (${it.roadmap_bucket})`));

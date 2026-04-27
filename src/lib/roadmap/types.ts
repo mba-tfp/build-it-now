@@ -2,7 +2,7 @@
 // UI labels: "Stream" = Product (internal), "Sub-Stream" = Section (internal).
 
 export type ItemStatus = "Todo" | "Planned" | "In Progress" | "Done" | "Blocked";
-export type ItemPriority = "Low" | "Medium" | "High" | "Highest";
+export type ItemPriority = "P1" | "P2" | "P3";
 
 export type Section = {
   id: string;
@@ -76,7 +76,7 @@ export const LOCKED_PRODUCTS: { id: string; name: string }[] = [
 ];
 
 export const STATUSES: ItemStatus[] = ["Todo", "Planned", "In Progress", "Done", "Blocked"];
-export const PRIORITIES: ItemPriority[] = ["Low", "Medium", "High", "Highest"];
+export const PRIORITIES: ItemPriority[] = ["P1", "P2", "P3"];
 
 export const STATUS_TONE: Record<ItemStatus, string> = {
   Todo: "bg-slate-100 text-slate-700 border-slate-200",
@@ -87,10 +87,9 @@ export const STATUS_TONE: Record<ItemStatus, string> = {
 };
 
 export const PRIORITY_DOT: Record<ItemPriority, string> = {
-  Low: "bg-slate-400",
-  Medium: "bg-blue-500",
-  High: "bg-amber-500",
-  Highest: "bg-rose-600",
+  P1: "bg-destructive",
+  P2: "bg-primary",
+  P3: "bg-muted-foreground",
 };
 
 export const COLOR_PALETTE = [

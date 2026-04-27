@@ -22,7 +22,7 @@ const DEPENDENCY_KEYWORDS = [
   "sunset",
   "migration required",
 ];
-const T1_KEYWORDS = ["patient", "data integrity", "cannot treat", "system down"];
+const P1_KEYWORDS = ["patient", "data integrity", "cannot treat", "system down"];
 const LEADERSHIP_URGENT = ["urgent", "board", "presentation", "today", "tomorrow"];
 
 const matches = (text: string, words: string[]) => {
@@ -75,7 +75,7 @@ export function classifySignal(input: { source: Source; description: string }): 
 
   // Tier
   let tier: Tier;
-  if (issue_type === "Incident" || matches(text, T1_KEYWORDS)) {
+  if (issue_type === "Incident" || matches(text, P1_KEYWORDS)) {
     tier = "P1";
   } else if (issue_type === "Bug") {
     tier = "P1";
