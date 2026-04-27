@@ -273,7 +273,11 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 }
 
 function InlineDecisions({ item }: { item: ShapingItem }) {
-  const decisions = useTfpStore((s) => s.decisions.filter((d) => d.linked_shaping_id === item.id));
+  const allDecisions = useTfpStore((s) => s.decisions);
+  const decisions = useMemo(
+    () => allDecisions.filter((d) => d.linked_shaping_id === item.id),
+    [allDecisions, item.id],
+  );
   const createDecision = useTfpStore((s) => s.createDecision);
   const [title, setTitle] = useState("");
   const [decision, setDecision] = useState("");
