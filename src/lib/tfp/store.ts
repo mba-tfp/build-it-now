@@ -2670,12 +2670,9 @@ export const useTfpStore = create<State>()(
 
 export function completenessScore(s: ShapingItem): number {
   const fields: Array<{ key: keyof ShapingItem; min: number }> = [
-    { key: "problem_what", min: 50 },
-    { key: "problem_why", min: 50 },
-    { key: "problem_who", min: 30 },
-    { key: "problem_where", min: 30 },
-    { key: "problem_evidence", min: 30 },
-    { key: "problem_out_of_scope", min: 1 },
+    { key: "problem_what", min: 20 },
+    { key: "problem_why", min: 20 },
+    { key: "problem_evidence", min: 20 },
   ];
   return fields.reduce((acc, f) => {
     const v = String(s[f.key] ?? "");
@@ -2684,12 +2681,7 @@ export function completenessScore(s: ShapingItem): number {
 }
 
 export function solutionComplete(s: ShapingItem): boolean {
-  if (!s.solution_complexity) return false;
-  const required: Array<keyof ShapingItem> =
-    s.solution_complexity === "Simple"
-      ? ["solution_approach", "solution_criteria", "solution_effort"]
-      : ["solution_approach", "solution_criteria", "solution_effort", "solution_decisions", "solution_risks"];
-  return required.every((k) => String(s[k] ?? "").trim().length > 0);
+  return !!s.solution_complexity && s.solution_approach.trim().length >= 20;
 }
 
 export function techReviewComplete(s: ShapingItem): boolean {
