@@ -25,8 +25,8 @@ function InboxPage() {
         onValueChange={(v) => navigate({ search: { tab: v as "submit" | "triage" } })}
       >
         <TabsList>
-          <TabsTrigger value="triage">Triage queue</TabsTrigger>
-          <TabsTrigger value="submit">Submit signal</TabsTrigger>
+          <TabsTrigger value="triage">Review work</TabsTrigger>
+          <TabsTrigger value="submit">New signal</TabsTrigger>
         </TabsList>
         <TabsContent value="triage" className="mt-4">
           <TriageQueuePage />
