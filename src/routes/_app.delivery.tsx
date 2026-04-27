@@ -494,6 +494,66 @@ export function DeliveryPage() {
           onClose={() => setBlockerFor(null)}
         />
       )}
+
+      {overrideFor && (
+        <InlineOverrideModal
+          item={overrideFor.item}
+          title={overrideFor.title}
+          description={overrideFor.description}
+          kind={overrideFor.kind}
+          onConfirm={(reason) => {
+            overrideFor.onConfirm(reason);
+            toast.success("Override recorded");
+            setOverrideFor(null);
+          }}
+          onClose={() => setOverrideFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function InlineOverrideModal({
+  item,
+  title,
+  description,
+  kind,
+  onConfirm,
+  onClose,
+}: {
+  item: ShapingItem;
+  title: string;
+  description: string;
+  kind: OverrideKind;
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const valid = reason.trim().length >= 20;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg">{title}</h3>
+          <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
+        </div>
+        <p className="mb-1 text-xs text-muted-foreground">{item.jira_key} · {kind}</p>
+        <p className="mb-3 text-xs text-muted-foreground">{description}</p>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={4}
+          placeholder="Why is this exception needed now?"
+          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-1 text-[11px] text-muted-foreground">{reason.trim().length}/20 chars minimum</div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+          <button disabled={!valid} onClick={() => onConfirm(reason.trim())} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40">
+            Record override
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
