@@ -165,7 +165,7 @@ export function buildSprintUpdate(args: {
     lines.push("");
   }
   lines.push("---");
-  lines.push(`_Generated from TFP OS · ${fmtDateTime(now.toISOString())}_`);
+  lines.push(`_Generated from TFP Workflow · ${fmtDateTime(now.toISOString())}_`);
   return lines.join("\n");
 }
 
@@ -251,6 +251,6 @@ export function buildQuarterlySummary(args: {
   });
   lines.push("");
   lines.push("---");
-  lines.push(`_Generated from TFP OS · ${fmtDateTime(now.toISOString())}_`);
+  lines.push(`_Generated from TFP Workflow · ${fmtDateTime(now.toISOString())}_`);
   return lines.join("\n");
 }
