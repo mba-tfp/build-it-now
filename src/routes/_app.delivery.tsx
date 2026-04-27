@@ -57,7 +57,7 @@ const STATUS_TONE: Record<DeliveryStatus, string> = {
 function movementWarning(user: User, sh: ShapingItem, target: DeliveryStatus): string | null {
   const role = user.role;
   const isAssignee = sh.delivery_assignee_id === user.id;
-  if (target === "Blocked") return true; // anyone can flag a blocker (with reason)
+  if (target === "Blocked") return null; // anyone can flag a blocker (with reason)
   if (role === "Developer" || role === "Tech Lead") {
     if (!isAssignee) return "This is not assigned to you. Continue?";
     if (sh.delivery_status === "To Do" && target === "In Progress") return null;
@@ -154,10 +154,8 @@ export function DeliveryPage() {
       setBlockerFor(sh);
       return;
     }
-    if (!canMove(me, sh, next)) {
-      toast.error("Not allowed", {
-        description: `${me.role} cannot move this item to ${next}.`,
-      });
+    const warning = movementWarning(me, sh, next);
+    if (warning && !window.confirm(warning)) {
       return;
     }
     if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
@@ -380,23 +378,22 @@ export function DeliveryPage() {
                         )}
                         <div className="flex flex-wrap gap-1.5">
                           {COLUMNS.filter((s) => s !== status).map((target) => {
-                            const allowed = canMove(me, sh, target);
+                            const warning = movementWarning(me, sh, target);
                             const needsGate =
                               status === "In Progress" && target === "Done" && !gateReady && me.role !== "QA Scrum Master";
                             return (
                               <button
                                 key={target}
-                                disabled={!allowed && me.role !== "QA Scrum Master" ? !allowed : false}
                                 onClick={() => handleMove(sh, target)}
                                 className={cn(
                                   "rounded-md border px-2 py-1 text-[11px]",
-                                  allowed
-                                    ? "border-input bg-surface hover:bg-muted"
-                                    : "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/60",
+                                  warning
+                                    ? "border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 text-[var(--color-status-hold)] hover:bg-[var(--color-status-hold)]/10"
+                                    : "border-input bg-surface hover:bg-muted",
                                 )}
                                 title={
-                                  !allowed
-                                    ? `${me.role} cannot move to ${target}`
+                                  warning
+                                    ? warning
                                     : needsGate
                                       ? "Dev Complete gate required"
                                       : ""
