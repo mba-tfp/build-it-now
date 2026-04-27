@@ -51,6 +51,7 @@ function LeadershipPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const overrides = useTfpStore((s) => s.overrides);
   const goLives = useTfpStore((s) => s.goLives);
+  const decisions = useTfpStore((s) => s.decisions);
   const ackOverride = useTfpStore((s) => s.ackOverride);
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const users = useTfpStore((s) => s.users);
