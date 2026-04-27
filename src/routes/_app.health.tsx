@@ -66,8 +66,8 @@ export function QueueHealthPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 6</p>
-          <h1 className="mt-1 font-display text-3xl">Queue Health</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Support</p>
+          <h1 className="mt-1 font-display text-3xl">Workflow Health</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Sprint metrics, per-person bandwidth, prioritised alerts, and operational levers.
           </p>
