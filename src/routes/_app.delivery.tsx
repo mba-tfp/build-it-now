@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
+import type { DeliveryStatus, OverrideKind, ShapingItem, User } from "@/lib/tfp/types";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
@@ -96,6 +96,13 @@ export function DeliveryPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
   const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
+  const [overrideFor, setOverrideFor] = useState<{
+    item: ShapingItem;
+    kind: OverrideKind;
+    title: string;
+    description: string;
+    onConfirm: (reason: string) => void;
+  } | null>(null);
 
   // All shaping with a Jira key (backlog + in-sprint)
   const allRows: Row[] = useMemo(
@@ -155,7 +162,23 @@ export function DeliveryPage() {
       return;
     }
     const warning = movementWarning(me, sh, next);
-    if (warning && !window.confirm(warning)) {
+    if (warning) {
+      setOverrideFor({
+        item: sh,
+        kind: "Other",
+        title: "Record unusual delivery move",
+        description: warning,
+        onConfirm: (reason) => {
+          useTfpStore.getState().logOverride({
+            kind: "Other",
+            reason,
+            signal_id: sh.signal_id,
+            shaping_id: sh.id,
+            shahid_visible: false,
+          });
+          setStatus(sh.id, next);
+        },
+      });
       return;
     }
     if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
@@ -255,10 +278,21 @@ export function DeliveryPage() {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{sig?.product}</p>
                 <div className="mt-2 flex gap-1.5">
                   <button
-                    onClick={() => addToSprint(sh.id)}
-                    disabled={sprintLocked}
+                    onClick={() => {
+                      if (sprintLocked) {
+                        setOverrideFor({
+                          item: sh,
+                          kind: "Scope added mid-sprint",
+                          title: "Add scope with override",
+                          description: `Sprint scope is locked. Record why ${sh.jira_key} must enter ${sprint.name}.`,
+                          onConfirm: (reason) => addToSprint(sh.id, reason, "Scope added mid-sprint"),
+                        });
+                        return;
+                      }
+                      addToSprint(sh.id);
+                    }}
                     title={sprintLocked ? "Sprint locked — inline override required" : `Add ${sh.jira_key} to ${sprint.name}`}
-                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90"
                   >
                     + Add to Sprint
                   </button>
