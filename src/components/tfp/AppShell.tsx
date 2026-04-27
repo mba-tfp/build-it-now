@@ -6,6 +6,7 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import {
   Activity,
+  Home,
   Bell,
   HelpCircle,
   Search,
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/", label: "Home", icon: Home },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
@@ -70,7 +72,7 @@ function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/inbox" className="flex items-center gap-2 px-2 py-1.5">
+        <Link to="/" className="flex items-center gap-2 px-2 py-1.5">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
             <Activity className="h-4 w-4" strokeWidth={2.25} />
           </span>
