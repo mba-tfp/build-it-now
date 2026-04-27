@@ -34,6 +34,8 @@ const STEPS = ["Define", "Tech Review", "Approve"] as const;
 function displayStep(step: number): 1 | 2 | 3 {
   if (step >= 5) return 3;
   if (step >= 4) return 2;
+  if (step >= 3) return 3;
+  if (step >= 2) return 2;
   return 1;
 }
 
