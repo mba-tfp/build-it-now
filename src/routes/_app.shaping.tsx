@@ -479,6 +479,88 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
   );
 }
 
+
+function DefineBrief({ item }: { item: ShapingItem }) {
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const setComplexity = useTfpStore((s) => s.setComplexity);
+  const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const ready =
+    item.problem_what.trim().length >= 20 &&
+    item.problem_why.trim().length >= 20 &&
+    item.solution_approach.trim().length >= 20 &&
+    !!item.solution_complexity;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="tfp-card divide-y divide-border">
+        <div className="p-5">
+          <h3 className="font-display text-lg">Define</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            One lightweight brief: problem, evidence, approach, open questions and rough effort. Extra detail can live in notes.
+          </p>
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <Field label="Problem" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} placeholder="What problem are we solving?" />
+          <Field label="Why now / evidence" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v, problem_evidence: v })} rows={4} placeholder="Why does it matter, and what evidence do we have?" />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Complexity</label>
+            <select
+              value={item.solution_complexity ?? ""}
+              onChange={(e) => e.target.value && setComplexity(item.id, e.target.value as Complexity)}
+              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Select…</option>
+              {(["Simple", "Medium", "Complex"] as Complexity[]).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <Field label="Effort estimate" value={item.solution_effort} onChange={(v) => updateShaping(item.id, { solution_effort: v })} rows={2} placeholder="S/M/L or notes before tech estimate" />
+          <div className="md:col-span-2">
+            <Field label="Proposed approach" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} placeholder="How should we solve this?" />
+          </div>
+          <Field label="Success criteria" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} placeholder="What must be true when this is done?" />
+          <Field label="Open questions" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} placeholder="Questions for tech, QA, clinic, or leadership" />
+          <div className="md:col-span-2 rounded-md border border-border bg-surface-2 p-3">
+            <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Supporting attachments</p>
+            <AttachmentsField attachments={item.attachments ?? []} onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)} currentUserId={currentUserId} compact />
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-5">
+          <p className="text-xs text-muted-foreground">Autosaves. Required: problem, why/evidence, approach and complexity.</p>
+          <button
+            disabled={!ready}
+            onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Tech Review" })}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+          >
+            Send to Tech Review
+          </button>
+        </div>
+      </div>
+      <aside className="lg:sticky lg:top-24 lg:self-start">
+        <div className="tfp-card p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Simplified shaping</p>
+          <p className="mt-2 text-sm text-muted-foreground">Roadmap bucket, displacement, detailed who/where and risk notes are no longer required to advance.</p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+    </div>
+  );
+}
+
 const PROBLEM_FIELDS: Array<{
   key: keyof Pick<ShapingItem, "problem_what" | "problem_why" | "problem_who" | "problem_where" | "problem_evidence" | "problem_out_of_scope">;
   label: string;
