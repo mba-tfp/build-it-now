@@ -23,7 +23,7 @@ const PRODUCTS: readonly Product[] = [
   "StimSmart",
   "Platform",
 ];
-const PRIORITIES: IntakePriority[] = ["Must have", "Nice to have", "Food for thought"];
+const PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
 
 function defaultSourceForRole(role: string): Source {
   if (role === "Leadership") return "Leadership";
@@ -44,7 +44,7 @@ export function SignalIntakePage() {
   const [description, setDescription] = useState("");
   const [sources, setSources] = useState<Source[]>([defaultSourceForRole(me.role)]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [priority, setPriority] = useState<IntakePriority>("Nice to have");
+  const [priority, setPriority] = useState<IntakePriority>("P2");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
@@ -112,7 +112,7 @@ export function SignalIntakePage() {
                 setDescription("");
                 setTitle("");
                 setProducts([]);
-                setPriority("Nice to have");
+                setPriority("P2");
                 setPendingAttachments([]);
               }}
               className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"

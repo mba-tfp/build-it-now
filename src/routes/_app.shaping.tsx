@@ -287,7 +287,7 @@ function FastTrack({ item }: { item: ShapingItem }) {
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
         <div className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-4 text-sm text-[var(--color-status-hold)]">
-          <p className="font-medium">⚡ {sig.tier === "T1" ? "P0" : "P1"} Fast Track — Root cause only required</p>
+          <p className="font-medium">⚡ {sig.tier} Fast Track — Root cause only required</p>
           <p className="mt-1 text-xs opacity-90">
             Bugs at this severity bypass the standard shaping pipeline. Owner: {owner?.name ?? "—"} ({owner?.role}).
           </p>
@@ -666,7 +666,7 @@ function ProblemBrief({ item }: { item: ShapingItem }) {
   );
 }
 
-const BUCKETS: RoadmapBucket[] = ["Now", "Next", "Later", "Not Now"];
+const BUCKETS: RoadmapBucket[] = ["Committed", "Backlog", "Not Now"];
 
 function RoadmapFit({ item }: { item: ShapingItem }) {
   const sprint = useTfpStore((s) => s.sprint);
@@ -680,7 +680,7 @@ function RoadmapFit({ item }: { item: ShapingItem }) {
   const [bucket, setBucket] = useState<RoadmapBucket | null>(item.roadmap_bucket);
   const [displacement, setDisplacement] = useState(item.displacement);
 
-  const needsDisplacement = bucket === "Now" && overloaded;
+  const needsDisplacement = bucket === "Committed" && overloaded;
   const canSave = !!bucket && (!needsDisplacement || displacement.trim().length > 0);
 
   return (
@@ -688,7 +688,7 @@ function RoadmapFit({ item }: { item: ShapingItem }) {
       <div className="tfp-card p-5">
         <h3 className="font-display text-lg">Where does this fit?</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a roadmap bucket. If it goes in <strong>Now</strong> while the sprint is over 85% allocated, you'll need to name what gets displaced.
+          Pick a roadmap bucket. If it goes in <strong>Committed</strong> while the sprint is over 85% allocated, you'll need to name what gets displaced.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">

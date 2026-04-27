@@ -28,7 +28,7 @@ type Node = {
 
 type SortKey = "title" | "product" | "status" | "priority" | "owner" | "start" | "end";
 
-const PRIORITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+const PRIORITY_ORDER: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
 
 function getValue(roadmap: Roadmap, item: RoadmapItem, field: GroupByField): { key: string; label: string } {
   switch (field) {

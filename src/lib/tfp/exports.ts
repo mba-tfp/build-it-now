@@ -210,7 +210,7 @@ export function buildQuarterlySummary(args: {
   const golivesQ = goLives.filter((g) => g.status === "Live" && inQ(g.scheduled_for));
   const ovrQ = overrides.filter((o) => inQ(o.raised_at));
   const incidents = signals.filter((s) => s.issue_type === "Incident" && inQ(s.created_at));
-  const upcoming = shaping.filter((s) => (s.roadmap_bucket === "Now" || s.roadmap_bucket === "Next") && s.shaping_status === "Approved");
+  const upcoming = shaping.filter((s) => (s.roadmap_bucket === "Committed" || s.roadmap_bucket === "Backlog") && s.shaping_status === "Approved");
   const upcomingByProduct = new Map<string, ShapingItem[]>();
   upcoming.forEach((s) => {
     const sig = signals.find((x) => x.id === s.signal_id);
@@ -237,14 +237,14 @@ export function buildQuarterlySummary(args: {
   lines.push("## 🧪 Quality");
   const avgCarryFwd = qSprints.length === 0 ? 0 : Math.round(qSprints.reduce((a, s) => a + s.carryforward_estimate_pts, 0) / qSprints.length);
   lines.push(`- Avg carry-forward: ${avgCarryFwd} pts/sprint`);
-  lines.push(`- P0/P1 incidents: ${incidents.filter((s) => s.tier === "T1" || s.tier === "T2").length}`);
+  lines.push(`- P1 incidents: ${incidents.filter((s) => s.tier === "P1").length}`);
   lines.push("");
   lines.push("## 🔁 Overrides");
   lines.push(`- ${ovrQ.length} logged this quarter`);
   ovrQ.slice(0, 5).forEach((o) => lines.push(`  - ${o.id} · ${o.kind} — ${o.reason.slice(0, 80)}`));
   lines.push("");
   lines.push("## 🔭 Next quarter preview");
-  if (upcomingByProduct.size === 0) lines.push("_No approved items in Now/Next._");
+  if (upcomingByProduct.size === 0) lines.push("_No approved items in Committed/Backlog._");
   upcomingByProduct.forEach((items, product) => {
     lines.push(`### ${product}`);
     items.forEach((it) => lines.push(`- ${signals.find((s) => s.id === it.signal_id)?.title ?? "(untitled)"} (${it.roadmap_bucket})`));

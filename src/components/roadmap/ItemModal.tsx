@@ -48,7 +48,7 @@ export function ItemModal({
     editing?.months ?? initialMonths ?? [],
   );
   const [status, setStatus] = useState<ItemStatus>(editing?.status ?? "Planned");
-  const [priority, setPriority] = useState<ItemPriority>(editing?.priority ?? "Medium");
+  const [priority, setPriority] = useState<ItemPriority>(editing?.priority ?? "P2");
   const [owner, setOwner] = useState(editing?.owner ?? "");
   const [colorTag, setColorTag] = useState(editing?.color_tag ?? COLOR_PALETTE[0]);
   const [notes, setNotes] = useState(editing?.notes ?? "");

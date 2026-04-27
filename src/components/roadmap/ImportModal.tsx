@@ -79,8 +79,8 @@ export function ImportModal({ onClose }: Props) {
     if (fmt === "csv") {
       const headers = ["title", "stream_name", "sub_stream_name", "status", "priority", "owner", "clinic", "color_tag", "notes", "internal_only", "months"];
       const sample = [
-        ["Patient portal v3", "Otto-Onboard", "Roadmap", "Planned", "High", "Bazil", "Lakeshore", "#6366f1", "Major rework", "false", "2026-01;2026-02;2026-03"],
-        ["Internal API hardening", "Platform", "Internal", "Todo", "Medium", "Waseem", "", "#10b981", "", "true", ""],
+        ["Patient portal v3", "Otto-Onboard", "Roadmap", "Planned", "P1", "Bazil", "Lakeshore", "#6366f1", "Major rework", "false", "2026-01;2026-02;2026-03"],
+        ["Internal API hardening", "Platform", "Internal", "Todo", "P2", "Waseem", "", "#10b981", "", "true", ""],
       ];
       const csv = [headers.join(","), ...sample.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(","))].join("\n");
       blob = new Blob([csv], { type: "text/csv" });
@@ -93,7 +93,7 @@ export function ImportModal({ onClose }: Props) {
             stream_name: "Otto-Onboard",
             sub_stream_name: "Roadmap",
             status: "Planned",
-            priority: "High",
+            priority: "P1",
             owner: "Bazil",
             months: ["2026-01", "2026-02", "2026-03"],
             color_tag: "#6366f1",

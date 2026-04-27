@@ -524,14 +524,13 @@ function DeliveryTab() {
       .filter((x): x is { sh: ShapingItem; sig: Signal } => x.sig?.status === "Proceed");
   }, [shaping, signals]);
 
-  const grouped: Record<"Now" | "Next" | "Later" | "Unscheduled", { sh: ShapingItem; sig: Signal }[]> = {
-    Now: [], Next: [], Later: [], Unscheduled: [],
+  const grouped: Record<"Committed" | "Backlog" | "Unscheduled", { sh: ShapingItem; sig: Signal }[]> = {
+    Committed: [], Backlog: [], Unscheduled: [],
   };
   cards.forEach((c) => {
-    let bucket: "Now" | "Next" | "Later" | "Unscheduled";
-    if (c.sh.roadmap_bucket === "Now") bucket = "Now";
-    else if (c.sh.roadmap_bucket === "Next") bucket = "Next";
-    else if (c.sh.roadmap_bucket === "Later") bucket = "Later";
+    let bucket: "Committed" | "Backlog" | "Unscheduled";
+    if (c.sh.roadmap_bucket === "Committed") bucket = "Committed";
+    else if (c.sh.roadmap_bucket === "Backlog") bucket = "Backlog";
     else bucket = "Unscheduled";
     grouped[bucket].push(c);
   });
@@ -550,13 +549,13 @@ function DeliveryTab() {
       <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm">
         <p className="font-medium">Delivery view</p>
         <p className="mt-1 text-muted-foreground">
-          Now / Next / Later derived from shaping items in <Link to="/triage" className="text-primary hover:underline">Triage</Link> and{" "}
+          Committed / Backlog derived from shaping items in <Link to="/triage" className="text-primary hover:underline">Triage</Link> and{" "}
           <Link to="/shaping" className="text-primary hover:underline">Shaping</Link>. Use the Strategic Planning tab to plan ahead by month.
         </p>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-4">
-        {(["Now", "Next", "Later", "Unscheduled"] as const).map((bucket) => (
+        {(["Committed", "Backlog", "Unscheduled"] as const).map((bucket) => (
           <div key={bucket} className="rounded-lg border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider">{bucket}</h3>

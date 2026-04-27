@@ -81,12 +81,12 @@ function seedItems(products: Product[], config: TimelineConfig): RoadmapItem[] {
     updated_at: now,
   });
   return [
-    mk("Patient onboarding portal v2", onboard, [0, 1, 2], "In Progress", "Highest", "#6366f1"),
-    mk("Accuro sync hardening", onboard, [3, 4], "Planned", "High", "#3b82f6"),
-    mk("Voice-to-text drafts", notes, [1, 2, 3], "In Progress", "High", "#8b5cf6"),
-    mk("Clinical templates library", notes, [5, 6], "Todo", "Medium", "#ec4899"),
-    mk("Outcome dashboards", pulse, [2, 3, 4, 5], "Planned", "High", "#10b981"),
-    mk("AI insights v1", pulse, [], "Todo", "Medium", "#14b8a6"),
+    mk("Patient onboarding portal v2", onboard, [0, 1, 2], "In Progress", "P1", "#6366f1"),
+    mk("Accuro sync hardening", onboard, [3, 4], "Planned", "P1", "#3b82f6"),
+    mk("Voice-to-text drafts", notes, [1, 2, 3], "In Progress", "P1", "#8b5cf6"),
+    mk("Clinical templates library", notes, [5, 6], "Todo", "P2", "#ec4899"),
+    mk("Outcome dashboards", pulse, [2, 3, 4, 5], "Planned", "P1", "#10b981"),
+    mk("Insights v1", pulse, [], "Todo", "P2", "#14b8a6"),
   ];
 }
 
@@ -567,7 +567,7 @@ export const roadmapActions = {
           section_id: section.id,
           months: Array.isArray(row.months) ? row.months : [],
           status: (row.status as RoadmapItem["status"]) ?? "Todo",
-          priority: (row.priority as RoadmapItem["priority"]) ?? "Medium",
+          priority: (row.priority as RoadmapItem["priority"]) ?? "P2",
           owner: (row.owner ?? "").toString(),
           color_tag: (row.color_tag ?? "#6366f1").toString(),
           notes: (row.notes ?? "").toString(),

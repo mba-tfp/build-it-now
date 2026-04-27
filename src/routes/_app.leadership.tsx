@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
 });
 
-const TIERS: Tier[] = ["T1", "T2", "T3", "T4"];
+const TIERS: Tier[] = ["P1", "P2", "P3"];
 
 function LeadershipPage() {
   const signals = useTfpStore((s) => s.signals);
@@ -123,7 +123,7 @@ function LeadershipPage() {
 
   // ---------- Tier mix ----------
   const tierMix = useMemo(() => {
-    const m: Record<Tier, number> = { T1: 0, T2: 0, T3: 0, T4: 0 };
+    const m: Record<Tier, number> = { P1: 0, P2: 0, P3: 0 };
     signals.forEach((s) => m[s.tier]++);
     const total = signals.length || 1;
     return TIERS.map((t) => ({ tier: t, count: m[t], pct: Math.round((m[t] / total) * 100) }));
@@ -420,7 +420,7 @@ function LeadershipPage() {
         </Panel>
 
         {/* Tier mix */}
-        <Panel title="Tier mix" subtitle="All signals by SLA tier">
+        <Panel title="Priority mix" subtitle="All signals by P1/P2/P3">
           <div className="flex items-center gap-6">
             <DonutChart segments={tierMix.map((t) => ({
               label: t.tier,
@@ -517,7 +517,7 @@ function LeadershipPage() {
             <SelectFilter value={statusFilter} onChange={(v) => setStatusFilter(v as typeof statusFilter)} options={["All", "Open", "Breached", "Hold", "Done"]} />
             <SelectFilter value={sourceFilter} onChange={(v) => setSourceFilter(v as Source | "All")} options={["All", "Leadership", "Clinic", "Internal", "Dev Team"]} />
             <SelectFilter value={productFilter} onChange={(v) => setProductFilter(v as Product | "All")} options={["All", "Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"]} />
-            <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "T1", "T2", "T3", "T4"]} />
+            <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "P1", "P2", "P3"]} />
             <SortMenu
               tableId="leadership-signals"
               sort={signalSort}
@@ -525,7 +525,7 @@ function LeadershipPage() {
               options={[
                 { key: "created_at", label: "Created date" },
                 { key: "source", label: "Source" },
-                { key: "tier", label: "Tier" },
+                { key: "tier", label: "Priority" },
               ]}
             />
           </div>
