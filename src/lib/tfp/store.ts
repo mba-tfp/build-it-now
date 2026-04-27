@@ -1275,7 +1275,7 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
-  addToSprint: (id: string) => boolean;
+  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind) => boolean;
   removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
@@ -1738,12 +1738,12 @@ export const useTfpStore = create<State>()(
         return key;
       },
 
-      addToSprint: (id) => {
+      addToSprint: (id, overrideReason, overrideKind) => {
         const item = get().shaping.find((s) => s.id === id);
         if (!item || !item.jira_key) return false;
         if (item.in_sprint) return true;
         const sp = get().sprint;
-        if (sp.status === "Locked" || sp.scope_locked_at) {
+        if ((sp.status === "Locked" || sp.scope_locked_at) && !overrideReason) {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
               toast.error("Sprint is locked. Add new scope only with an inline override reason.");
@@ -1769,7 +1769,15 @@ export const useTfpStore = create<State>()(
           sprint: { ...sp, allocated_pts: newAlloc },
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
-        if (newAlloc / Math.max(1, usable) > 0.85) {
+        if (overrideReason) {
+          get().logOverride({
+            kind: overrideKind ?? "Scope added mid-sprint",
+            reason: overrideReason,
+            signal_id: item.signal_id,
+            shaping_id: item.id,
+            displaced_pts: Math.max(0, newAlloc - usable),
+            shahid_visible: true,
+          });
         }
         if (typeof window !== "undefined") {
           import("sonner").then(({ toast }) => {
