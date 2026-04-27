@@ -61,10 +61,10 @@ const ACTION_TYPES = [
 ] as const;
 
 const STAGE_ROUTES = [
-  { value: "/triage", label: "Triage" },
+  { value: "/inbox", label: "Inbox review" },
   { value: "/shaping", label: "Shaping" },
   { value: "/delivery", label: "Delivery" },
-  { value: "/review", label: "Review" },
+  { value: "/governance", label: "Lookback" },
   { value: "/golive", label: "Go-Live" },
 ] as const;
 
@@ -72,7 +72,7 @@ const KIND_DESCRIPTIONS: Record<WorkflowNodeKind, string> = {
   trigger: "Entry point. Workflow runs when this event fires.",
   decision: "Branch with two outputs (Yes / No).",
   action: "System does something: notify, push to Jira, assign, set status.",
-  stage: "A stage in the app (Triage, Shaping, etc.).",
+  stage: "A stage in the app (Inbox review, Shaping, etc.).",
 };
 
 const HELP_KEY = "tfp:workflows:help-dismissed";
@@ -86,7 +86,7 @@ function defaultConfigFor(kind: WorkflowNodeKind): Record<string, string> {
     case "action":
       return { actionType: "notify", target: "" };
     case "stage":
-      return { route: "/triage" };
+      return { route: "/inbox" };
   }
 }
 
@@ -99,7 +99,7 @@ function defaultLabelFor(kind: WorkflowNodeKind): string {
     case "action":
       return "Notify user";
     case "stage":
-      return "Triage";
+      return "Inbox review";
   }
 }
 
@@ -111,7 +111,7 @@ function emptyWorkflow(name = "New workflow"): Workflow {
     active: false,
     nodes: [
       { id: "n1", kind: "trigger", label: "New signal", config: { event: "leadership_signal" }, x: 60, y: 80 },
-      { id: "n2", kind: "stage", label: "Triage", config: { route: "/triage" }, x: 320, y: 80 },
+      { id: "n2", kind: "stage", label: "Inbox review", config: { route: "/inbox" }, x: 320, y: 80 },
       { id: "n3", kind: "stage", label: "Shaping", config: { route: "/shaping" }, x: 580, y: 80 },
     ],
     edges: [
