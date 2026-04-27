@@ -1746,7 +1746,7 @@ export const useTfpStore = create<State>()(
         if (sp.status === "Locked" || sp.scope_locked_at) {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
-              toast.error("Sprint is locked. Use the Override log to add new items.");
+              toast.error("Sprint is locked. Add new scope only with an inline override reason.");
             });
           }
           return false;
