@@ -436,7 +436,7 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
       dependency_impact: impact,
       dependency_deadline: deadline || null,
       dependency_system: system,
-      ...(advance ? { current_step: 2 as const, shaping_status: "In Tech Review" as const } : {}),
+      ...(advance ? { current_step: 4 as const, shaping_status: "In Tech Review" as const } : {}),
     });
   }
 
@@ -579,7 +579,7 @@ function DefineBrief({ item }: { item: ShapingItem }) {
           <p className="text-xs text-muted-foreground">Autosaves. Required: problem, why/evidence, approach and complexity.</p>
           <button
             disabled={!ready}
-            onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Tech Review" })}
+            onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
             Send to Tech Review
@@ -893,7 +893,7 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
         </button>
         <button
           disabled={!ready}
-          onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Tech Review" })}
+          onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
         >
           Send to Tech Review
