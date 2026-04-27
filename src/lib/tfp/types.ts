@@ -124,14 +124,14 @@ export type ShapingItem = {
   solution_decisions: string;
   solution_questions: string;
   solution_risks: string;
-  // Tech Review (Step 4)
+  // Tech review
   tech_reviewer_id: string | null;
   tech_review_notes: string;
   tech_estimate_pts: number | null;
   tech_concerns: string;
   tech_signed_off_at: string | null;
   tech_concurrent_access_checked: boolean;
-  // Approval (Step 5)
+  // Approval
   approver_id: string | null;
   approval_decision: "Approved" | "Changes Requested" | null;
   approval_notes: string;
@@ -235,7 +235,7 @@ export type AuditEntry = {
   meta?: Record<string, unknown>;
 };
 
-export type OverrideKind = "Capacity exceeded" | "Scope added mid-sprint" | "Tier escalation" | "Bypass tech review" | "Other";
+export type OverrideKind = "Capacity exceeded" | "Scope added mid-sprint" | "Priority escalation" | "Bypass tech review" | "Other";
 export type OverrideAckStatus = "Pending" | "Acknowledged";
 
 export type Override = {
