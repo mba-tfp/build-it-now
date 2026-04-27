@@ -1,54 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import type { Role } from "@/lib/tfp/types";
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { id: string; label: string; to: string };
 
-const CHECKLISTS: Record<Role, Item[]> = {
-  PM: [
-    { id: "log_signal", label: "Log your first signal", to: "/intake" },
-    { id: "triage_3", label: "Triage 3 signals", to: "/triage" },
-    { id: "open_shaping", label: "Open a shaping item", to: "/shaping" },
-    { id: "delivery_board", label: "Review the delivery board", to: "/delivery" },
-    { id: "queue_health", label: "Open Queue Health", to: "/health" },
-  ],
-  "Senior PM": [
-    { id: "log_signal", label: "Log your first signal", to: "/intake" },
-    { id: "triage_3", label: "Triage 3 signals", to: "/triage" },
-    { id: "open_shaping", label: "Open a shaping item", to: "/shaping" },
-    { id: "delivery_board", label: "Review the delivery board", to: "/delivery" },
-    { id: "queue_health", label: "Open Queue Health", to: "/health" },
-  ],
-  "Associate PM": [
-    { id: "log_clinic", label: "Log a clinic signal", to: "/intake" },
-    { id: "triage", label: "Review the Triage queue", to: "/triage" },
-    { id: "draft_comms", label: "Draft a clinic communication", to: "/comms" },
-    { id: "golive", label: "Open a go-live checklist", to: "/golive" },
-  ],
-  "Tech Lead": [
-    { id: "open_shaping", label: "Open a shaping item awaiting tech review", to: "/shaping" },
-    { id: "tech_review", label: "Complete a tech review", to: "/shaping" },
-    { id: "delivery_board", label: "Review the Delivery board", to: "/delivery" },
-    { id: "log_decision", label: "Log a decision in the Decision Log", to: "/decisions" },
-  ],
-  Developer: [
-    { id: "delivery_board", label: "Review the Delivery board", to: "/delivery" },
-    { id: "assigned", label: "Open your assigned items", to: "/delivery" },
-    { id: "dev_complete", label: "Read the Dev Complete gate (three checkboxes)", to: "/delivery" },
-  ],
-  "QA Scrum Master": [
-    { id: "delivery_board", label: "Review the Delivery board", to: "/delivery" },
-    { id: "queue_health", label: "Open Queue Health", to: "/health" },
-    { id: "retros", label: "Review the Sprint Retros section", to: "/retros" },
-  ],
-  Leadership: [
-    { id: "leadership", label: "Review the Leadership dashboard", to: "/leadership" },
-    { id: "queue_health", label: "Open Queue Health", to: "/health" },
-    { id: "overrides", label: "Review the Override log", to: "/overrides" },
-  ],
-};
+const CHECKLIST: Item[] = [
+  { id: "home", label: "Start at Home to see today's work", to: "/" },
+  { id: "inbox", label: "Capture or review incoming work", to: "/inbox" },
+  { id: "shaping", label: "Shape approved work", to: "/shaping" },
+  { id: "delivery", label: "Track sprint delivery", to: "/delivery" },
+  { id: "roadmap", label: "Plan with the roadmap", to: "/roadmap" },
+  { id: "leadership", label: "Use leadership and support views when needed", to: "/leadership" },
+];
 
 export function OnboardingModal({ onClose }: { onClose: () => void }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
@@ -56,7 +20,7 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
   const completeItem = useTfpStore((s) => s.completeOnboardingItem);
   const completeAll = useTfpStore((s) => s.completeOnboarding);
 
-  const items = CHECKLISTS[me.role] ?? [];
+  const items = CHECKLIST;
   const allDone = items.every((i) => user.onboarding_progress[i.id]);
 
   return (
@@ -65,9 +29,9 @@ export function OnboardingModal({ onClose }: { onClose: () => void }) {
       <div className="relative w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-2xl">
         <header className="flex items-start gap-3 border-b border-border p-5">
           <div className="flex-1">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Welcome to TFP OS</p>
-            <h2 className="mt-0.5 font-display text-xl">Getting started · {me.role}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">A short tour of the surfaces relevant to your role.</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Welcome to TFP Workflow</p>
+            <h2 className="mt-0.5 font-display text-xl">Getting started</h2>
+            <p className="mt-1 text-xs text-muted-foreground">One simple path from signal to delivery.</p>
           </div>
           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
             <X className="h-4 w-4" />
