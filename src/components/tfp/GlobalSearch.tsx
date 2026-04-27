@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 type Hit = {
   id: string;
-  type: "Signal" | "Shaping" | "Decision" | "Override" | "Comms" | "Go-Live" | "Review";
+  type: "Signal" | "Shaping" | "Decision" | "Override" | "Comms" | "Go-Live" | "Lookback";
   title: string;
   excerpt: string;
   product?: string;
@@ -76,7 +76,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
       Override: [],
       Comms: [],
       "Go-Live": [],
-      Review: [],
+      Lookback: [],
     };
     if (!lc) return hits;
     const m = (s: string) => s.toLowerCase().includes(lc);
@@ -89,7 +89,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           title: s.title,
           excerpt: excerpt(m(s.title) ? s.title : s.description, debounced),
           product: s.product,
-          to: "/triage",
+          to: "/inbox",
         });
       }
     });
@@ -115,7 +115,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           type: "Decision",
           title: d.title,
           excerpt: excerpt(m(d.context) ? d.context : d.decision, debounced),
-          to: "/decisions",
+          to: "/shaping",
         });
       }
     });
@@ -126,7 +126,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           type: "Override",
           title: `${o.id} · ${o.kind}`,
           excerpt: excerpt(o.reason, debounced),
-          to: "/overrides",
+          to: "/delivery",
         });
       }
     });
@@ -138,7 +138,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           title: c.subject,
           excerpt: excerpt(m(c.subject) ? c.subject : c.body, debounced),
           product: c.product,
-          to: "/comms",
+          to: "/governance",
         });
       }
     });
@@ -150,19 +150,19 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           title: g.release_name,
           excerpt: `Scheduled ${g.scheduled_for.slice(0, 10)} · ${g.status}`,
           product: g.product,
-          to: "/golive",
+          to: "/delivery",
         });
       }
     });
     reviews.forEach((r) => {
       const text = `${r.notes} ${r.what_worked} ${r.what_didnt}`;
       if (m(text)) {
-        hits.Review.push({
+        hits.Lookback.push({
           id: r.id,
-          type: "Review",
+          type: "Lookback",
           title: `${r.size} review · ${r.status}`,
           excerpt: excerpt(m(r.notes) ? r.notes : r.what_worked, debounced),
-          to: "/review",
+          to: "/governance",
         });
       }
     });
@@ -208,7 +208,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 Start typing to search across the workspace.
               </div>
             )}
-            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Go-Live", "Review"] as const).map((type) => {
+            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Go-Live", "Lookback"] as const).map((type) => {
               const list = results[type];
               if (list.length === 0) return null;
               const visible = list.slice(0, 5);
@@ -253,7 +253,7 @@ function typeBadgeTone(type: Hit["type"]): string {
       return "bg-[var(--color-status-hold)]/15 text-[var(--color-status-hold)]";
     case "Go-Live":
       return "bg-accent text-accent-foreground";
-    case "Review":
+    case "Lookback":
       return "bg-muted text-muted-foreground";
   }
 }

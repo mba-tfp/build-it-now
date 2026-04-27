@@ -171,7 +171,7 @@ export function CommsPage() {
                     </button>
                   )}
                   {c.status === "Draft" && c.drafted_by === me && !c.requires_pm_approval && (
-                    <button onClick={() => send(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-proceed)] px-2.5 py-1 text-xs text-white hover:opacity-90">
+                    <button onClick={() => send(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-proceed)] px-2.5 py-1 text-xs text-primary-foreground hover:opacity-90">
                       <Send className="h-3 w-3" /> Send directly
                     </button>
                   )}
@@ -192,7 +192,7 @@ export function CommsPage() {
                     </>
                   )}
                   {c.status === "Approved" && (
-                    <button onClick={() => send(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-proceed)] px-2.5 py-1 text-xs text-white hover:opacity-90">
+                    <button onClick={() => send(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-proceed)] px-2.5 py-1 text-xs text-primary-foreground hover:opacity-90">
                       <Send className="h-3 w-3" /> Mark sent
                     </button>
                   )}

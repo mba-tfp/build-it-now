@@ -61,10 +61,10 @@ const ACTION_TYPES = [
 ] as const;
 
 const STAGE_ROUTES = [
-  { value: "/triage", label: "Triage" },
+  { value: "/inbox", label: "Inbox review" },
   { value: "/shaping", label: "Shaping" },
   { value: "/delivery", label: "Delivery" },
-  { value: "/review", label: "Review" },
+  { value: "/governance", label: "Lookback" },
   { value: "/golive", label: "Go-Live" },
 ] as const;
 
@@ -72,7 +72,7 @@ const KIND_DESCRIPTIONS: Record<WorkflowNodeKind, string> = {
   trigger: "Entry point. Workflow runs when this event fires.",
   decision: "Branch with two outputs (Yes / No).",
   action: "System does something: notify, push to Jira, assign, set status.",
-  stage: "A stage in the app (Triage, Shaping, etc.).",
+  stage: "A stage in the app (Inbox review, Shaping, etc.).",
 };
 
 const HELP_KEY = "tfp:workflows:help-dismissed";
@@ -86,7 +86,7 @@ function defaultConfigFor(kind: WorkflowNodeKind): Record<string, string> {
     case "action":
       return { actionType: "notify", target: "" };
     case "stage":
-      return { route: "/triage" };
+      return { route: "/inbox" };
   }
 }
 
@@ -99,7 +99,7 @@ function defaultLabelFor(kind: WorkflowNodeKind): string {
     case "action":
       return "Notify user";
     case "stage":
-      return "Triage";
+      return "Inbox review";
   }
 }
 
@@ -111,7 +111,7 @@ function emptyWorkflow(name = "New workflow"): Workflow {
     active: false,
     nodes: [
       { id: "n1", kind: "trigger", label: "New signal", config: { event: "leadership_signal" }, x: 60, y: 80 },
-      { id: "n2", kind: "stage", label: "Triage", config: { route: "/triage" }, x: 320, y: 80 },
+      { id: "n2", kind: "stage", label: "Inbox review", config: { route: "/inbox" }, x: 320, y: 80 },
       { id: "n3", kind: "stage", label: "Shaping", config: { route: "/shaping" }, x: 580, y: 80 },
     ],
     edges: [
@@ -382,7 +382,7 @@ function WorkflowsPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Workflows</p>
           <h1 className="mt-1 font-display text-3xl">Workflow Builder</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Visualise the Signal → Triage → Shaping → Delivery flow. Active workflows emit observability notifications.
+            Visualise the Signal → Inbox review → Shaping → Delivery flow. Active workflows emit observability notifications.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -636,7 +636,7 @@ function WorkflowsPage() {
                 <label className="flex flex-col text-xs text-muted-foreground">
                   App stage
                   <select
-                    value={selectedNode.config.route ?? "/triage"}
+                    value={selectedNode.config.route ?? "/inbox"}
                     onChange={(e) => updateSelectedConfig("route", e.target.value)}
                     className="mt-1 rounded border border-input bg-surface px-2 py-1 text-sm"
                   >

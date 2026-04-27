@@ -247,7 +247,7 @@ export function TriageQueuePage() {
 
       <ConfirmDialog
         open={!!bypass}
-        title="Bypass triage flow?"
+        title="Bypass inbox review?"
         description={
           bypass
             ? `Moving status from "${bypass.from}" to "${bypass.to}" is not part of the normal flow. This will be logged as an Override and added to the audit trail.`
@@ -653,14 +653,14 @@ function TriagePanel({
           {!editing && (sig.status === "New" || sig.status === "In Review") ? (
             <div className="rounded-lg border border-border bg-surface-2 p-4">
               <p className="mb-3 text-[11px] uppercase tracking-wider text-muted-foreground">
-                Triage decision
+                Review decision
               </p>
 
               {mode === "none" && (
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={onProceed}
-                    className="rounded-md bg-[var(--color-status-proceed)] px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                    className="rounded-md bg-[var(--color-status-proceed)] px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                   >
                     Proceed → Shaping
                   </button>

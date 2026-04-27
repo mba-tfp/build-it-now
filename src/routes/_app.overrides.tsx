@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_app/overrides")({
 const KINDS: OverrideKind[] = [
   "Capacity exceeded",
   "Scope added mid-sprint",
-  "Tier escalation",
+  "Priority escalation",
   "Bypass tech review",
   "Other",
 ];
@@ -24,7 +24,7 @@ const KINDS: OverrideKind[] = [
 const KIND_TONE: Record<OverrideKind, string> = {
   "Capacity exceeded": "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]",
   "Scope added mid-sprint": "bg-primary/10 text-primary",
-  "Tier escalation": "bg-destructive/10 text-destructive",
+  "Priority escalation": "bg-destructive/10 text-destructive",
   "Bypass tech review": "bg-destructive/10 text-destructive",
   Other: "bg-muted text-muted-foreground",
 };
@@ -161,7 +161,7 @@ export function OverridesPage() {
                     <div className="flex-1 min-w-[300px]">
                       <p className="text-sm">{o.reason}</p>
                       {sig && (
-                        <Link to="/triage" className="mt-1 block text-xs text-primary hover:underline">
+                        <Link to="/inbox" search={{ tab: "triage" }} className="mt-1 block text-xs text-primary hover:underline">
                           Linked signal: {sig.title}
                         </Link>
                       )}

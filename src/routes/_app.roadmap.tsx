@@ -549,7 +549,7 @@ function DeliveryTab() {
       <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm">
         <p className="font-medium">Delivery view</p>
         <p className="mt-1 text-muted-foreground">
-          Committed / Backlog derived from shaping items in <Link to="/triage" className="text-primary hover:underline">Triage</Link> and{" "}
+          Committed / Backlog derived from items reviewed in <Link to="/inbox" search={{ tab: "triage" }} className="text-primary hover:underline">Inbox</Link> and{" "}
           <Link to="/shaping" className="text-primary hover:underline">Shaping</Link>. Use the Strategic Planning tab to plan ahead by month.
         </p>
       </div>

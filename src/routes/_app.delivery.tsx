@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem, User } from "@/lib/tfp/types";
+import type { DeliveryStatus, OverrideKind, ShapingItem, User } from "@/lib/tfp/types";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
@@ -96,6 +96,13 @@ export function DeliveryPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
   const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
+  const [overrideFor, setOverrideFor] = useState<{
+    item: ShapingItem;
+    kind: OverrideKind;
+    title: string;
+    description: string;
+    onConfirm: (reason: string) => void;
+  } | null>(null);
 
   // All shaping with a Jira key (backlog + in-sprint)
   const allRows: Row[] = useMemo(
@@ -155,7 +162,23 @@ export function DeliveryPage() {
       return;
     }
     const warning = movementWarning(me, sh, next);
-    if (warning && !window.confirm(warning)) {
+    if (warning) {
+      setOverrideFor({
+        item: sh,
+        kind: "Other",
+        title: "Record unusual delivery move",
+        description: warning,
+        onConfirm: (reason) => {
+          useTfpStore.getState().logOverride({
+            kind: "Other",
+            reason,
+            signal_id: sh.signal_id,
+            shaping_id: sh.id,
+            shahid_visible: false,
+          });
+          setStatus(sh.id, next);
+        },
+      });
       return;
     }
     if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
@@ -255,10 +278,21 @@ export function DeliveryPage() {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{sig?.product}</p>
                 <div className="mt-2 flex gap-1.5">
                   <button
-                    onClick={() => addToSprint(sh.id)}
-                    disabled={sprintLocked}
+                    onClick={() => {
+                      if (sprintLocked) {
+                        setOverrideFor({
+                          item: sh,
+                          kind: "Scope added mid-sprint",
+                          title: "Add scope with override",
+                          description: `Sprint scope is locked. Record why ${sh.jira_key} must enter ${sprint.name}.`,
+                          onConfirm: (reason) => addToSprint(sh.id, reason, "Scope added mid-sprint"),
+                        });
+                        return;
+                      }
+                      addToSprint(sh.id);
+                    }}
                     title={sprintLocked ? "Sprint locked — inline override required" : `Add ${sh.jira_key} to ${sprint.name}`}
-                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90"
                   >
                     + Add to Sprint
                   </button>
@@ -460,6 +494,66 @@ export function DeliveryPage() {
           onClose={() => setBlockerFor(null)}
         />
       )}
+
+      {overrideFor && (
+        <InlineOverrideModal
+          item={overrideFor.item}
+          title={overrideFor.title}
+          description={overrideFor.description}
+          kind={overrideFor.kind}
+          onConfirm={(reason) => {
+            overrideFor.onConfirm(reason);
+            toast.success("Override recorded");
+            setOverrideFor(null);
+          }}
+          onClose={() => setOverrideFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function InlineOverrideModal({
+  item,
+  title,
+  description,
+  kind,
+  onConfirm,
+  onClose,
+}: {
+  item: ShapingItem;
+  title: string;
+  description: string;
+  kind: OverrideKind;
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const valid = reason.trim().length >= 20;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg">{title}</h3>
+          <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
+        </div>
+        <p className="mb-1 text-xs text-muted-foreground">{item.jira_key} · {kind}</p>
+        <p className="mb-3 text-xs text-muted-foreground">{description}</p>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={4}
+          placeholder="Why is this exception needed now?"
+          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-1 text-[11px] text-muted-foreground">{reason.trim().length}/20 chars minimum</div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+          <button disabled={!valid} onClick={() => onConfirm(reason.trim())} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40">
+            Record override
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

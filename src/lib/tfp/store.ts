@@ -1175,7 +1175,7 @@ const seedNotifications: Notification[] = [
     trigger: "sla_breach",
     title: "SLA breach: Patients cannot complete intake on Safari",
     body: "P1 signal past SLA. Owner: Bazil.",
-    link_to: "/triage",
+    link_to: "/inbox",
     entity_id: seedSignals[0].id,
     ts: new Date(SEED_EPOCH - 3600000).toISOString(),
   }),
@@ -1198,7 +1198,7 @@ const seedNotifications: Notification[] = [
     trigger: "override_logged",
     title: "OVR-005 awaiting Shahid acknowledgement",
     body: "Scope added mid-sprint: board KPI dashboard.",
-    link_to: "/overrides",
+    link_to: "/delivery",
     entity_id: "OVR-005",
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
   }),
@@ -1206,7 +1206,7 @@ const seedNotifications: Notification[] = [
     trigger: "review_overdue",
     title: "Outcome review pending: Coordinator dashboard load time",
     body: "Item shipped 4 days ago — review still in Pending.",
-    link_to: "/review",
+    link_to: "/governance",
     ts: new Date(SEED_EPOCH - 14400000).toISOString(),
   }),
   buildNotification({
@@ -1275,7 +1275,7 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
-  addToSprint: (id: string) => boolean;
+  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind) => boolean;
   removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
@@ -1557,9 +1557,9 @@ export const useTfpStore = create<State>()(
           if (new Date(next.sla_due_at).getTime() < Date.now()) {
             get().pushNotification({
               trigger: "sla_breach",
-              title: `SLA already breached after tier change`,
+              title: `SLA already breached after priority change`,
               body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
-              link_to: "/triage",
+              link_to: "/inbox",
               entity_id: signalId,
             });
           }
@@ -1738,12 +1738,12 @@ export const useTfpStore = create<State>()(
         return key;
       },
 
-      addToSprint: (id) => {
+      addToSprint: (id, overrideReason, overrideKind) => {
         const item = get().shaping.find((s) => s.id === id);
         if (!item || !item.jira_key) return false;
         if (item.in_sprint) return true;
         const sp = get().sprint;
-        if (sp.status === "Locked" || sp.scope_locked_at) {
+        if ((sp.status === "Locked" || sp.scope_locked_at) && !overrideReason) {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
               toast.error("Sprint is locked. Add new scope only with an inline override reason.");
@@ -1769,7 +1769,15 @@ export const useTfpStore = create<State>()(
           sprint: { ...sp, allocated_pts: newAlloc },
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
-        if (newAlloc / Math.max(1, usable) > 0.85) {
+        if (overrideReason) {
+          get().logOverride({
+            kind: overrideKind ?? "Scope added mid-sprint",
+            reason: overrideReason,
+            signal_id: item.signal_id,
+            shaping_id: item.id,
+            displaced_pts: Math.max(0, newAlloc - usable),
+            shahid_visible: true,
+          });
         }
         if (typeof window !== "undefined") {
           import("sonner").then(({ toast }) => {
@@ -2179,7 +2187,7 @@ export const useTfpStore = create<State>()(
           trigger: "override_logged",
           title: `${ovr.id} awaiting acknowledgement`,
           body: ovr.reason.slice(0, 100),
-          link_to: "/overrides",
+          link_to: "/delivery",
           entity_id: ovr.id,
         });
         return ovr;
@@ -2327,7 +2335,7 @@ export const useTfpStore = create<State>()(
           trigger: "comms_approval",
           title: "Comms awaiting PM approval",
           body: get().comms.find((c) => c.id === id)?.subject ?? "",
-          link_to: "/comms",
+          link_to: "/governance",
           entity_id: id,
         });
       },
@@ -2407,7 +2415,7 @@ export const useTfpStore = create<State>()(
             trigger: "retro_escalation",
             title: `${data.primary_theme} theme escalated (3 sprints)`,
             body: data.one_change,
-            link_to: "/retros",
+            link_to: "/governance",
             entity_id: retro.id,
           });
         }
@@ -2517,7 +2525,7 @@ export const useTfpStore = create<State>()(
           trigger: "monitoring_alert",
           title: `${data.severity} monitoring alert: ${data.system}`,
           body: data.message,
-          link_to: "/health",
+          link_to: "/governance",
           entity_id: alert.id,
         });
         return alert;
@@ -2555,7 +2563,7 @@ export const useTfpStore = create<State>()(
           trigger: "clinic_feedback",
           title: `Clinic feedback from ${data.clinic_name}`,
           body: data.description.slice(0, 100),
-          link_to: "/triage",
+          link_to: "/inbox",
           for_user_id: "u-sami",
           entity_id: sig.id,
         });
