@@ -229,7 +229,7 @@ export function DeliveryPage() {
         <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
           <Lock className="h-3.5 w-3.5 text-amber-600" />
           <span>
-            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Use the Override log to add new items.
+            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Add new scope only with an inline override reason.
           </span>
         </div>
       )}
@@ -257,7 +257,7 @@ export function DeliveryPage() {
                   <button
                     onClick={() => addToSprint(sh.id)}
                     disabled={sprintLocked}
-                    title={sprintLocked ? "Sprint locked — use Override log" : `Add ${sh.jira_key} to ${sprint.name}`}
+                    title={sprintLocked ? "Sprint locked — inline override required" : `Add ${sh.jira_key} to ${sprint.name}`}
                     className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     + Add to Sprint
