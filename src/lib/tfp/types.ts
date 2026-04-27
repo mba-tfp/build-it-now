@@ -38,7 +38,7 @@ export type DependencySystem =
   | "Olive EngagedMD"
   | "Tia Health"
   | "EngagedMD";
-export type Tier = "T1" | "T2" | "T3" | "T4";
+export type Tier = "P1" | "P2" | "P3";
 export type SignalStatus = "New" | "In Review" | "Proceed" | "Hold" | "Rejected";
 
 export type Attachment = {
@@ -53,7 +53,7 @@ export type Attachment = {
   mime_type?: string;
 };
 
-export type IntakePriority = "Must have" | "Nice to have" | "Food for thought";
+export type IntakePriority = Tier;
 
 export type Signal = {
   id: string;
@@ -93,7 +93,7 @@ export type ShapingStatus =
   | "Approved"
   | "In Delivery";
 export type Complexity = "Simple" | "Medium" | "Complex";
-export type RoadmapBucket = "Now" | "Next" | "Later" | "Not Now" | "Override";
+export type RoadmapBucket = "Committed" | "Backlog" | "Not Now" | "Override";
 
 export type DevCompleteGate = {
   merged_to_main: boolean;
