@@ -42,7 +42,6 @@ import type {
 } from "./types";
 import { classifySignal, slaDueAt } from "./classify";
 import { buildNotification } from "./notify";
-import { formatFieldChange } from "./audit";
 
 /** Allowed forward transitions from each signal status. */
 export const ALLOWED_STATUS_TRANSITIONS: Record<SignalStatus, SignalStatus[]> = {
@@ -61,9 +60,9 @@ export function isAllowedStatusTransition(from: SignalStatus, to: SignalStatus):
 const DEFAULT_FLAGS: FeatureFlags = {
   attachmentsEnabled: true,
   helpCenterEnabled: true,
-  workflowBuilderEnabled: true,
+  workflowBuilderEnabled: false,
   multiSelectIntake: true,
-  auditVerbose: true,
+  auditVerbose: false,
   adminPanelEnabled: true,
 };
 
@@ -1456,25 +1455,7 @@ export const useTfpStore = create<State>()(
         };
         set({ signals: [sig, ...get().signals] });
         get().audit_log({ entity_type: "signal", entity_id: sig.id, action: "Signal created" });
-        // Notification triggers
-        if (sig.source === "Leadership") {
-          get().pushNotification({
-            trigger: "leadership_signal",
-            title: "Leadership signal logged",
-            body: sig.title,
-            link_to: "/triage",
-            entity_id: sig.id,
-          });
-        }
-        if (sig.issue_type === "Incident" || sig.tier === "T1") {
-          get().pushNotification({
-            trigger: "incident",
-            title: "Incident raised: " + sig.title,
-            body: `${sig.tier} · ${sig.product}`,
-            link_to: "/triage",
-            entity_id: sig.id,
-          });
-        }
+        // Notifications intentionally stay high-signal; SLA/blockers/overrides/release/comms only.
         return sig;
       },
 
@@ -1557,22 +1538,13 @@ export const useTfpStore = create<State>()(
           });
         }
 
-        // Readable audit per changed field (Wave A #4)
-        const users = get().users;
-        const fields: (keyof Signal)[] = [
-          "title", "description", "source", "product", "additional_sources",
-          "additional_products", "issue_type", "tier", "status", "owner_id",
-        ];
-        for (const f of fields) {
-          if (patch[f] !== undefined && JSON.stringify(prev[f]) !== JSON.stringify(next[f])) {
-            get().audit_log({
-              entity_type: "signal",
-              entity_id: signalId,
-              action: formatFieldChange(f as string, prev[f], next[f], users),
-              before: JSON.stringify(prev[f] ?? null),
-              after: JSON.stringify(next[f] ?? null),
-            });
-          }
+        // Audit only meaningful workflow transitions by default; verbose field diffs stay off for adoption.
+        if (patch.status && patch.status !== prev.status) {
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: signalId,
+            action: `Status changed (${prev.status} → ${patch.status})`,
+          });
         }
         if (patch.tier && patch.tier !== prev.tier) {
           get().audit_log({
@@ -1679,20 +1651,13 @@ export const useTfpStore = create<State>()(
                   tech_reviewer_id: reviewerId,
                   tech_signed_off_at: new Date().toISOString(),
                   shaping_status: "Tech Approved",
-                  current_step: 5,
+                  current_step: 3,
                   updated_at: new Date().toISOString(),
                 }
               : s,
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
-        get().pushNotification({
-          trigger: "tech_review_ready",
-          title: "Ready for approval",
-          body: "Tech review signed off — awaiting Senior PM.",
-          link_to: "/shaping",
-          entity_id: id,
-        });
       },
 
       approveShaping: (id, approverId, notes) => {
@@ -1724,7 +1689,7 @@ export const useTfpStore = create<State>()(
                   approval_decision: "Changes Requested",
                   approval_notes: notes,
                   shaping_status: "Shaped",
-                  current_step: 4,
+                  current_step: 2,
                   updated_at: new Date().toISOString(),
                 }
               : s,
@@ -1805,13 +1770,6 @@ export const useTfpStore = create<State>()(
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
         if (newAlloc / Math.max(1, usable) > 0.85) {
-          get().pushNotification({
-            trigger: "scope_change",
-            title: "Sprint capacity > 85%",
-            body: `${item.jira_key} added — sprint now at ${Math.round((newAlloc / Math.max(1, usable)) * 100)}% allocation. Consider logging an override.`,
-            link_to: "/overrides",
-            entity_id: id,
-          });
         }
         if (typeof window !== "undefined") {
           import("sonner").then(({ toast }) => {
@@ -2712,12 +2670,9 @@ export const useTfpStore = create<State>()(
 
 export function completenessScore(s: ShapingItem): number {
   const fields: Array<{ key: keyof ShapingItem; min: number }> = [
-    { key: "problem_what", min: 50 },
-    { key: "problem_why", min: 50 },
-    { key: "problem_who", min: 30 },
-    { key: "problem_where", min: 30 },
-    { key: "problem_evidence", min: 30 },
-    { key: "problem_out_of_scope", min: 1 },
+    { key: "problem_what", min: 20 },
+    { key: "problem_why", min: 20 },
+    { key: "problem_evidence", min: 20 },
   ];
   return fields.reduce((acc, f) => {
     const v = String(s[f.key] ?? "");
@@ -2726,12 +2681,7 @@ export function completenessScore(s: ShapingItem): number {
 }
 
 export function solutionComplete(s: ShapingItem): boolean {
-  if (!s.solution_complexity) return false;
-  const required: Array<keyof ShapingItem> =
-    s.solution_complexity === "Simple"
-      ? ["solution_approach", "solution_criteria", "solution_effort"]
-      : ["solution_approach", "solution_criteria", "solution_effort", "solution_decisions", "solution_risks"];
-  return required.every((k) => String(s[k] ?? "").trim().length > 0);
+  return !!s.solution_complexity && s.solution_approach.trim().length >= 20;
 }
 
 export function techReviewComplete(s: ShapingItem): boolean {
@@ -2746,8 +2696,7 @@ export function techReviewComplete(s: ShapingItem): boolean {
 
 export function canApprove(s: ShapingItem): boolean {
   return (
-    completenessScore(s) >= 5 &&
-    !!s.roadmap_bucket &&
+    completenessScore(s) >= 3 &&
     solutionComplete(s) &&
     techReviewComplete(s)
   );

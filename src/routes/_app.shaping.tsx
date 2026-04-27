@@ -28,13 +28,13 @@ export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
 });
 
-const STEPS = [
-  "Problem Brief",
-  "Roadmap Fit",
-  "Solution Brief",
-  "Tech Review",
-  "Approval",
-];
+const STEPS = ["Define", "Tech Review", "Approve"] as const;
+
+function displayStep(step: number): 1 | 2 | 3 {
+  if (step >= 5) return 3;
+  if (step >= 4) return 2;
+  return 1;
+}
 
 function ShapingPage() {
   const shaping = useTfpStore((s) => s.shaping);
@@ -83,7 +83,7 @@ function ShapingPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 3</p>
           <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approved signals move through five steps before they're pushed to Jira for delivery.
+            Approved signals move through Define → Tech Review → Approve before delivery.
           </p>
         </div>
         <SortMenu
@@ -159,13 +159,13 @@ function ShapingPage() {
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{sh.fast_track ? "Fast-track" : `Step ${sh.current_step} of 5`}</span>
+                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 3`}</span>
                         <span>{stale}d in stage</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full bg-primary"
-                          style={{ width: sh.fast_track ? "50%" : `${(sh.current_step / 5) * 100}%` }}
+                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 3) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -226,11 +226,12 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
       ) : (
         <>
           {/* Stepper */}
-          <ol className="mb-8 grid grid-cols-5 gap-2">
+          <ol className="mb-8 grid grid-cols-3 gap-2">
             {STEPS.map((label, i) => {
-              const n = (i + 1) as 1 | 2 | 3 | 4 | 5;
-              const done = sh.current_step > n;
-              const active = sh.current_step === n;
+              const n = (i + 1) as 1 | 2 | 3;
+              const step = displayStep(sh.current_step);
+              const done = step > n;
+              const active = step === n;
               const future = !done && !active;
               return (
                 <li
@@ -260,11 +261,9 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
             })}
           </ol>
 
-          {sh.current_step === 1 && <ProblemBrief item={sh} />}
-          {sh.current_step === 2 && <RoadmapFit item={sh} />}
-          {sh.current_step === 3 && <SolutionBrief item={sh} />}
-          {sh.current_step === 4 && <TechReview item={sh} />}
-          {sh.current_step === 5 && <Approval item={sh} />}
+          {displayStep(sh.current_step) === 1 && <DefineBrief item={sh} />}
+          {displayStep(sh.current_step) === 2 && <TechReview item={sh} />}
+          {displayStep(sh.current_step) === 3 && <Approval item={sh} />}
         </>
       )}
     </div>
@@ -290,7 +289,7 @@ function FastTrack({ item }: { item: ShapingItem }) {
         <div className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-4 text-sm text-[var(--color-status-hold)]">
           <p className="font-medium">⚡ {sig.tier === "T1" ? "P0" : "P1"} Fast Track — Root cause only required</p>
           <p className="mt-1 text-xs opacity-90">
-            Bugs at this severity bypass the full 5-step pipeline. Owner: {owner?.name ?? "—"} ({owner?.role}).
+            Bugs at this severity bypass the standard shaping pipeline. Owner: {owner?.name ?? "—"} ({owner?.role}).
           </p>
         </div>
 
@@ -387,7 +386,7 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
       dependency_impact: impact,
       dependency_deadline: deadline || null,
       dependency_system: system,
-      ...(advance ? { current_step: 4 as const, shaping_status: "In Tech Review" as const } : {}),
+      ...(advance ? { current_step: 2 as const, shaping_status: "In Tech Review" as const } : {}),
     });
   }
 
@@ -476,6 +475,88 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
       </div>
 
       <RoleHint required="PM" current={me.role} />
+    </div>
+  );
+}
+
+
+function DefineBrief({ item }: { item: ShapingItem }) {
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const setComplexity = useTfpStore((s) => s.setComplexity);
+  const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const ready =
+    item.problem_what.trim().length >= 20 &&
+    item.problem_why.trim().length >= 20 &&
+    item.solution_approach.trim().length >= 20 &&
+    !!item.solution_complexity;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="tfp-card divide-y divide-border">
+        <div className="p-5">
+          <h3 className="font-display text-lg">Define</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            One lightweight brief: problem, evidence, approach, open questions and rough effort. Extra detail can live in notes.
+          </p>
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <Field label="Problem" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} placeholder="What problem are we solving?" />
+          <Field label="Why now / evidence" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v, problem_evidence: v })} rows={4} placeholder="Why does it matter, and what evidence do we have?" />
+          <div>
+            <label className="mb-1 block text-sm font-medium">Complexity</label>
+            <select
+              value={item.solution_complexity ?? ""}
+              onChange={(e) => e.target.value && setComplexity(item.id, e.target.value as Complexity)}
+              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Select…</option>
+              {(["Simple", "Medium", "Complex"] as Complexity[]).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <Field label="Effort estimate" value={item.solution_effort} onChange={(v) => updateShaping(item.id, { solution_effort: v })} rows={2} placeholder="S/M/L or notes before tech estimate" />
+          <div className="md:col-span-2">
+            <Field label="Proposed approach" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} placeholder="How should we solve this?" />
+          </div>
+          <Field label="Success criteria" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} placeholder="What must be true when this is done?" />
+          <Field label="Open questions" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} placeholder="Questions for tech, QA, clinic, or leadership" />
+          <div className="md:col-span-2 rounded-md border border-border bg-surface-2 p-3">
+            <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Supporting attachments</p>
+            <AttachmentsField attachments={item.attachments ?? []} onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)} currentUserId={currentUserId} compact />
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-5">
+          <p className="text-xs text-muted-foreground">Autosaves. Required: problem, why/evidence, approach and complexity.</p>
+          <button
+            disabled={!ready}
+            onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Tech Review" })}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+          >
+            Send to Tech Review
+          </button>
+        </div>
+      </div>
+      <aside className="lg:sticky lg:top-24 lg:self-start">
+        <div className="tfp-card p-5">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Simplified shaping</p>
+          <p className="mt-2 text-sm text-muted-foreground">Roadmap bucket, displacement, detailed who/where and risk notes are no longer required to advance.</p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      />
     </div>
   );
 }
@@ -762,7 +843,7 @@ function SolutionBrief({ item }: { item: ShapingItem }) {
         </button>
         <button
           disabled={!ready}
-          onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
+          onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Tech Review" })}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
         >
           Send to Tech Review
@@ -809,13 +890,13 @@ function TechReview({ item }: { item: ShapingItem }) {
           </dl>
           <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
             <button
-              onClick={() => updateShaping(item.id, { current_step: 3 })}
+              onClick={() => updateShaping(item.id, { current_step: 1 })}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back
             </button>
             <button
-              onClick={() => updateShaping(item.id, { current_step: 5 })}
+              onClick={() => updateShaping(item.id, { current_step: 3 })}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
             >
               Continue to Approval →
@@ -904,7 +985,7 @@ function TechReview({ item }: { item: ShapingItem }) {
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
           <button
-            onClick={() => updateShaping(item.id, { current_step: 3 })}
+            onClick={() => updateShaping(item.id, { current_step: 1 })}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back
@@ -935,9 +1016,8 @@ function Approval({ item }: { item: ShapingItem }) {
   const [notes, setNotes] = useState(item.approval_notes);
   const gates = useMemo(
     () => [
-      { ok: completenessScore(item) >= 5, label: "Problem brief complete (5/6 fields)" },
-      { ok: !!item.roadmap_bucket, label: "Roadmap bucket selected" },
-      { ok: solutionComplete(item), label: "Solution brief complete" },
+      { ok: completenessScore(item) >= 3, label: "Definition complete" },
+      { ok: solutionComplete(item), label: "Approach complete" },
       { ok: techReviewComplete(item), label: "Tech Review signed off" },
     ],
     [item],
@@ -1026,7 +1106,7 @@ function Approval({ item }: { item: ShapingItem }) {
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <button
-            onClick={() => updateShaping(item.id, { current_step: 4 })}
+            onClick={() => updateShaping(item.id, { current_step: 2 })}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back

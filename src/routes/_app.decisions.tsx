@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/decisions")({
-  component: () => <Navigate to="/governance" search={{ tab: "decisions" }} />,
+  component: () => <Navigate to="/governance" search={{ tab: "comms" }} />,
 });
 
 const TYPES: DecisionType[] = ["Architectural", "Product", "Process", "Vendor"];

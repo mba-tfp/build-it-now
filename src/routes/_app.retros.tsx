@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/retros")({
-  component: () => <Navigate to="/governance" search={{ tab: "retros" }} />,
+  component: () => <Navigate to="/governance" search={{ tab: "lookback" }} />,
 });
 
 const THEMES: RetroTheme[] = ["Process", "Tools", "Communication", "Quality", "Capacity", "Other"];

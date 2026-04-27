@@ -51,6 +51,7 @@ function LeadershipPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const overrides = useTfpStore((s) => s.overrides);
   const goLives = useTfpStore((s) => s.goLives);
+  const decisions = useTfpStore((s) => s.decisions);
   const ackOverride = useTfpStore((s) => s.ackOverride);
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const users = useTfpStore((s) => s.users);
@@ -220,6 +221,31 @@ function LeadershipPage() {
     });
   }
 
+
+  const briefingMarkdown = useMemo(() => {
+    const shipped = shaping.filter((s) => s.delivery_status === "Done").slice(0, 5);
+    const blockedItems = shaping.filter((s) => s.delivery_status === "Blocked").slice(0, 5);
+    const needsDecision = decisions.filter((d) => d.status === "Open").slice(0, 5);
+    const lines = [
+      `# TFP weekly briefing — ${fmtDate(new Date(now).toISOString())}`,
+      "",
+      "## What shipped",
+      ...(shipped.length ? shipped.map((s) => `- ${signals.find((x) => x.id === s.signal_id)?.title ?? s.jira_key}`) : ["- Nothing marked Done yet."]),
+      "",
+      "## What's blocked",
+      ...(blockedItems.length ? blockedItems.map((s) => `- ${s.jira_key}: ${s.blocker_description || "Blocked"}`) : ["- No active blockers."]),
+      "",
+      "## Needs decision",
+      ...(needsDecision.length ? needsDecision.map((d) => `- ${d.title}`) : ["- No open decisions."]),
+    ];
+    return lines.join("\n");
+  }, [shaping, signals, decisions, now]);
+
+  function copyBriefing() {
+    navigator.clipboard?.writeText(briefingMarkdown);
+    toast.success("Briefing copied", { description: "Markdown summary copied to clipboard." });
+  }
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -231,6 +257,13 @@ function LeadershipPage() {
           </p>
         </div>
         <div className="no-print flex flex-wrap items-center gap-2">
+          <button
+            onClick={copyBriefing}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Copy briefing
+          </button>
           <button
             onClick={() => setUpdateOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
@@ -260,6 +293,8 @@ function LeadershipPage() {
           You are viewing the Leadership dashboard. Switch to Shahid in the user menu to see his perspective.
         </div>
       )}
+
+      <BriefingPanel markdown={briefingMarkdown} />
 
       <SprintStatusStrip
         sprint={sprint}
@@ -701,6 +736,16 @@ const _types: { sh?: ShapingItem; sig?: Signal; it?: IssueType } = {};
 void _types;
 
 // ============== Wave 4 panels ==============
+
+function BriefingPanel({ markdown }: { markdown: string }) {
+  return (
+    <section className="mb-4 rounded-lg border border-border bg-surface p-5 print-page-break">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Stakeholder one-pager</p>
+      <h2 className="mt-1 font-display text-xl">Weekly briefing</h2>
+      <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed text-foreground">{markdown}</pre>
+    </section>
+  );
+}
 
 function SprintStatusStrip({
   sprint,
