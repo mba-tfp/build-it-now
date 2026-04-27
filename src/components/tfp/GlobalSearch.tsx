@@ -208,7 +208,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 Start typing to search across the workspace.
               </div>
             )}
-            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Go-Live", "Review"] as const).map((type) => {
+            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Go-Live", "Lookback"] as const).map((type) => {
               const list = results[type];
               if (list.length === 0) return null;
               const visible = list.slice(0, 5);
@@ -253,7 +253,7 @@ function typeBadgeTone(type: Hit["type"]): string {
       return "bg-[var(--color-status-hold)]/15 text-[var(--color-status-hold)]";
     case "Go-Live":
       return "bg-accent text-accent-foreground";
-    case "Review":
+    case "Lookback":
       return "bg-muted text-muted-foreground";
   }
 }
