@@ -2187,7 +2187,7 @@ export const useTfpStore = create<State>()(
           trigger: "override_logged",
           title: `${ovr.id} awaiting acknowledgement`,
           body: ovr.reason.slice(0, 100),
-          link_to: "/overrides",
+          link_to: "/delivery",
           entity_id: ovr.id,
         });
         return ovr;
@@ -2335,7 +2335,7 @@ export const useTfpStore = create<State>()(
           trigger: "comms_approval",
           title: "Comms awaiting PM approval",
           body: get().comms.find((c) => c.id === id)?.subject ?? "",
-          link_to: "/comms",
+          link_to: "/governance",
           entity_id: id,
         });
       },
@@ -2415,7 +2415,7 @@ export const useTfpStore = create<State>()(
             trigger: "retro_escalation",
             title: `${data.primary_theme} theme escalated (3 sprints)`,
             body: data.one_change,
-            link_to: "/retros",
+            link_to: "/governance",
             entity_id: retro.id,
           });
         }
@@ -2525,7 +2525,7 @@ export const useTfpStore = create<State>()(
           trigger: "monitoring_alert",
           title: `${data.severity} monitoring alert: ${data.system}`,
           body: data.message,
-          link_to: "/health",
+          link_to: "/governance",
           entity_id: alert.id,
         });
         return alert;
