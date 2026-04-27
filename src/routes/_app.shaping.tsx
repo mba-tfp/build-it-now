@@ -957,7 +957,7 @@ function TechReview({ item }: { item: ShapingItem }) {
               ← Back
             </button>
             <button
-              onClick={() => updateShaping(item.id, { current_step: 3 })}
+              onClick={() => updateShaping(item.id, { current_step: 5, shaping_status: "Tech Approved" })}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
             >
               Continue to Approval →
@@ -1167,7 +1167,7 @@ function Approval({ item }: { item: ShapingItem }) {
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <button
-            onClick={() => updateShaping(item.id, { current_step: 2 })}
+            onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back
