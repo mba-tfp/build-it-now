@@ -50,7 +50,7 @@ export function RetrosPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 12</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Lookback</p>
           <h1 className="mt-1 font-display text-3xl">Sprint Retros</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Three fields, one theme. 3 consecutive sprints sharing a theme triggers escalation.
