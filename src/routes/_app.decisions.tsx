@@ -56,10 +56,10 @@ export function DecisionsPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">View 11</p>
-          <h1 className="mt-1 font-display text-3xl">Decision Log</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Support</p>
+          <h1 className="mt-1 font-display text-3xl">Decisions</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Architectural, product, and process decisions — searchable and linked to signals.
+            Searchable record of decisions captured inline on signals and shaping work.
           </p>
         </div>
         <button
