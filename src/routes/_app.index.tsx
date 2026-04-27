@@ -37,10 +37,10 @@ function DashboardPage() {
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">TFP AI Workflow System</p>
-          <h1 className="mt-1 font-display text-3xl">Team Home</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Signal → Delivery</p>
+          <h1 className="mt-1 font-display text-3xl">Today's Work</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            The practical dashboard: what is moving, what is blocked, and what needs a decision.
+            One place to manage product work from signal to delivery.
           </p>
         </div>
         <Link to="/inbox" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
@@ -56,7 +56,7 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Panel title="Active sprint" subtitle={`${sprintItems.length} committed items in ${sprint.name}`}>
+        <Panel title="Needs action" subtitle={`${sprintItems.length} sprint items, ${blocked.length} blocked`}>
           <div className="space-y-2">
             {sprintItems.slice(0, 8).map((sh) => {
               const sig = signals.find((s) => s.id === sh.signal_id);
@@ -78,7 +78,7 @@ function DashboardPage() {
           </div>
         </Panel>
 
-        <Panel title="Open questions" subtitle="Shaping items with unanswered questions">
+        <Panel title="Open questions" subtitle="Shaping items that need a reply">
           <div className="space-y-3">
             {questions.map(({ sh, sig }) => (
               <Link key={sh.id} to="/shaping" className="block rounded-md border border-border bg-surface p-3 hover:bg-muted/40">
@@ -95,7 +95,7 @@ function DashboardPage() {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <Panel title="Recent activity" subtitle="Only meaningful transitions and approvals">
+        <Panel title="Recent changes" subtitle="Meaningful transitions and approvals">
           <div className="space-y-2">
             {recent.map((a) => (
               <div key={a.id} className="flex gap-3 rounded-md border border-border bg-surface px-3 py-2 text-sm">
@@ -108,12 +108,12 @@ function DashboardPage() {
             ))}
           </div>
         </Panel>
-        <Panel title="This week" subtitle="Quick links for daily work">
+        <Panel title="Core workflow" subtitle="Home → Inbox → Shaping → Delivery → Roadmap">
           <div className="grid gap-2 sm:grid-cols-2">
-            <QuickLink to="/inbox" icon={<MessageSquare className="h-4 w-4" />} title="Triage inbox" detail={`${signals.filter((s) => s.status === "New" || s.status === "In Review").length} open signals`} />
+            <QuickLink to="/inbox" icon={<MessageSquare className="h-4 w-4" />} title="Inbox" detail={`${signals.filter((s) => s.status === "New" || s.status === "In Review").length} incoming signals`} />
             <QuickLink to="/shaping" icon={<TrendingUp className="h-4 w-4" />} title="Shape work" detail={`${shaping.filter((s) => s.shaping_status !== "In Delivery").length} active items`} />
             <QuickLink to="/delivery" icon={<TrendingUp className="h-4 w-4" />} title="Delivery board" detail={`${blocked.length} blocked`} />
-            <QuickLink to="/leadership" icon={<CheckCircle2 className="h-4 w-4" />} title="Briefing" detail={`Updated ${fmtDate(new Date().toISOString())}`} />
+            <QuickLink to="/leadership" icon={<CheckCircle2 className="h-4 w-4" />} title="Leadership brief" detail={`Updated ${fmtDate(new Date().toISOString())}`} />
           </div>
         </Panel>
       </div>
