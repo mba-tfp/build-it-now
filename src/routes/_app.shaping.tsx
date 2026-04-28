@@ -957,7 +957,8 @@ const CONCURRENT_KEYWORDS = ["accuro", "phelix", "integration", "api", "webhook"
 
 function TechReview({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
-  const isTechLead = me.role === "Tech Lead";
+  const assignedLead = USERS.find((u) => u.id === item.tech_reviewer_id);
+  const canEdit = me.role === "Tech Lead" && (!item.tech_reviewer_id || item.tech_reviewer_id === me.id);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const signOff = useTfpStore((s) => s.signOffTechReview);
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id));
@@ -978,12 +979,14 @@ function TechReview({ item }: { item: ShapingItem }) {
         <div className="tfp-card p-5">
           <div className="flex items-center gap-2 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
             <ShieldCheck className="h-4 w-4" />
-            Signed off by {reviewer?.name ?? "Tech Lead"} on {fmtDateTime(item.tech_signed_off_at)}.
+            Tech review complete — this item is ready for sprint planning.
           </div>
           <dl className="mt-5 space-y-4 text-sm">
+            <ReadField label="Assigned to" value={reviewer?.name ?? "Tech Lead"} />
             <ReadField label="Review notes" value={item.tech_review_notes} />
             <ReadField label="Concerns" value={item.tech_concerns || "None"} />
             <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
+            <ReadField label="Signed off" value={fmtDateTime(item.tech_signed_off_at)} />
             {needsConcurrentCheck && (
               <ReadField label="Concurrent access" value={item.tech_concurrent_access_checked ? "Reviewed and documented" : "Not checked"} />
             )}
@@ -1009,8 +1012,17 @@ function TechReview({ item }: { item: ShapingItem }) {
         <p className="mt-1 text-sm text-muted-foreground">
           A Tech Lead reviews the shaped proposal, confirms the approach, estimates effort, and signs off.
         </p>
+        <div className="mt-5 rounded-md border border-border bg-surface-2 p-3 text-sm">
+          <span className="text-muted-foreground">Assigned to</span>
+          <span className="ml-2 font-medium">{assignedLead?.name ?? "Tech Lead"}</span>
+        </div>
+        {!canEdit && (
+          <div className="mt-3 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3 text-sm text-[var(--color-status-hold)]">
+            Switch to {assignedLead?.name ?? "Tech Lead"} to complete this review.
+          </div>
+        )}
 
-        <fieldset disabled={!isTechLead} className="mt-5 space-y-4">
+        <fieldset disabled={!canEdit} className="mt-5 space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium">Review notes</label>
             <textarea
@@ -1085,7 +1097,7 @@ function TechReview({ item }: { item: ShapingItem }) {
             ← Back
           </button>
           <button
-            disabled={!isTechLead || !ready}
+            disabled={!canEdit || !ready}
             onClick={() => signOff(item.id, me.id)}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
