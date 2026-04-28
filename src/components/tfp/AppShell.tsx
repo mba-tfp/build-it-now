@@ -6,19 +6,14 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import {
   Activity,
-  Home,
   Bell,
   HelpCircle,
   Search,
   Inbox,
   Layers,
   Truck,
-  Map as MapIcon,
+  Building2,
   Crown,
-  Gavel,
-  ShieldCheck,
-  BookOpen,
-  Workflow as WorkflowIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingModal } from "./OnboardingModal";
@@ -40,34 +35,17 @@ import {
 } from "@/components/ui/sidebar";
 
 const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { to: "/", label: "Home", icon: Home },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
-  { to: "/roadmap", label: "Roadmap", icon: MapIcon },
-];
-
-const LEADERSHIP_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { to: "/health", label: "Clinics", icon: Building2 },
   { to: "/leadership", label: "Leadership", icon: Crown },
-];
-
-const SUPPORT_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { to: "/governance", label: "Comms & Lookback", icon: Gavel },
-];
-
-const ADMIN_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }>; flag?: "helpCenterEnabled" | "workflowBuilderEnabled" | "adminPanelEnabled" }> = [
-  { to: "/help", label: "Help Center", icon: BookOpen, flag: "helpCenterEnabled" },
-  { to: "/workflows", label: "Workflows", icon: WorkflowIcon, flag: "workflowBuilderEnabled" },
-  { to: "/admin", label: "Admin", icon: ShieldCheck, flag: "adminPanelEnabled" },
 ];
 
 function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const flags = useTfpStore((s) => s.flags);
-
-  const adminItems = ADMIN_NAV.filter((n) => !n.flag || flags[n.flag]);
 
   return (
     <Sidebar collapsible="icon">
@@ -87,11 +65,7 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {([
-          { label: "Pipeline", items: PIPELINE_NAV },
-          { label: "Leadership", items: LEADERSHIP_NAV },
-          { label: "Support", items: SUPPORT_NAV },
-        ] as const).map((group) => (
+        {([{ label: "Pipeline", items: PIPELINE_NAV }] as const).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -102,11 +76,7 @@ function AppSidebar() {
                     location.pathname.startsWith(n.to + "/") ||
                     (n.to === "/inbox" &&
                       (location.pathname === "/intake" || location.pathname === "/triage")) ||
-                    (n.to === "/delivery" && location.pathname === "/golive") ||
-                    (n.to === "/governance" &&
-                      ["/comms", "/review", "/decisions", "/overrides", "/retros", "/health"].includes(
-                        location.pathname,
-                      ));
+                    (n.to === "/delivery" && location.pathname === "/golive");
                   const Icon = n.icon;
                   return (
                     <SidebarMenuItem key={n.to}>
@@ -123,30 +93,6 @@ function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-        {adminItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>System</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((n) => {
-                  const active =
-                    location.pathname === n.to || location.pathname.startsWith(n.to + "/");
-                  const Icon = n.icon;
-                  return (
-                    <SidebarMenuItem key={n.to}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
-                        <Link to={n.to}>
-                          <Icon className="h-4 w-4" />
-                          <span>{n.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
     </Sidebar>
   );
