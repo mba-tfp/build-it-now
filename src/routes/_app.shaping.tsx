@@ -427,6 +427,7 @@ const DEP_SYSTEMS: Array<"Accuro" | "Phelix AI" | "Olive EngagedMD" | "Tia Healt
 function DependencyFastTrack({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
   const updateShaping = useTfpStore((s) => s.updateShaping);
+  const pushNotification = useTfpStore((s) => s.pushNotification);
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id))!;
 
   const [whatChanged, setWhatChanged] = useState(item.dependency_what_changed);
@@ -434,6 +435,9 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
   const [impact, setImpact] = useState(item.dependency_impact);
   const [deadline, setDeadline] = useState(item.dependency_deadline ?? "");
   const [system, setSystem] = useState<ShapingItem["dependency_system"]>(item.dependency_system);
+  const techLeads = USERS.filter((u) => u.role === "Tech Lead");
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? techLeads[0]?.id ?? "");
 
   const ready =
     whatChanged.trim().length >= 30 &&
@@ -441,15 +445,25 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
     impact.trim().length > 0 &&
     !!system;
 
-  function save(advance: boolean) {
+  function save(advance: boolean, reviewerId?: string) {
     updateShaping(item.id, {
       dependency_what_changed: whatChanged,
       dependency_integrations_affected: integrations,
       dependency_impact: impact,
       dependency_deadline: deadline || null,
       dependency_system: system,
-      ...(advance ? { current_step: 4 as const, shaping_status: "In Tech Review" as const } : {}),
+      ...(advance ? { current_step: 2 as const, shaping_status: "In Tech Review" as const, tech_reviewer_id: reviewerId ?? selectedTechLead } : {}),
     });
+    if (advance) {
+      pushNotification({
+        trigger: "tech_review_ready",
+        title: "Tech review assigned",
+        body: "A shaping item is waiting for your review.",
+        link_to: "/shaping",
+        for_user_id: reviewerId ?? selectedTechLead,
+        entity_id: item.id,
+      });
+    }
   }
 
   return (
@@ -527,7 +541,7 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
             </button>
             <button
               disabled={!ready}
-              onClick={() => save(true)}
+              onClick={() => setAssignOpen(true)}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             >
               Save + send to Tech Review
@@ -535,6 +549,24 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
           </div>
         </div>
       </div>
+      {assignOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+            <h3 className="font-display text-lg">Assign a Tech Lead for this review</h3>
+            <select
+              value={selectedTechLead}
+              onChange={(e) => setSelectedTechLead(e.target.value)}
+              className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{techLeadName(lead)}</option>)}
+            </select>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+              <button onClick={() => { save(true, selectedTechLead); setAssignOpen(false); }} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RoleHint required="PM" current={me.role} />
     </div>
