@@ -800,81 +800,141 @@ const seedGoLive: GoLiveChecklist[] = [
     status: "In Progress",
     war_room: false,
     criteria: {
-      "Phase 1: Kickoff completed": {
+      "1. Initial workflow discussion with the clinic": {
         done: true,
-        note: "Kickoff completed with Procrea QC clinic leadership.",
+        note: "Workflow discussion completed with Procrea QC operations and physician stakeholders.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -13 * 86400000).toISOString(),
       },
-      "Phase 1: Clinic requirements documented": {
+      "2. Create workflow requirements document": {
         done: true,
-        note: "Workflow requirements captured and attached to onboarding ticket.",
+        note: "Requirements document approved for Procrea QC onboarding.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -12 * 86400000).toISOString(),
       },
-      "Phase 1: Tenant shell created": {
+      "3. Obtain health forms from the clinic": {
         done: true,
-        note: "Procrea QC tenant shell created in pre-production.",
-        checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
-      },
-      "Phase 1: User roles mapped": {
-        done: true,
-        note: "Coordinator and admin role mapping reviewed.",
+        note: "Clinic shared the French and English health form packet.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH - 9 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -11 * 86400000).toISOString(),
       },
-      "Phase 1: Data template approved": {
+      "4. Align with physicians on health form content": {
         done: true,
-        note: "Initial migration template approved by clinic contact.",
+        note: "Physician review completed with minor wording updates.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -10 * 86400000).toISOString(),
       },
-      "Phase 2: Workflow configuration started": {
+      "5. Gather all required configuration items": {
         done: true,
-        note: "Phase 2 active — workflow configuration in progress.",
+        note: "Required configuration items gathered from clinic admin team.",
+        checked_by: "u-bazil",
+        checked_at: new Date(SEED_EPOCH -9 * 86400000).toISOString(),
+      },
+      "6. Configure workflows, forms, and templates in CNP": {
+        done: true,
+        note: "CNP workflows, forms, and templates configured for pre-production.",
         checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -8 * 86400000).toISOString(),
       },
-      "Phase 2: Intake forms configured": {
+      "7. Prepare pre-production environment with configuration": {
         done: true,
-        note: "Core intake forms configured in pre-production.",
+        note: "Pre-production environment prepared with Procrea QC configuration.",
         checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -7 * 86400000).toISOString(),
       },
-      "Phase 2: Email templates configured": {
+      "8. Product validation of configurations (internal TFP review)": {
         done: true,
-        note: "Welcome, reminder, and consent email templates configured.",
+        note: "Internal TFP product validation completed.",
+        checked_by: "u-bazil",
+        checked_at: new Date(SEED_EPOCH -6 * 86400000).toISOString(),
+      },
+      "9. Get email content validated (clinic approval)": {
+        done: true,
+        note: "Clinic approved email content for UAT.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH -5 * 86400000).toISOString(),
       },
-      "Phase 2: Integration credentials requested": {
+      "10. Walk through pre-prod workflow with clinic and gather feedback": {
         done: true,
-        note: "Clinic IT provided integration credential request path.",
-        checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+        note: "Walkthrough completed; feedback captured for final updates.",
+        checked_by: "u-sami",
+        checked_at: new Date(SEED_EPOCH -4 * 86400000).toISOString(),
       },
-      "Phase 2: Internal smoke test completed": {
-        done: true,
-        note: "Internal smoke test passed for core onboarding workflow.",
-        checked_by: "u-karim",
-        checked_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
-      },
-      "Phase 2: Clinic UAT walkthrough completed": {
+      "11. Implement clinic feedback": {
         done: false,
-        note: "Pending Sami walkthrough with clinic coordinator team.",
+        note: "Pending final feedback implementation.",
         checked_by: null,
         checked_at: null,
       },
-      "Phase 2: Go-live comms approved": {
+      "12. Get consents and privacy policy through Legal": {
         done: false,
-        note: "Pending comms approval after UAT walkthrough.",
+        note: "Pending French language review and Law 25 compliance sign-off.",
         checked_by: null,
         checked_at: null,
       },
-      "Phase 2: Final go/no-go confirmed": {
+      "13. Clinic UAT — minimum 2-3 scenarios tested by clinic staff": {
         done: false,
-        note: "Pending final readiness review.",
+        note: "Pending clinic UAT scenarios.",
+        checked_by: null,
+        checked_at: null,
+      },
+      "14. Decide on go-live date (confirmed with clinic)": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "15. Prepare production environment": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "16a. Complete eIVF integration": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "16b. Complete EngagedMD integration": {
+        done: false,
+        note: "[Not applicable]",
+        checked_by: null,
+        checked_at: null,
+      },
+      "16c. Complete Google Analytics integration": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "16d. Complete Accuro / IDEAS / Oscar / other EMR integration": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "17. Final testing in production": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "18. Define go-live plan (roles, timing, rollback criteria)": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "19. Go-live execution": {
+        done: false,
+        note: "",
+        checked_by: null,
+        checked_at: null,
+      },
+      "20. Post-launch follow-up with clinic within 48 hours": {
+        done: false,
+        note: "",
         checked_by: null,
         checked_at: null,
       },
