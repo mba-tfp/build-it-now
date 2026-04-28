@@ -2674,9 +2674,11 @@ export const useTfpStore = create<State>()(
 
 export function completenessScore(s: ShapingItem): number {
   const fields: Array<{ key: keyof ShapingItem; min: number }> = [
-    { key: "problem_what", min: 20 },
-    { key: "problem_why", min: 20 },
-    { key: "problem_evidence", min: 20 },
+    { key: "problem_what", min: 30 },
+    { key: "problem_why", min: 30 },
+    { key: "problem_who", min: 20 },
+    { key: "solution_criteria", min: 30 },
+    { key: "solution_approach", min: 30 },
   ];
   return fields.reduce((acc, f) => {
     const v = String(s[f.key] ?? "");
