@@ -1,11 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  canApprove,
   completenessScore,
   daysSince,
-  solutionComplete,
-  techReviewComplete,
   usableCapacity,
   USERS,
   useTfpStore,
@@ -29,12 +26,11 @@ export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
 });
 
-const STEPS = ["Define", "Tech Review", "Approve"] as const;
+const STEPS = ["Define", "Tech Review"] as const;
 
-function displayStep(step: number): 1 | 2 | 3 {
-  if (step >= 5) return 3;
+function displayStep(step: number): 1 | 2 {
   if (step >= 4) return 2;
-  if (step >= 3) return 3;
+  if (step >= 4) return 2;
   if (step >= 2) return 2;
   return 1;
 }
@@ -86,7 +82,7 @@ function ShapingPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping</p>
           <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approved signals move through Define → Tech Review → Approve before delivery.
+            Approved signals move through Define → Tech Review before delivery.
           </p>
         </div>
         <SortMenu
