@@ -113,19 +113,21 @@ function ShapingPage() {
               if (!sig) return null;
               // Hide items that have moved to delivery — they live on the Delivery board
               if (sh.shaping_status === "In Delivery") return null;
-              const stale = daysSince(sh.created_at);
+              const daysInStatus = daysSince(sh.updated_at || sh.created_at);
               const hoursSinceStart = sh.shaping_started_at
                 ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
                 : 0;
               const isBug = sig.issue_type === "Bug";
               const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
+              const score = completenessScore(sh);
+              const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
               const borderCls = overdue
                 ? "border-destructive/60 ring-1 ring-destructive/30"
                 : sh.fast_track
                   ? "border-[var(--color-status-hold)]/60"
-                  : stale > 12
+                  : daysInStatus > 12
                     ? "border-destructive/40"
-                    : stale > 6
+                    : daysInStatus > 6
                       ? "border-[var(--color-status-hold)]/50"
                       : "border-border";
               return (
@@ -139,9 +141,10 @@ function ShapingPage() {
                   )}
                 >
                   <div className="p-5">
-                    <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{sig.product}</span>
-                      <span className="flex items-center gap-1.5">
+                    <div className="mb-2 flex items-start justify-between gap-3 text-[11px] text-muted-foreground">
+                      <span className="font-medium">{sig.product}</span>
+                      <span className="flex flex-col items-end gap-1.5">
+                        <span className="flex flex-wrap justify-end gap-1.5">
                         {sh.fast_track && (
                           <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
                             Fast-track
@@ -153,18 +156,29 @@ function ShapingPage() {
                           </span>
                         )}
                         <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
+                        {sh.shaping_status === "Ready for Sprint" && (
+                          <span className="rounded-full bg-[var(--color-status-proceed)]/15 px-2 py-0.5 font-medium text-[var(--color-status-proceed)]">
+                            Ready
+                          </span>
+                        )}
+                        </span>
+                        {sh.shaping_status === "In Tech Review" && (
+                          <span className="font-medium text-[var(--color-status-hold)]">
+                            Waiting on {techLead?.name ?? "Tech Lead"}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 2`}</span>
-                        <span>{stale}d in stage</span>
+                        <span>Completeness {score}/5</span>
+                        <span>{daysInStatus}d in current status</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
-                          className="h-full bg-primary"
-                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 2) * 100}%` }}
+                          className={cn("h-full", score === 5 ? "bg-[var(--color-status-proceed)]" : "bg-primary")}
+                          style={{ width: `${(score / 5) * 100}%` }}
                         />
                       </div>
                     </div>
