@@ -361,6 +361,18 @@ const sigUniquePatientId: Signal = buildSeedSignal({
   owner: "u-bazil",
 });
 
+sigDone.tier = "P2";
+sigInDelivery.tier = "P2";
+sigInQA.tier = "P2";
+sigBlocked.tier = "P2";
+sigForApproval.tier = "P1";
+sigForTechReview.tier = "P2";
+sigHelpCenter.tier = "P2";
+sigUniquePatientId.tier = "P2";
+[sigDone, sigInDelivery, sigInQA, sigBlocked, sigForApproval, sigForTechReview, sigHelpCenter, sigUniquePatientId].forEach((signal) => {
+  signal.sla_due_at = slaDueAt(signal.tier, new Date(signal.created_at)).toISOString();
+});
+
 const seedSignals: Signal[] = [
   sigDone,
   sigInDelivery,
