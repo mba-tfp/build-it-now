@@ -1699,12 +1699,12 @@ export const useTfpStore = create<State>()(
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        // B10: cannot push without Tech Approval (Approved status implies tech sign-off).
+        // B10: cannot push without Tech Review sign-off.
         if (!item) return "";
-        if (item.shaping_status !== "Approved") {
+        if (item.shaping_status !== "Ready for Sprint" && item.shaping_status !== "Approved") {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
-              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off + PM approval first.`);
+              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off first.`);
             });
           }
           return item.jira_key ?? "";
