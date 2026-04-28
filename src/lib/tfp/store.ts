@@ -1206,54 +1206,46 @@ const seedAudit: AuditEntry[] = [
 
 const seedNotifications: Notification[] = [
   buildNotification({
-    trigger: "sla_breach",
-    title: "SLA breach: Patients cannot complete intake on Safari",
-    body: "P1 signal past SLA. Owner: Bazil.",
-    link_to: "/inbox",
-    entity_id: seedSignals[0].id,
-    ts: new Date(SEED_EPOCH - 3600000).toISOString(),
-  }),
-  buildNotification({
     trigger: "blocked_over_1d",
-    title: "TFP-1045 blocked > 1 day",
-    body: "FertiWise lead form fix has been blocked since 13 Apr.",
+    title: "TFP-1047 blocked > 1 day",
+    body: "Phelix AI webhook latency is waiting on updated vendor documentation.",
     link_to: "/delivery",
     entity_id: shapingBlocked.id,
     ts: new Date(SEED_EPOCH - 7200000).toISOString(),
   }),
   buildNotification({
-    trigger: "comms_approval",
-    title: "Sami needs approval: Notes autosave email",
-    body: "Draft sitting in comms log awaiting PM sign-off.",
-    link_to: "/comms",
-    ts: new Date(SEED_EPOCH - 1800000).toISOString(),
-  }),
-  buildNotification({
     trigger: "override_logged",
-    title: "OVR-005 awaiting Shahid acknowledgement",
-    body: "Scope added mid-sprint: board KPI dashboard.",
+    title: "OVR-002 awaiting Shahid acknowledgement",
+    body: "Scope added mid-sprint for eIVF duplicate records at Generation Fertility.",
     link_to: "/delivery",
-    entity_id: "OVR-005",
+    entity_id: "OVR-002",
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
   }),
   buildNotification({
-    trigger: "review_overdue",
-    title: "Outcome review pending: Coordinator dashboard load time",
-    body: "Item shipped 4 days ago — review still in Pending.",
-    link_to: "/governance",
-    ts: new Date(SEED_EPOCH - 14400000).toISOString(),
+    trigger: "tech_review_ready",
+    title: "Heartland configuration ready for tech review",
+    body: "Heartland pre-production setup needs Waseem's estimate before UAT can begin.",
+    link_to: "/shaping",
+    entity_id: shapingInTechReview.id,
+    ts: new Date(SEED_EPOCH - 1800000).toISOString(),
   }),
   buildNotification({
-    trigger: "retro_escalation",
-    title: "Capacity theme escalated (3 sprints)",
-    body: "Sprints 3, 4, 5 all flagged Capacity as primary theme.",
-    link_to: "/retros",
-    ts: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
+    trigger: "sla_breach",
+    title: "SLA breach: eIVF duplicate patient records",
+    body: "P1 signal needs close delivery tracking. Owner: Bazil.",
+    link_to: "/delivery",
+    entity_id: sigForApproval.id,
+    ts: new Date(SEED_EPOCH - 3600000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "shaping_stuck",
+    title: "Research needed: TFP-wide patient identifier",
+    body: "Unique patient ID strategy is in shaping with open architecture questions.",
+    link_to: "/shaping",
+    entity_id: shapingInProgress.id,
+    ts: new Date(SEED_EPOCH - 14400000).toISOString(),
   }),
 ];
-seedNotifications[5].read = true;
-
-// ============ Store ============
 
 type State = {
   currentUserId: string;
