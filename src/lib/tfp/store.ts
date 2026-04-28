@@ -136,7 +136,8 @@ const uid = () => {
   return _uidCounter.toString(36).padStart(4, "0");
 };
 
-const SEED_EPOCH = new Date().getTime();
+const today = new Date();
+const SEED_EPOCH = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
 
 const blankUser = (id: string, name: string, role: User["role"]): User => ({
   id,
