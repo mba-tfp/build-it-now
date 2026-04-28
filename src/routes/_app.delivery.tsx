@@ -98,7 +98,7 @@ function DeliveryPage() {
 
   function addPlanning(id: string) {
     setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
-    setTab("planning");
+    navigate({ search: { tab: "planning" } });
   }
 
   function confirmSprint() {
@@ -177,7 +177,7 @@ function DeliveryPage() {
         ).map(([value, label]) => (
           <button
             key={value}
-            onClick={() => setTab(value)}
+            onClick={() => navigate({ search: { tab: value } })}
             className={cn(
               "border-b-2 px-3 py-2 text-sm font-medium transition",
               tab === value
