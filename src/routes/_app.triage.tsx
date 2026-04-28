@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
 import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
@@ -57,7 +57,7 @@ function priorityClasses(p: IntakePriority | undefined): string {
   }
 }
 
-export function TriageQueuePage() {
+export function TriageQueuePage({ initialOpenId }: { initialOpenId?: string }) {
   const signals = useTfpStore((s) => s.signals);
   const users = useTfpStore((s) => s.users);
   const triageDecision = useTfpStore((s) => s.triageDecision);
@@ -71,6 +71,10 @@ export function TriageQueuePage() {
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [bypass, setBypass] = useState<{ signalId: string; patch: Partial<Signal>; from: SignalStatus; to: SignalStatus } | null>(null);
+
+  useEffect(() => {
+    if (initialOpenId) setOpenId(initialOpenId);
+  }, [initialOpenId]);
 
   // Wrapper that surfaces toasts + opens the bypass confirm dialog when needed.
   function tryUpdate(signalId: string, patch: Partial<Signal>) {
