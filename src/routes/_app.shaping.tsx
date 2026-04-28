@@ -723,7 +723,7 @@ function TechReview({ item }: { item: ShapingItem }) {
             Tech review complete — this item is ready for sprint planning.
           </div>
           <dl className="mt-5 space-y-4 text-sm">
-            <ReadField label="Assigned to" value={reviewer?.name ?? "Tech Lead"} />
+            <ReadField label="Assigned to" value={techLeadName(reviewer)} />
             <ReadField label="Review notes" value={item.tech_review_notes} />
             <ReadField label="Concerns" value={item.tech_concerns || "None"} />
             <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
