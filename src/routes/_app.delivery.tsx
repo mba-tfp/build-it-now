@@ -1,4 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
@@ -7,7 +9,12 @@ import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
+const searchSchema = z.object({
+  tab: fallback(z.enum(["backlog", "planning", "board"]), "backlog").default("backlog"),
+});
+
 export const Route = createFileRoute("/_app/delivery")({
+  validateSearch: zodValidator(searchSchema),
   component: DeliveryPage,
 });
 
@@ -23,6 +30,8 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
 ];
 
 function DeliveryPage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
@@ -35,7 +44,6 @@ function DeliveryPage() {
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const pushNotification = useTfpStore((s) => s.pushNotification);
 
-  const [tab, setTab] = useState<DeliveryTab>("backlog");
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
   const [sprintGoal, setSprintGoal] = useState(sprint.notes ?? "");
