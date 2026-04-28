@@ -93,7 +93,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Shaping",
     section: "Workflow",
     body_markdown:
-      "# Shaping\n\nApproved signals move through three stages: Define → Tech Review → Approve. The Shaping workspace keeps the brief, tech concerns, open questions, and approval in one place.",
+      "# Shaping\n\nApproved signals move through two stages: Define → Tech Review. The Shaping workspace keeps the brief, tech concerns, and open questions in one place.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
