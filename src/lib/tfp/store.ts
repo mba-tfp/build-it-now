@@ -1669,6 +1669,7 @@ export const useTfpStore = create<State>()(
       },
 
       signOffTechReview: (id, reviewerId) => {
+        const item = get().shaping.find((s) => s.id === id);
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -1684,6 +1685,16 @@ export const useTfpStore = create<State>()(
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
+        if (item) {
+          get().pushNotification({
+            trigger: "tech_review_ready",
+            title: "Tech review complete",
+            body: "This item is ready for sprint planning.",
+            link_to: "/shaping",
+            for_user_id: item.pm_owner_id,
+            entity_id: id,
+          });
+        }
       },
 
       approveShaping: (id, approverId, notes) => {
@@ -2674,9 +2685,11 @@ export const useTfpStore = create<State>()(
 
 export function completenessScore(s: ShapingItem): number {
   const fields: Array<{ key: keyof ShapingItem; min: number }> = [
-    { key: "problem_what", min: 20 },
-    { key: "problem_why", min: 20 },
-    { key: "problem_evidence", min: 20 },
+    { key: "problem_what", min: 30 },
+    { key: "problem_why", min: 30 },
+    { key: "problem_who", min: 20 },
+    { key: "solution_criteria", min: 30 },
+    { key: "solution_approach", min: 30 },
   ];
   return fields.reduce((acc, f) => {
     const v = String(s[f.key] ?? "");

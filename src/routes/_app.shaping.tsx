@@ -3,15 +3,11 @@ import { useMemo, useState } from "react";
 import {
   completenessScore,
   daysSince,
-  solutionComplete,
-  usableCapacity,
   USERS,
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
-  Complexity,
   DecisionType,
-  RoadmapBucket,
   ShapingItem,
 } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
@@ -33,6 +29,11 @@ function displayStep(step: number): 1 | 2 {
   if (step >= 4) return 2;
   if (step >= 2) return 2;
   return 1;
+}
+
+function techLeadName(user?: { name: string } | null): string {
+  if (!user) return "Tech Lead";
+  return user.name === "M. Ahmed" ? "Ahmed" : user.name;
 }
 
 function ShapingPage() {
@@ -113,19 +114,21 @@ function ShapingPage() {
               if (!sig) return null;
               // Hide items that have moved to delivery — they live on the Delivery board
               if (sh.shaping_status === "In Delivery") return null;
-              const stale = daysSince(sh.created_at);
+              const daysInStatus = daysSince(sh.updated_at || sh.created_at);
               const hoursSinceStart = sh.shaping_started_at
                 ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
                 : 0;
               const isBug = sig.issue_type === "Bug";
               const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
+              const score = completenessScore(sh);
+              const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
               const borderCls = overdue
                 ? "border-destructive/60 ring-1 ring-destructive/30"
                 : sh.fast_track
                   ? "border-[var(--color-status-hold)]/60"
-                  : stale > 12
+                  : daysInStatus > 12
                     ? "border-destructive/40"
-                    : stale > 6
+                    : daysInStatus > 6
                       ? "border-[var(--color-status-hold)]/50"
                       : "border-border";
               return (
@@ -139,9 +142,10 @@ function ShapingPage() {
                   )}
                 >
                   <div className="p-5">
-                    <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{sig.product}</span>
-                      <span className="flex items-center gap-1.5">
+                    <div className="mb-2 flex items-start justify-between gap-3 text-[11px] text-muted-foreground">
+                      <span className="font-medium">{sig.product}</span>
+                      <span className="flex flex-col items-end gap-1.5">
+                        <span className="flex flex-wrap justify-end gap-1.5">
                         {sh.fast_track && (
                           <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
                             Fast-track
@@ -153,18 +157,29 @@ function ShapingPage() {
                           </span>
                         )}
                         <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
+                        {sh.shaping_status === "Ready for Sprint" && (
+                          <span className="rounded-full bg-[var(--color-status-proceed)]/15 px-2 py-0.5 font-medium text-[var(--color-status-proceed)]">
+                            Ready
+                          </span>
+                        )}
+                        </span>
+                        {sh.shaping_status === "In Tech Review" && (
+                          <span className="font-medium text-[var(--color-status-hold)]">
+                            Waiting on {techLeadName(techLead)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 2`}</span>
-                        <span>{stale}d in stage</span>
+                        <span>Completeness {score}/5</span>
+                        <span>{daysInStatus}d in current status</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
-                          className="h-full bg-primary"
-                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 2) * 100}%` }}
+                          className={cn("h-full", score === 5 ? "bg-[var(--color-status-proceed)]" : "bg-primary")}
+                          style={{ width: `${(score / 5) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -529,45 +544,58 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
 
 function DefineBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
-  const setComplexity = useTfpStore((s) => s.setComplexity);
   const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const pushNotification = useTfpStore((s) => s.pushNotification);
   const currentUserId = useTfpStore((s) => s.currentUserId);
-  const missingRequired = [
-    !item.problem_what.trim() && "Problem",
-    !item.problem_why.trim() && "Why now / evidence",
-    !item.solution_approach.trim() && "Proposed approach",
-  ].filter(Boolean) as string[];
+  const [assignOpen, setAssignOpen] = useState(false);
+  const techLeads = USERS.filter((u) => u.role === "Tech Lead");
+  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? techLeads[0]?.id ?? "");
+  const requiredFields = [
+    { key: "problem_what" as const, label: "Problem", min: 30 },
+    { key: "problem_why" as const, label: "Why now", min: 30 },
+    { key: "problem_who" as const, label: "Who is affected", min: 20 },
+    { key: "solution_criteria" as const, label: "Success criteria", min: 30 },
+    { key: "solution_approach" as const, label: "Proposed approach", min: 30 },
+  ];
+  const missingRequired = requiredFields
+    .filter((f) => String(item[f.key] ?? "").trim().length < f.min)
+    .map((f) => f.label);
   const ready = missingRequired.length === 0;
+
+  function confirmAssignment() {
+    const lead = USERS.find((u) => u.id === selectedTechLead);
+    if (!lead) return;
+    updateShaping(item.id, {
+      current_step: 2,
+      shaping_status: "In Tech Review",
+      tech_reviewer_id: lead.id,
+      solution_complexity: item.solution_complexity ?? "Medium",
+    });
+    pushNotification({
+      trigger: "tech_review_ready",
+      title: "Tech review assigned",
+      body: "A shaping item is waiting for your review.",
+      link_to: "/shaping",
+      for_user_id: lead.id,
+      entity_id: item.id,
+    });
+    setAssignOpen(false);
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
       <div className="tfp-card divide-y divide-border">
         <div className="p-5">
           <h3 className="font-display text-lg">Define</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            One lightweight brief: problem, evidence, approach, open questions and rough effort. Extra detail can live in notes.
-          </p>
         </div>
-        <div className="grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Problem" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} placeholder="What problem are we solving?" />
-          <Field label="Why now / evidence" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v, problem_evidence: v })} rows={4} placeholder="Why does it matter, and what evidence do we have?" />
-          <div>
-            <label className="mb-1 block text-sm font-medium">Complexity</label>
-            <select
-              value={item.solution_complexity ?? ""}
-              onChange={(e) => e.target.value && setComplexity(item.id, e.target.value as Complexity)}
-              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Select…</option>
-              {(["Simple", "Medium", "Complex"] as Complexity[]).map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <Field label="Effort estimate" value={item.solution_effort} onChange={(v) => updateShaping(item.id, { solution_effort: v })} rows={2} placeholder="S/M/L or notes before tech estimate" />
-          <div className="md:col-span-2">
-            <Field label="Proposed approach" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} placeholder="How should we solve this?" />
-          </div>
-          <Field label="Success criteria" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} placeholder="What must be true when this is done?" />
-          <Field label="Open questions" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} placeholder="Questions for tech, QA, clinic, or leadership" />
+        <div className="space-y-4 p-5">
+          <Field label="Problem (what is broken or missing?)" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} min={30} required />
+          <Field label="Why now (why does this matter and what happens if we don't solve it?)" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v })} rows={4} min={30} required />
+          <Field label="Who is affected (which clinics, which roles, how many people)" value={item.problem_who} onChange={(v) => updateShaping(item.id, { problem_who: v })} rows={3} min={20} required />
+          <Field label="Success criteria (what must be true when this is done?)" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} min={30} required />
+          <Field label="Proposed approach (how do we solve this at a high level?)" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} min={30} required />
+          <Field label="Open questions (what needs to be answered before building?)" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} />
+          <Field label="Out of scope (what are we explicitly not solving?)" value={item.problem_out_of_scope} onChange={(v) => updateShaping(item.id, { problem_out_of_scope: v })} rows={3} />
           <div className="md:col-span-2 rounded-md border border-border bg-surface-2 p-3">
             <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Supporting attachments</p>
             <AttachmentsField attachments={item.attachments ?? []} onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)} currentUserId={currentUserId} compact />
@@ -579,332 +607,57 @@ function DefineBrief({ item }: { item: ShapingItem }) {
           </p>
           <button
             disabled={!ready}
-            onClick={() =>
-              updateShaping(item.id, {
-                current_step: 4,
-                shaping_status: "In Tech Review",
-                solution_complexity: item.solution_complexity ?? "Medium",
-              })
-            }
+            onClick={() => setAssignOpen(true)}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
             Send to Tech Review
           </button>
         </div>
       </div>
+      {assignOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+            <h3 className="font-display text-lg">Assign a Tech Lead for this review</h3>
+            <select
+              value={selectedTechLead}
+              onChange={(e) => setSelectedTechLead(e.target.value)}
+              className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{techLeadName(lead)}</option>)}
+            </select>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+              <button onClick={confirmAssignment} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <div className="tfp-card p-5">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Simplified shaping</p>
-          <p className="mt-2 text-sm text-muted-foreground">Roadmap bucket, displacement, detailed who/where and risk notes are no longer required to advance.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Completeness</p>
+          <div className="mt-2 flex items-baseline gap-1"><span className="font-display text-4xl">{completenessScore(item)}</span><span className="text-sm text-muted-foreground">/ 5</span></div>
         </div>
       </aside>
     </div>
   );
 }
 
-function Field({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
+function Field({ label, value, onChange, rows, placeholder, min, required }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string; min?: number; required?: boolean }) {
+  const len = value.trim().length;
+  const ok = !required || len >= (min ?? 0);
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <label className="mb-1 flex items-baseline justify-between gap-3 text-sm font-medium">
+        <span>{label}{required && <span className="ml-1 text-destructive">*</span>}</span>
+        {required && <span className={cn("text-xs", ok ? "text-[var(--color-status-proceed)]" : "text-muted-foreground")}>{len}/{min}</span>}
+      </label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className={cn("w-full resize-y rounded-md border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring", !ok && len > 0 ? "border-destructive/50" : "border-input")}
       />
-    </div>
-  );
-}
-
-const PROBLEM_FIELDS: Array<{
-  key: keyof Pick<ShapingItem, "problem_what" | "problem_why" | "problem_who" | "problem_where" | "problem_evidence" | "problem_out_of_scope">;
-  label: string;
-  hint: string;
-  min: number;
-  rows: number;
-}> = [
-  { key: "problem_what", label: "What", hint: "What is the problem in plain language? Min 50 chars.", min: 50, rows: 3 },
-  { key: "problem_why", label: "Why", hint: "Why does this matter now? What happens if we don't solve it? Min 50 chars.", min: 50, rows: 3 },
-  { key: "problem_who", label: "Who", hint: "Who is affected? Roles and approximate numbers. Min 30 chars.", min: 30, rows: 2 },
-  { key: "problem_where", label: "Where", hint: "Where does this surface — which screen, flow, or context? Min 30 chars.", min: 30, rows: 2 },
-  { key: "problem_evidence", label: "Evidence", hint: "Tickets, logs, conversations that show this is real. Min 30 chars.", min: 30, rows: 2 },
-  { key: "problem_out_of_scope", label: "Out of scope", hint: "What we're explicitly not solving here.", min: 1, rows: 2 },
-];
-
-function ProblemBrief({ item }: { item: ShapingItem }) {
-  const updateShaping = useTfpStore((s) => s.updateShaping);
-  const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
-  const currentUserId = useTfpStore((s) => s.currentUserId);
-  const score = completenessScore(item);
-  const canAdvance = score >= 5;
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-      <div className="tfp-card divide-y divide-border">
-        {PROBLEM_FIELDS.map((f) => {
-          const value = item[f.key];
-          const len = value.trim().length;
-          const ok = len >= f.min;
-          return (
-            <div key={f.key} className="p-5">
-              <label className="mb-1 flex items-baseline justify-between text-sm font-medium">
-                <span>
-                  {f.label}
-                  <span className="ml-1 text-destructive">*</span>
-                </span>
-                <span className={cn("text-xs", ok ? "text-[var(--color-status-proceed)]" : "text-muted-foreground")}>
-                  {len}/{f.min}
-                </span>
-              </label>
-              <p className="mb-2 text-xs text-muted-foreground">{f.hint}</p>
-              <textarea
-                value={value}
-                onChange={(e) => updateShaping(item.id, { [f.key]: e.target.value } as Partial<ShapingItem>)}
-                rows={f.rows}
-                className={cn(
-                  "w-full resize-y rounded-md border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring",
-                  len > 0 && !ok ? "border-destructive/50" : "border-input",
-                )}
-              />
-              {f.key === "problem_evidence" && (
-                <div className="mt-3 rounded-md border border-border bg-surface-2 p-3">
-                  <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Supporting attachments
-                  </p>
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Attach screenshots, recordings, tickets, or links that back this evidence up.
-                  </p>
-                  <AttachmentsField
-                    attachments={item.attachments ?? []}
-                    onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)}
-                    currentUserId={currentUserId}
-                    compact
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-        <div className="flex items-center justify-between p-5">
-          <p className="text-xs text-muted-foreground">Autosaves on every change.</p>
-          <button
-            disabled={!canAdvance}
-            onClick={() => updateShaping(item.id, { current_step: 2, shaping_status: "In Shaping" })}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
-          >
-            Save + continue
-          </button>
-        </div>
-      </div>
-
-      <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="tfp-card p-5">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Completeness</p>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-display text-4xl">{score}</span>
-            <span className="text-sm text-muted-foreground">/ 6</span>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn("h-full transition-all", score >= 5 ? "bg-[var(--color-status-proceed)]" : "bg-primary")}
-              style={{ width: `${(score / 6) * 100}%` }}
-            />
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            {canAdvance
-              ? "Ready to advance to Roadmap Fit."
-              : `Need ${5 - score} more field${5 - score === 1 ? "" : "s"} to advance.`}
-          </p>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-const BUCKETS: RoadmapBucket[] = ["Committed", "Backlog", "Not Now"];
-
-function RoadmapFit({ item }: { item: ShapingItem }) {
-  const sprint = useTfpStore((s) => s.sprint);
-  const setRoadmapBucket = useTfpStore((s) => s.setRoadmapBucket);
-  const updateShaping = useTfpStore((s) => s.updateShaping);
-
-  const usable = useMemo(() => usableCapacity(sprint), [sprint]);
-  const usedPct = (sprint.allocated_pts / usable) * 100;
-  const overloaded = usedPct > 85;
-
-  const [bucket, setBucket] = useState<RoadmapBucket | null>(item.roadmap_bucket);
-  const [displacement, setDisplacement] = useState(item.displacement);
-
-  const needsDisplacement = bucket === "Committed" && overloaded;
-  const canSave = !!bucket && (!needsDisplacement || displacement.trim().length > 0);
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="tfp-card p-5">
-        <h3 className="font-display text-lg">Where does this fit?</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pick a roadmap bucket. If it goes in <strong>Committed</strong> while the sprint is over 85% allocated, you'll need to name what gets displaced.
-        </p>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {BUCKETS.map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => setBucket(b)}
-              className={cn(
-                "rounded-full border px-4 py-1.5 text-sm transition",
-                bucket === b
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
-              )}
-            >
-              {b}
-            </button>
-          ))}
-        </div>
-
-        {needsDisplacement && (
-          <div className="mt-5 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-4">
-            <p className="text-sm font-medium text-[var(--color-status-hold)]">
-              Sprint capacity is at {Math.round(usedPct)}%. What moves to make room?
-            </p>
-            <textarea
-              value={displacement}
-              onChange={(e) => setDisplacement(e.target.value)}
-              placeholder="Name the item that gets postponed or descoped…"
-              rows={3}
-              className="mt-3 w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        )}
-
-        <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
-          <button
-            onClick={() => updateShaping(item.id, { current_step: 1 })}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Back
-          </button>
-          <button
-            disabled={!canSave}
-            onClick={() => {
-              setRoadmapBucket(item.id, bucket!, displacement);
-              updateShaping(item.id, { current_step: 3 });
-            }}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
-          >
-            Save + continue
-          </button>
-        </div>
-      </div>
-
-      <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="tfp-card p-5">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{sprint.name} capacity</p>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-display text-3xl">{sprint.allocated_pts}</span>
-            <span className="text-sm text-muted-foreground">/ {usable} pts usable</span>
-          </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn("h-full transition-all", overloaded ? "bg-destructive" : "bg-primary")}
-              style={{ width: `${Math.min(100, usedPct)}%` }}
-            />
-          </div>
-          <dl className="mt-4 space-y-1 text-xs">
-            <Row label="Gross" value={`${sprint.gross_capacity_pts} pts`} />
-            <Row label="Leave" value={`-${sprint.leave_deduction_pts}`} />
-            <Row label="Interrupts" value={`-${sprint.interrupt_buffer_pts}`} />
-            <Row label="QA buffer" value={`-${sprint.qa_buffer_pts}`} />
-            <Row label="Uncertainty" value={`-${sprint.uncertainty_buffer_pts}`} />
-            <Row label="Carry-forward" value={`-${sprint.carryforward_estimate_pts}`} />
-          </dl>
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-
-const FIELD_LABELS: Partial<Record<keyof ShapingItem, string>> = {
-  solution_approach: "Approach",
-  solution_criteria: "Success criteria",
-  solution_effort: "Effort estimate",
-  solution_decisions: "Key decisions",
-  solution_questions: "Open questions",
-  solution_risks: "Risks",
-};
-
-const ALL_SOLUTION_FIELDS: Array<keyof ShapingItem> = [
-  "solution_approach",
-  "solution_criteria",
-  "solution_effort",
-  "solution_decisions",
-  "solution_questions",
-  "solution_risks",
-];
-
-function SolutionBrief({ item }: { item: ShapingItem }) {
-  const setComplexity = useTfpStore((s) => s.setComplexity);
-  const updateShaping = useTfpStore((s) => s.updateShaping);
-  const c = item.solution_complexity;
-  const ready = solutionComplete(item);
-
-  return (
-    <div className="tfp-card p-5">
-      <h3 className="font-display text-lg">Solution Brief</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Pick a complexity tag, then fill in as much detail as the work needs.
-      </p>
-
-      <div className="mt-5 max-w-xs">
-        <label className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">Complexity</label>
-        <select
-          value={c ?? ""}
-          onChange={(e) => {
-            const v = e.target.value as Complexity | "";
-            if (v) setComplexity(item.id, v);
-          }}
-          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="" disabled>Select complexity…</option>
-          {(["Simple", "Medium", "Complex"] as Complexity[]).map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mt-6 space-y-4">
-        {ALL_SOLUTION_FIELDS.map((key) => (
-          <div key={key}>
-            <label className="mb-1 block text-sm font-medium">{FIELD_LABELS[key]}</label>
-            <textarea
-              value={String(item[key] ?? "")}
-              onChange={(e) => updateShaping(item.id, { [key]: e.target.value } as Partial<ShapingItem>)}
-              rows={3}
-              className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
-        <button
-          onClick={() => updateShaping(item.id, { current_step: 2 })}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back
-        </button>
-        <button
-          disabled={!ready}
-          onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
-        >
-          Send to Tech Review
-        </button>
-      </div>
     </div>
   );
 }
@@ -913,7 +666,8 @@ const CONCURRENT_KEYWORDS = ["accuro", "phelix", "integration", "api", "webhook"
 
 function TechReview({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
-  const isTechLead = me.role === "Tech Lead";
+  const assignedLead = USERS.find((u) => u.id === item.tech_reviewer_id);
+  const canEdit = me.role === "Tech Lead" && (!item.tech_reviewer_id || item.tech_reviewer_id === me.id);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const signOff = useTfpStore((s) => s.signOffTechReview);
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id));
@@ -934,12 +688,14 @@ function TechReview({ item }: { item: ShapingItem }) {
         <div className="tfp-card p-5">
           <div className="flex items-center gap-2 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
             <ShieldCheck className="h-4 w-4" />
-            Signed off by {reviewer?.name ?? "Tech Lead"} on {fmtDateTime(item.tech_signed_off_at)}.
+            Tech review complete — this item is ready for sprint planning.
           </div>
           <dl className="mt-5 space-y-4 text-sm">
+            <ReadField label="Assigned to" value={techLeadName(reviewer)} />
             <ReadField label="Review notes" value={item.tech_review_notes} />
             <ReadField label="Concerns" value={item.tech_concerns || "None"} />
             <ReadField label="Estimate" value={`${item.tech_estimate_pts} points`} />
+            <ReadField label="Signed off" value={fmtDateTime(item.tech_signed_off_at)} />
             {needsConcurrentCheck && (
               <ReadField label="Concurrent access" value={item.tech_concurrent_access_checked ? "Reviewed and documented" : "Not checked"} />
             )}
@@ -965,8 +721,17 @@ function TechReview({ item }: { item: ShapingItem }) {
         <p className="mt-1 text-sm text-muted-foreground">
           A Tech Lead reviews the shaped proposal, confirms the approach, estimates effort, and signs off.
         </p>
+        <div className="mt-5 rounded-md border border-border bg-surface-2 p-3 text-sm">
+          <span className="text-muted-foreground">Assigned to</span>
+          <span className="ml-2 font-medium">{techLeadName(assignedLead)}</span>
+        </div>
+        {!canEdit && (
+          <div className="mt-3 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3 text-sm text-[var(--color-status-hold)]">
+            Switch to {techLeadName(assignedLead)} to complete this review.
+          </div>
+        )}
 
-        <fieldset disabled={!isTechLead} className="mt-5 space-y-4">
+        <fieldset disabled={!canEdit} className="mt-5 space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium">Review notes</label>
             <textarea
@@ -1041,7 +806,7 @@ function TechReview({ item }: { item: ShapingItem }) {
             ← Back
           </button>
           <button
-            disabled={!isTechLead || !ready}
+            disabled={!canEdit || !ready}
             onClick={() => signOff(item.id, me.id)}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
@@ -1094,11 +859,3 @@ function ReadField({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono">{value}</span>
-    </div>
-  );
-}
