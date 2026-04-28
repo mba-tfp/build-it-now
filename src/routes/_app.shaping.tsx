@@ -158,13 +158,13 @@ function ShapingPage() {
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 3`}</span>
+                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 2`}</span>
                         <span>{stale}d in stage</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full bg-primary"
-                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 3) * 100}%` }}
+                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 2) * 100}%` }}
                         />
                       </div>
                     </div>
