@@ -225,9 +225,9 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
       ) : (
         <>
           {/* Stepper */}
-          <ol className="mb-8 grid grid-cols-3 gap-2">
+          <ol className="mb-8 grid grid-cols-2 gap-2">
             {STEPS.map((label, i) => {
-              const n = (i + 1) as 1 | 2 | 3;
+              const n = (i + 1) as 1 | 2;
               const step = displayStep(sh.current_step);
               const done = step > n;
               const active = step === n;
@@ -262,7 +262,6 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
           {displayStep(sh.current_step) === 1 && <DefineBrief item={sh} />}
           {displayStep(sh.current_step) === 2 && <TechReview item={sh} />}
-          {displayStep(sh.current_step) === 3 && <Approval item={sh} />}
           <InlineDecisions item={sh} />
         </>
       )}
