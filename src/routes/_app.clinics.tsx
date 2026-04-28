@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Flag, Lock, Plus, Radio, X } from "lucide-react";
+import { CheckCircle2, Flag, Lock, Plus, Radio, X } from "lucide-react";
 import { toast } from "sonner";
-import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
+import { daysSince, useTfpStore } from "@/lib/tfp/store";
 import { fmtDate } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import type { GoLiveChecklist, Product } from "@/lib/tfp/types";
@@ -79,7 +79,6 @@ function ClinicsPage() {
   const setDecision = useTfpStore((s) => s.setGoLiveDecision);
   const upsertGoLive = useTfpStore((s) => s.upsertGoLive);
   const pushNotification = useTfpStore((s) => s.pushNotification);
-  const currentUserId = useTfpStore((s) => s.currentUserId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>({});
