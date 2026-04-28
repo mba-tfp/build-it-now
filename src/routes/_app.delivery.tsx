@@ -279,12 +279,8 @@ function PlanningTab(props: {
     <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
       <section className="rounded-md border border-border bg-surface/50">
         <div className="border-b border-border p-4"><h2 className="font-display text-lg">Prioritized backlog</h2></div>
-        <BacklogTable rows={props.backlogRows} action={undefined} />
+        <BacklogTable rows={props.backlogRows} onRowClick={(row) => props.onPick(row.sh.id)} action={undefined} />
         <div className="border-t border-border p-3 text-xs text-muted-foreground">Click a row to move it into sprint planning.</div>
-        <div className="absolute hidden" />
-        <div className="divide-y divide-border">
-          {props.backlogRows.map((row) => <button key={row.sh.id} onClick={() => props.onPick(row.sh.id)} className="sr-only">Add {row.sig.title}</button>)}
-        </div>
       </section>
 
       <section className="rounded-md border border-border bg-surface p-4">
