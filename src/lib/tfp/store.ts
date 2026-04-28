@@ -743,7 +743,7 @@ const seedJiraEvents: JiraEvent[] = [
 
 // ============ Wave 4 seed data ============
 
-let _ovrCounter = 5;
+let _ovrCounter = 2;
 function nextOverrideId() {
   _ovrCounter += 1;
   return "OVR-" + _ovrCounter.toString().padStart(3, "0");
