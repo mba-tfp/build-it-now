@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
@@ -209,7 +210,7 @@ function BacklogTab({ rows, onMove, onAdd }: { rows: Row[]; onMove: (dragId: str
   );
 }
 
-function BacklogTable({ rows, onMove, action }: { rows: Row[]; onMove?: (dragId: string, targetId: string) => void; action?: (row: Row) => React.ReactNode }) {
+function BacklogTable({ rows, onMove, action, onRowClick }: { rows: Row[]; onMove?: (dragId: string, targetId: string) => void; action?: (row: Row) => ReactNode; onRowClick?: (row: Row) => void }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] text-left text-sm">
@@ -235,7 +236,8 @@ function BacklogTable({ rows, onMove, action }: { rows: Row[]; onMove?: (dragId:
                 onDragStart={(event) => event.dataTransfer.setData("text/plain", row.sh.id)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => onMove?.(event.dataTransfer.getData("text/plain"), row.sh.id)}
-                className="bg-surface/40 hover:bg-accent/20"
+                onClick={() => onRowClick?.(row)}
+                className={cn("bg-surface/40 hover:bg-accent/20", onRowClick && "cursor-pointer")}
               >
                 <td className="px-3 py-3"><span className="inline-flex items-center gap-2 text-muted-foreground"><GripVertical className="h-4 w-4" /> {index + 1}</span></td>
                 <td className="max-w-md px-3 py-3 font-medium">{row.sig.title}</td>
