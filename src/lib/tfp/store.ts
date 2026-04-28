@@ -1687,7 +1687,7 @@ export const useTfpStore = create<State>()(
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
         if (item) {
           get().pushNotification({
-            trigger: "tech_review_done",
+            trigger: "tech_review_ready",
             title: "Tech review complete",
             body: "This item is ready for sprint planning.",
             link_to: "/shaping",
