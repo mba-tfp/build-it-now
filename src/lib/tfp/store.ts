@@ -1669,6 +1669,7 @@ export const useTfpStore = create<State>()(
       },
 
       signOffTechReview: (id, reviewerId) => {
+        const item = get().shaping.find((s) => s.id === id);
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -1684,6 +1685,16 @@ export const useTfpStore = create<State>()(
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
+        if (item) {
+          get().pushNotification({
+            trigger: "tech_review_done",
+            title: "Tech review complete",
+            body: "This item is ready for sprint planning.",
+            link_to: "/shaping",
+            for_user_id: item.pm_owner_id,
+            entity_id: id,
+          });
+        }
       },
 
       approveShaping: (id, approverId, notes) => {
