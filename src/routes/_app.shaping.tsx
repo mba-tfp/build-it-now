@@ -951,12 +951,6 @@ function TechReview({ item }: { item: ShapingItem }) {
             >
               ← Back
             </button>
-            <button
-              onClick={() => updateShaping(item.id, { current_step: 5, shaping_status: "Tech Approved" })}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-            >
-              Continue to Approval →
-            </button>
           </div>
         </div>
         <RoleHint required="Tech Lead" current={me.role} />
