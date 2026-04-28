@@ -52,8 +52,6 @@ function DeliveryPage() {
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
-  if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
-
   const readyRows = useMemo<Row[]>(() => {
     return shaping
       .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint)
@@ -80,6 +78,8 @@ function DeliveryPage() {
     .filter((row): row is Row => !!row.sig);
   const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
   const usable = usableCapacity(sprint);
+
+  if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
 
   function handleSync() {
     syncFromJira();
