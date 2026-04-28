@@ -624,6 +624,9 @@ const seedShaping: ShapingItem[] = [
   shapingInTechReview,
   shapingInProgress,
 ];
+seedShaping.forEach((item) => {
+  item.shaping_started_at = item.created_at;
+});
 
 function pickReviewSize(s: ShapingItem): ReviewSize {
   const pts = s.tech_estimate_pts ?? 0;
