@@ -89,7 +89,7 @@ export type ShapingStatus =
   | "In Shaping"
   | "Shaped"
   | "In Tech Review"
-  | "Tech Approved"
+  | "Ready for Sprint"
   | "Approved"
   | "In Delivery";
 export type Complexity = "Simple" | "Medium" | "Complex";

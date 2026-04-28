@@ -13,8 +13,7 @@ export function SprintUpdateModal({ open, onClose }: { open: boolean; onClose: (
   const overrides = useTfpStore((s) => s.overrides);
   const [copied, setCopied] = useState(false);
 
-  // Deterministic "now" mirrors the leadership page seed epoch
-  const now = useMemo(() => new Date("2026-04-15T09:00:00.000Z"), []);
+  const now = useMemo(() => new Date(), []);
 
   const markdown = useMemo(
     () => buildSprintUpdate({ sprint, signals, shaping, reviews, overrides, users: USERS, now }),

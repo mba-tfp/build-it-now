@@ -93,7 +93,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Shaping",
     section: "Workflow",
     body_markdown:
-      "# Shaping\n\nApproved signals move through three stages: Define → Tech Review → Approve. The Shaping workspace keeps the brief, tech concerns, open questions, and approval in one place.",
+      "# Shaping\n\nApproved signals move through two stages: Define → Tech Review. The Shaping workspace keeps the brief, tech concerns, and open questions in one place.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -136,8 +136,7 @@ const uid = () => {
   return _uidCounter.toString(36).padStart(4, "0");
 };
 
-// Stable epoch for seed data so SSR and client render identical timestamps.
-const SEED_EPOCH = new Date("2026-04-15T09:00:00.000Z").getTime();
+const SEED_EPOCH = new Date().getTime();
 
 const blankUser = (id: string, name: string, role: User["role"]): User => ({
   id,
@@ -161,7 +160,7 @@ export const USERS: User[] = [
 
 const seedSprint: Sprint = {
   id: "s-6",
-  name: "Sprint 6",
+  name: "Active Sprint",
   start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
   status: "Active",
@@ -410,8 +409,8 @@ const sigForApproval: Signal = {
 
 const shapingForApproval: ShapingItem = {
   ...blankShaping(sigForApproval.id, "u-bazil"),
-  shaping_status: "Tech Approved",
-  current_step: 5,
+  shaping_status: "Ready for Sprint",
+  current_step: 2,
   problem_what:
     "Clinics joining Otto have to re-enter every existing patient record manually, which delays go-live by 2–3 weeks.",
   problem_why:
@@ -483,7 +482,7 @@ const shapingInDelivery: ShapingItem = {
   tech_signed_off_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Approved for Sprint 6. Push to Jira.",
+  approval_notes: "Approved for Active Sprint. Push to Jira.",
   approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
   jira_key: "TFP-1042",
   in_sprint: true,
@@ -1650,8 +1649,8 @@ export const useTfpStore = create<State>()(
                   ...s,
                   tech_reviewer_id: reviewerId,
                   tech_signed_off_at: new Date().toISOString(),
-                  shaping_status: "Tech Approved",
-                  current_step: 5,
+                  shaping_status: "Ready for Sprint",
+                  current_step: 2,
                   updated_at: new Date().toISOString(),
                 }
               : s,
@@ -1700,12 +1699,12 @@ export const useTfpStore = create<State>()(
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        // B10: cannot push without Tech Approval (Approved status implies tech sign-off).
+        // B10: cannot push without Tech Review sign-off.
         if (!item) return "";
-        if (item.shaping_status !== "Approved") {
+        if (item.shaping_status !== "Ready for Sprint" && item.shaping_status !== "Approved") {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
-              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off + PM approval first.`);
+              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off first.`);
             });
           }
           return item.jira_key ?? "";
@@ -1955,37 +1954,7 @@ export const useTfpStore = create<State>()(
         });
       },
 
-      syncFromJira: () => {
-        const items = get().shaping.filter(
-          (s) => s.jira_key && s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
-        );
-        const events: JiraEvent[] = [];
-        const updates = new Map<string, DeliveryStatus>();
-        items.forEach((s, i) => {
-          if (i % 2 !== 0) return;
-          const idx = JIRA_FLOW.indexOf(s.delivery_status as DeliveryStatus);
-          if (idx < 0 || idx >= JIRA_FLOW.length - 1) return;
-          const next = JIRA_FLOW[idx + 1];
-          updates.set(s.id, next);
-          events.push({
-            id: "je-" + uid(),
-            ts: new Date().toISOString(),
-            direction: "inbound",
-            type: "issue.transitioned",
-            jira_key: s.jira_key!,
-            shaping_id: s.id,
-            payload: { from: s.delivery_status, to: next },
-          });
-        });
-        if (updates.size === 0) return 0;
-        set({
-          shaping: get().shaping.map((s) =>
-            updates.has(s.id) ? { ...s, delivery_status: updates.get(s.id)!, updated_at: new Date().toISOString() } : s,
-          ),
-          jiraEvents: [...events, ...get().jiraEvents],
-        });
-        return updates.size;
-      },
+      syncFromJira: () => 0,
 
       startReview: (shapingId) => {
         const item = get().shaping.find((s) => s.id === shapingId);

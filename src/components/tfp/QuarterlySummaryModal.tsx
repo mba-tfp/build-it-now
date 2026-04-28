@@ -13,7 +13,7 @@ export function QuarterlySummaryModal({ open, onClose }: { open: boolean; onClos
   const goLives = useTfpStore((s) => s.goLives);
   const [copied, setCopied] = useState(false);
 
-  const now = useMemo(() => new Date("2026-04-15T09:00:00.000Z"), []);
+  const now = useMemo(() => new Date(), []);
   const markdown = useMemo(
     () => buildQuarterlySummary({ now, sprints, shaping, signals, overrides, goLives }),
     [now, sprints, shaping, signals, overrides, goLives],

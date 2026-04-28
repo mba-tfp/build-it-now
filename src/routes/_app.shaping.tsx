@@ -1,11 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  canApprove,
   completenessScore,
   daysSince,
   solutionComplete,
-  techReviewComplete,
   usableCapacity,
   USERS,
   useTfpStore,
@@ -18,7 +16,7 @@ import type {
 } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Check, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
@@ -29,12 +27,10 @@ export const Route = createFileRoute("/_app/shaping")({
   component: ShapingPage,
 });
 
-const STEPS = ["Define", "Tech Review", "Approve"] as const;
+const STEPS = ["Define", "Tech Review"] as const;
 
-function displayStep(step: number): 1 | 2 | 3 {
-  if (step >= 5) return 3;
+function displayStep(step: number): 1 | 2 {
   if (step >= 4) return 2;
-  if (step >= 3) return 3;
   if (step >= 2) return 2;
   return 1;
 }
@@ -86,7 +82,7 @@ function ShapingPage() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping</p>
           <h1 className="mt-1 font-display text-3xl">Shaping Workspace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approved signals move through Define → Tech Review → Approve before delivery.
+            Approved signals move through Define → Tech Review before delivery.
           </p>
         </div>
         <SortMenu
@@ -162,13 +158,13 @@ function ShapingPage() {
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 3`}</span>
+                        <span>{sh.fast_track ? "Fast-track" : `Step ${displayStep(sh.current_step)} of 2`}</span>
                         <span>{stale}d in stage</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full bg-primary"
-                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 3) * 100}%` }}
+                          style={{ width: sh.fast_track ? "50%" : `${(displayStep(sh.current_step) / 2) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -229,9 +225,9 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
       ) : (
         <>
           {/* Stepper */}
-          <ol className="mb-8 grid grid-cols-3 gap-2">
+          <ol className="mb-8 grid grid-cols-2 gap-2">
             {STEPS.map((label, i) => {
-              const n = (i + 1) as 1 | 2 | 3;
+              const n = (i + 1) as 1 | 2;
               const step = displayStep(sh.current_step);
               const done = step > n;
               const active = step === n;
@@ -266,7 +262,6 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
           {displayStep(sh.current_step) === 1 && <DefineBrief item={sh} />}
           {displayStep(sh.current_step) === 2 && <TechReview item={sh} />}
-          {displayStep(sh.current_step) === 3 && <Approval item={sh} />}
           <InlineDecisions item={sh} />
         </>
       )}
@@ -956,12 +951,6 @@ function TechReview({ item }: { item: ShapingItem }) {
             >
               ← Back
             </button>
-            <button
-              onClick={() => updateShaping(item.id, { current_step: 5, shaping_status: "Tech Approved" })}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-            >
-              Continue to Approval →
-            </button>
           </div>
         </div>
         <RoleHint required="Tech Lead" current={me.role} />
@@ -1062,136 +1051,6 @@ function TechReview({ item }: { item: ShapingItem }) {
       </div>
 
       <RoleHint required="Tech Lead" current={me.role} />
-    </div>
-  );
-}
-
-function Approval({ item }: { item: ShapingItem }) {
-  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
-  const isSeniorPM = me.role === "Senior PM";
-  const approve = useTfpStore((s) => s.approveShaping);
-  const requestChanges = useTfpStore((s) => s.requestChanges);
-  const updateShaping = useTfpStore((s) => s.updateShaping);
-  const pushToJira = useTfpStore((s) => s.pushToJira);
-
-  const [notes, setNotes] = useState(item.approval_notes);
-  const gates = useMemo(
-    () => [
-      { ok: completenessScore(item) >= 3, label: "Definition complete" },
-      { ok: solutionComplete(item), label: "Approach complete" },
-      { ok: techReviewComplete(item), label: "Tech Review signed off" },
-    ],
-    [item],
-  );
-  const allGatesPass = gates.every((g) => g.ok);
-  const eligible = canApprove(item);
-
-  if (item.shaping_status === "Approved" || item.jira_key) {
-    const approver = USERS.find((u) => u.id === item.approver_id);
-    return (
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="tfp-card p-5">
-          <div className="flex items-center gap-2 rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-3 text-sm text-[var(--color-status-proceed)]">
-            <Check className="h-4 w-4" />
-            Approved by {approver?.name ?? "Senior PM"}
-            {item.approved_at && ` on ${fmtDateTime(item.approved_at)}`}.
-          </div>
-          {item.approval_notes && (
-            <ReadField label="Approval notes" value={item.approval_notes} className="mt-5" />
-          )}
-          <div className="mt-6 border-t border-border pt-5">
-            {item.jira_key ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Pushed to Jira as</span>
-                <span className="font-mono font-semibold text-foreground">{item.jira_key}</span>
-              </div>
-            ) : (
-              <>
-                <button
-                  onClick={() => pushToJira(item.id)}
-                  className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-                >
-                  Push to Jira (Backlog)
-                </button>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Creates the Jira issue in the backlog. Use <strong>Add to Sprint</strong> on the Delivery board to commit it to the current sprint.
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-        <RoleHint required="Senior PM" current={me.role} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="tfp-card p-5">
-        <h3 className="font-display text-lg">Final Approval</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Senior PM approval is required before this item can be pushed to Jira and enter delivery.
-        </p>
-
-        <div className="mt-5 rounded-md border border-border bg-muted/40 p-4">
-          <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Approval gates</p>
-          <ul className="space-y-1.5 text-sm">
-            {gates.map((g) => (
-              <li key={g.label} className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "grid h-4 w-4 place-items-center rounded-full text-[10px]",
-                    g.ok
-                      ? "bg-[var(--color-status-proceed)] text-primary-foreground"
-                      : "bg-muted-foreground/30 text-muted-foreground",
-                  )}
-                >
-                  {g.ok ? <Check className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                </span>
-                <span className={g.ok ? "text-foreground" : "text-muted-foreground"}>{g.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <fieldset disabled={!isSeniorPM || !allGatesPass} className="mt-5">
-          <label className="mb-1 block text-sm font-medium">Approval notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            placeholder="Optional context for the team…"
-            className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
-          />
-        </fieldset>
-
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-          <button
-            onClick={() => updateShaping(item.id, { current_step: 4, shaping_status: "In Tech Review" })}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← Back
-          </button>
-          <div className="flex gap-2">
-            <button
-              disabled={!isSeniorPM}
-              onClick={() => requestChanges(item.id, me.id, notes)}
-              className="rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 px-4 py-2 text-sm font-medium text-[var(--color-status-hold)] transition hover:bg-[var(--color-status-hold)]/10 disabled:opacity-40"
-            >
-              Request changes
-            </button>
-            <button
-              disabled={!eligible || !isSeniorPM}
-              onClick={() => approve(item.id, me.id, notes)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
-            >
-              <Check className="h-4 w-4" /> Approve
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <RoleHint required="Senior PM" current={me.role} />
     </div>
   );
 }
