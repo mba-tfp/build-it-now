@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   USERS,
@@ -60,7 +60,7 @@ function LeadershipPage() {
   const [updateOpen, setUpdateOpen] = useState(false);
 
   // ---------- KPI computation ----------
-  const now = useMemo(() => new Date("2026-04-15T09:00:00.000Z").getTime(), []);
+  const now = useMemo(() => new Date().getTime(), []);
 
   const open = signals.filter((s) => s.status === "New" || s.status === "In Review");
   const breached = signals.filter(
@@ -288,12 +288,6 @@ function LeadershipPage() {
         </div>
       </header>
 
-      {me.role !== "Leadership" && (
-        <div className="no-print mb-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-          You are viewing the Leadership dashboard. Switch to Shahid in the user menu to see his perspective.
-        </div>
-      )}
-
       <BriefingPanel markdown={briefingMarkdown} />
 
       <SprintStatusStrip
@@ -315,15 +309,6 @@ function LeadershipPage() {
           canAck={me.role === "Leadership"}
         />
         <GoLivePipelinePanel goLives={goLives} />
-      </div>
-
-      <div className="no-print mt-4 flex justify-end">
-        <Link
-          to="/roadmap"
-          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs hover:bg-muted"
-        >
-          Open full Roadmap →
-        </Link>
       </div>
 
       {/* KPI tiles */}
