@@ -3,15 +3,11 @@ import { useMemo, useState } from "react";
 import {
   completenessScore,
   daysSince,
-  solutionComplete,
-  usableCapacity,
   USERS,
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
-  Complexity,
   DecisionType,
-  RoadmapBucket,
   ShapingItem,
 } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
