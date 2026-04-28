@@ -70,8 +70,8 @@ function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <MetricTile to="/inbox" icon={<Inbox className="h-4 w-4" />} label="Signals to triage" value={`${openSignals.length}`} detail="New or in review" tone={openSignals.length ? "warn" : "good"} />
         <MetricTile to="/shaping" icon={<Clock className="h-4 w-4" />} label="Waiting on you" value={`${waitingOnYou.length}`} detail="Shaping work needing action" tone={waitingOnYou.length ? "warn" : "good"} />
-        <MetricTile to="/delivery" icon={<ShieldCheck className="h-4 w-4" />} label="Sprint health" value={`${sprintHealth}%`} detail="Not blocked and not stale" tone={sprintHealth > 70 ? "good" : sprintHealth >= 50 ? "warn" : "bad"} />
-        <MetricTile to="/delivery" icon={<AlertTriangle className="h-4 w-4" />} label="Open blockers" value={`${blockers.length}`} detail="Items currently blocked" tone={blockers.length ? "bad" : "good"} />
+        <MetricTile to="/delivery" search={{ tab: "board" }} icon={<ShieldCheck className="h-4 w-4" />} label="Sprint health" value={`${sprintHealth}%`} detail="Not blocked and not stale" tone={sprintHealth > 70 ? "good" : sprintHealth >= 50 ? "warn" : "bad"} />
+        <MetricTile to="/delivery" search={{ tab: "board" }} icon={<AlertTriangle className="h-4 w-4" />} label="Open blockers" value={`${blockers.length}`} detail="Items currently blocked" tone={blockers.length ? "bad" : "good"} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -92,7 +92,7 @@ function DashboardPage() {
             <p className="font-mono text-xs text-muted-foreground">{stalestSprintItem.jira_key ?? "No Jira key"}</p>
             <p className="mt-1 font-medium leading-snug">{signalTitle(signals, stalestSprintItem)}</p>
             <p className="mt-2 text-xs text-muted-foreground">{stalestSprintItem.delivery_status} · {daysSince(stalestSprintItem.updated_at)}d stale</p>
-            <Link to="/delivery" className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <Link to="/delivery" search={{ tab: "board" }} className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               View on board
             </Link>
           </UrgentCard>
@@ -116,9 +116,9 @@ function DashboardPage() {
   );
 }
 
-function MetricTile({ to, icon, label, value, detail, tone }: { to: "/inbox" | "/shaping" | "/delivery"; icon: React.ReactNode; label: string; value: string; detail: string; tone: Tone }) {
+function MetricTile({ to, search, icon, label, value, detail, tone }: { to: "/inbox" | "/shaping" | "/delivery"; search?: { tab: "board" }; icon: React.ReactNode; label: string; value: string; detail: string; tone: Tone }) {
   return (
-    <Link to={to} className="tfp-card block p-5 transition hover:bg-muted/30">
+    <Link to={to} search={search} className="tfp-card block p-5 transition hover:bg-muted/30">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
