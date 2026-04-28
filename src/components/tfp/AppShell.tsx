@@ -152,17 +152,20 @@ export function AppShell() {
                 <HelpCircle className="h-3.5 w-3.5" />
                 Getting started
               </button>
-              <select
-                value={currentUserId}
-                onChange={(e) => setCurrentUser(e.target.value)}
-                className="rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {USERS.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} — {u.role}
-                  </option>
-                ))}
-              </select>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Viewing as</span>
+                <select
+                  value={currentUserId}
+                  onChange={(e) => setCurrentUser(e.target.value)}
+                  className="rounded-md border border-input bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {USERS.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} — {u.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="hidden items-center gap-2 md:flex">
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-sm font-medium text-primary">
                   {me.name[0]}
