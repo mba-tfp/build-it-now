@@ -104,7 +104,7 @@ function DashboardPage() {
           <UrgentCard title="Most overdue clinic phase" tone={overdueClinicPhase.days > 5 ? "bad" : "warn"}>
             <p className="font-medium leading-snug">{overdueClinicPhase.clinic}</p>
             <p className="mt-2 text-xs text-muted-foreground">{overdueClinicPhase.phase} · {overdueClinicPhase.days}d in phase</p>
-            <Link to="/health" className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <Link to="/clinics" className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               Check in
             </Link>
           </UrgentCard>
