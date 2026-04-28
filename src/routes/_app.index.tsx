@@ -79,7 +79,7 @@ function DashboardPage() {
           <UrgentCard title="Most urgent signal" tone="warn">
             <p className="font-medium leading-snug">{urgentSignal.title}</p>
             <p className="mt-2 text-xs text-muted-foreground">{urgentSignal.source} · SLA due {fmtDateTime(urgentSignal.sla_due_at)}</p>
-            <Link to="/inbox" className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <Link to="/inbox" search={{ tab: "triage", signal: urgentSignal.id }} className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               Triage now
             </Link>
           </UrgentCard>
