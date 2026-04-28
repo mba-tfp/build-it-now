@@ -1,197 +1,144 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { z } from "zod";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { USERS, useTfpStore, daysSince } from "@/lib/tfp/store";
-import type { DeliveryStatus, OverrideKind, ShapingItem, User } from "@/lib/tfp/types";
-import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
-import { cn } from "@/lib/utils";
-import { AlertTriangle, Inbox, Lock, Pause, Plus, RefreshCw, X } from "lucide-react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
-import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
-import { sortRows } from "@/components/tfp/SortableHeader";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GoLivePage } from "./_app.golive";
-
-const deliverySearchSchema = z.object({
-  tab: fallback(z.enum(["sprint", "golive"]), "sprint").default("sprint"),
-});
+import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
+import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/delivery")({
-  validateSearch: zodValidator(deliverySearchSchema),
-  component: DeliveryHubPage,
+  component: DeliveryPage,
 });
 
-function DeliveryHubPage() {
-  const { tab } = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
-  return (
-    <div className="space-y-4">
-      <Tabs
-        value={tab}
-        onValueChange={(v) => navigate({ search: { tab: v as "sprint" | "golive" } })}
-      >
-        <TabsList>
-          <TabsTrigger value="sprint">Sprint</TabsTrigger>
-          <TabsTrigger value="golive">Go-Live</TabsTrigger>
-        </TabsList>
-        <TabsContent value="sprint" className="mt-4"><DeliveryPage /></TabsContent>
-        <TabsContent value="golive" className="mt-4"><GoLivePage /></TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+type DeliveryTab = "backlog" | "planning" | "board";
+type Row = { sh: ShapingItem; sig: Signal };
+type CommitmentType = "Feature" | "Fix" | "Research" | "Dependency";
 
-const COLUMNS: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
+const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
+  "To Do",
+  "In Progress",
+  "In QA",
+  "Done",
+];
 
-type Row = { sh: ShapingItem; sig: { title: string; product: string } | undefined };
-
-const STATUS_TONE: Record<DeliveryStatus, string> = {
-  "To Do": "bg-muted text-muted-foreground",
-  "In Progress": "bg-[var(--color-status-new)]/10 text-[var(--color-status-new)]",
-  "In QA": "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]",
-  Blocked: "bg-destructive/10 text-destructive",
-  Done: "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]",
-};
-
-function movementWarning(user: User, sh: ShapingItem, target: DeliveryStatus): string | null {
-  const role = user.role;
-  const isAssignee = sh.delivery_assignee_id === user.id;
-  if (target === "Blocked") return null; // anyone can flag a blocker (with reason)
-  if (role === "Developer" || role === "Tech Lead") {
-    if (!isAssignee) return "This is not assigned to you. Continue?";
-    if (sh.delivery_status === "To Do" && target === "In Progress") return null;
-    if (sh.delivery_status === "In Progress" && target === "Done") return null;
-    return `This move is usually handled by QA or the item owner. Continue?`;
-  }
-  if (role === "QA Scrum Master") {
-    if (sh.delivery_status === "Done" && target === "In QA") return "This reopens completed work. Continue?";
-    if (target === "In QA" && sh.delivery_status === "In Progress") return null;
-    if (sh.delivery_status === "In QA" && (target === "Done" || target === "In Progress")) return null;
-    return `This is outside the usual QA flow. Continue?`;
-  }
-  if (role === "PM" || role === "Senior PM" || role === "Associate PM") {
-    return `This is usually moved by delivery or QA. Continue?`;
-  }
-  return `This is outside your usual delivery role. Continue?`;
-}
-
-export function DeliveryPage() {
+function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
   const users = useTfpStore((s) => s.users);
-  const currentUserId = useTfpStore((s) => s.currentUserId);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
-  const setStatus = useTfpStore((s) => s.setDeliveryStatus);
-  const setBlocked = useTfpStore((s) => s.setBlocked);
-  const unblock = useTfpStore((s) => s.unblock);
-  const toggleGate = useTfpStore((s) => s.toggleDevCompleteGate);
-  const signOff = useTfpStore((s) => s.signOffDevComplete);
+  const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
   const removeFromSprint = useTfpStore((s) => s.removeFromSprint);
-  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
+  const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const pushNotification = useTfpStore((s) => s.pushNotification);
 
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("All");
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [devCompleteFor, setDevCompleteFor] = useState<ShapingItem | null>(null);
-  const [blockerFor, setBlockerFor] = useState<ShapingItem | null>(null);
-  const [overrideFor, setOverrideFor] = useState<{
-    item: ShapingItem;
-    kind: OverrideKind;
-    title: string;
-    description: string;
-    onConfirm: (reason: string) => void;
-  } | null>(null);
+  const [tab, setTab] = useState<DeliveryTab>("backlog");
+  const [orderedIds, setOrderedIds] = useState<string[]>([]);
+  const [planningIds, setPlanningIds] = useState<string[]>([]);
+  const [sprintGoal, setSprintGoal] = useState(sprint.notes ?? "");
+  const [confirmed, setConfirmed] = useState(false);
+  const [briefFor, setBriefFor] = useState<Row | null>(null);
+  const [blockerFor, setBlockerFor] = useState<Row | null>(null);
+  const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
-  // All shaping with a Jira key (backlog + in-sprint)
-  const allRows: Row[] = useMemo(
-    () =>
-      shaping
-        .filter((s) => s.jira_key)
-        .map((s) => ({
-          sh: s,
-          sig: signals.find((sig) => sig.id === s.signal_id),
-        }))
-        .filter((x) => !!x.sig),
-    [shaping, signals],
-  );
+  const readyRows = useMemo<Row[]>(() => {
+    return shaping
+      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint)
+      .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
+      .filter((row): row is Row => !!row.sig);
+  }, [shaping, signals]);
 
-  const filteredAll = assigneeFilter === "All" ? allRows : allRows.filter((r) => r.sh.delivery_assignee_id === assigneeFilter);
+  const orderedBacklog = useMemo(() => {
+    const ids = orderedIds.filter((id) => readyRows.some((row) => row.sh.id === id));
+    const missing = readyRows.filter((row) => !ids.includes(row.sh.id)).map((row) => row.sh.id);
+    const finalIds = [...ids, ...missing];
+    return finalIds
+      .map((id) => readyRows.find((row) => row.sh.id === id))
+      .filter((row): row is Row => !!row);
+  }, [orderedIds, readyRows]);
 
-  type SortKey = "updated" | "status" | "assignee" | "stale";
-  const { sort, setSort } = useSortMenu<SortKey>("delivery", { key: "updated", dir: "desc" });
-
-  const sortedRows = useMemo(
-    () =>
-      sortRows(filteredAll, sort, (r, k) => {
-        if (k === "updated") return new Date(r.sh.updated_at ?? r.sh.created_at).getTime();
-        if (k === "status") return r.sh.delivery_status ?? "";
-        if (k === "assignee") {
-          const u = USERS.find((x) => x.id === r.sh.delivery_assignee_id);
-          return u?.name ?? "";
-        }
-        if (k === "stale") return -1 * daysSince(r.sh.updated_at ?? r.sh.created_at);
-        return null;
-      }),
-    [filteredAll, sort],
-  );
-
-  // Split: backlog (jira_key but not yet in sprint) vs in-sprint (kanban)
-  const backlogRows = sortedRows.filter((r) => !r.sh.in_sprint);
-  const sprintRows = sortedRows.filter((r) => r.sh.in_sprint && r.sh.delivery_status);
-
-  const blocked = sprintRows.filter((r) => r.sh.delivery_status === "Blocked");
-  const grouped: Record<DeliveryStatus, Row[]> = {
-    "To Do": [],
-    "In Progress": [],
-    "In QA": [],
-    Blocked: [],
-    Done: [],
-  };
-  sprintRows.forEach((r) => {
-    if (r.sh.delivery_status) grouped[r.sh.delivery_status].push(r);
-  });
-
-  const sprintLocked = !!sprint.scope_locked_at;
-  const teamMembers = USERS.filter((u) => ["Developer", "Tech Lead", "QA Scrum Master"].includes(u.role));
-
-  function handleMove(sh: ShapingItem, next: DeliveryStatus) {
-    if (next === "Blocked") {
-      setBlockerFor(sh);
-      return;
-    }
-    const warning = movementWarning(me, sh, next);
-    if (warning) {
-      setOverrideFor({
-        item: sh,
-        kind: "Other",
-        title: "Record unusual delivery move",
-        description: warning,
-        onConfirm: (reason) => {
-          useTfpStore.getState().logOverride({
-            kind: "Other",
-            reason,
-            signal_id: sh.signal_id,
-            shaping_id: sh.id,
-            shahid_visible: false,
-          });
-          setStatus(sh.id, next);
-        },
-      });
-      return;
-    }
-    if (sh.delivery_status === "In Progress" && next === "Done" && me.role !== "QA Scrum Master") {
-      // Dev wants to mark Dev Complete (mapped to In QA via gate)
-      setDevCompleteFor(sh);
-      return;
-    }
-    setStatus(sh.id, next);
-  }
+  const planningRows = planningIds
+    .map((id) => readyRows.find((row) => row.sh.id === id))
+    .filter((row): row is Row => !!row);
+  const planningBacklog = orderedBacklog.filter((row) => !planningIds.includes(row.sh.id));
+  const sprintRows = shaping
+    .filter((sh) => sh.in_sprint && sh.jira_key && sh.delivery_status)
+    .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
+    .filter((row): row is Row => !!row.sig);
+  const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
+  const usable = usableCapacity(sprint);
 
   function handleSync() {
     syncFromJira();
     toast.info("Synced — no changes from Jira.");
+  }
+
+  function movePriority(dragId: string, targetId: string) {
+    if (dragId === targetId) return;
+    const ids = orderedBacklog.map((row) => row.sh.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setOrderedIds(next);
+  }
+
+  function addPlanning(id: string) {
+    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
+    setTab("planning");
+  }
+
+  function confirmSprint() {
+    planningRows.forEach(({ sh }) => {
+      const key = pushToJira(sh.id);
+      addToSprint(sh.id);
+      toast.success(`${key || sh.jira_key || "TFP ticket"} created in Jira`);
+    });
+    updateSprintGoal(sprintGoal);
+    if (!sprint.scope_locked_at) toggleSprintLock();
+    setConfirmed(true);
+  }
+
+  function updateSprintGoal(goal: string) {
+    useTfpStore.setState((state) => ({ sprint: { ...state.sprint, notes: goal } }));
+  }
+
+  function logProductBlocker(data: { description: string; ownerId: string; expectedDate: string }) {
+    if (!blockerFor) return;
+    const now = new Date().toISOString();
+    const text = `${data.description}${data.expectedDate ? ` Expected resolution: ${data.expectedDate}.` : ""}`;
+    updateShaping(blockerFor.sh.id, {
+      delivery_status: "Blocked",
+      blocker_description: text,
+      blocked_since: blockerFor.sh.blocked_since ?? now,
+      delivery_assignee_id: data.ownerId,
+    });
+    const blockedDays = blockerFor.sh.blocked_since ? daysSince(blockerFor.sh.blocked_since) : 0;
+    if (blockedDays >= 2) {
+      pushNotification({
+        trigger: "blocked_over_1d",
+        title: `${blockerFor.sh.jira_key} escalated to Leadership`,
+        body: text,
+        link_to: "/delivery",
+        for_user_id: blockerFor.sh.pm_owner_id,
+        entity_id: blockerFor.sh.id,
+      });
+      pushNotification({
+        trigger: "blocked_over_1d",
+        title: `${blockerFor.sh.jira_key} escalated to Leadership`,
+        body: text,
+        link_to: "/delivery",
+        for_user_id: "u-shahid",
+        entity_id: blockerFor.sh.id,
+      });
+    }
+    toast.success("Product blocker logged");
+    setBlockerFor(null);
   }
 
   return (
@@ -199,466 +146,593 @@ export function DeliveryPage() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
-          <h1 className="mt-1 font-display text-3xl">Delivery Board</h1>
+          <h1 className="mt-1 font-display text-3xl">Delivery</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sprint.name} · {sprintRows.length} in sprint · {backlogRows.length} in backlog · viewing as {me.name} ({me.role})
+            Backlog, sprint planning, and read-only Jira visibility.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <SortMenu
-            tableId="delivery"
-            sort={sort}
-            onChange={setSort}
-            options={[
-              { key: "updated", label: "Updated" },
-              { key: "status", label: "Status" },
-              { key: "assignee", label: "Assignee" },
-              { key: "stale", label: "Days since update" },
-            ]}
-          />
-          <select
-            value={assigneeFilter}
-            onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="All">All items ({allRows.length})</option>
-            {teamMembers.map((u) => {
-              const n = allRows.filter((r) => r.sh.delivery_assignee_id === u.id).length;
-              return (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({n})
-                </option>
-              );
-            })}
-          </select>
-          <button
-            onClick={handleSync}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Sync from Jira
-          </button>
-          <button
-            disabled={sprintLocked}
-            title={sprintLocked ? "Sprint is locked — items can only be added via an override" : ""}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add item
-          </button>
-        </div>
+        <button
+          onClick={handleSync}
+          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Sync from Jira
+        </button>
       </header>
 
-      {sprintLocked && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">
-          <Lock className="h-3.5 w-3.5 text-amber-600" />
-          <span>
-            Sprint scope locked on {fmtDate(sprint.scope_locked_at!)}. Add new scope only with an inline override reason.
-          </span>
-        </div>
-      )}
-
-      {/* Backlog rail (jira_key but not yet in sprint) */}
-      {backlogRows.length > 0 && (
-        <section className="mb-5 rounded-lg border border-border bg-surface-2 p-3">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <Inbox className="h-4 w-4 text-muted-foreground" />
-            Backlog ({backlogRows.length})
-            <span className="text-[11px] font-normal text-muted-foreground">
-              · Pushed to Jira, not yet in {sprint.name}
-            </span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {backlogRows.map(({ sh, sig }) => (
-              <div key={sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span className="font-mono">{sh.jira_key}</span>
-                  <span className="font-mono">{sh.tech_estimate_pts ?? "—"}p</span>
-                </div>
-                <p className="mt-1 line-clamp-2 font-medium leading-snug">{sig?.title}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{sig?.product}</p>
-                <div className="mt-2 flex gap-1.5">
-                  <button
-                    onClick={() => {
-                      if (sprintLocked) {
-                        setOverrideFor({
-                          item: sh,
-                          kind: "Scope added mid-sprint",
-                          title: "Add scope with override",
-                          description: `Sprint scope is locked. Record why ${sh.jira_key} must enter ${sprint.name}.`,
-                          onConfirm: (reason) => addToSprint(sh.id, reason, "Scope added mid-sprint"),
-                        });
-                        return;
-                      }
-                      addToSprint(sh.id);
-                    }}
-                    title={sprintLocked ? "Sprint locked — inline override required" : `Add ${sh.jira_key} to ${sprint.name}`}
-                    className="flex-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90"
-                  >
-                    + Add to Sprint
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Blocked rail */}
-      {blocked.length > 0 && (
-        <section className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            Blocked ({blocked.length})
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {blocked.map(({ sh, sig }) => {
-              const days = sh.blocked_since ? Math.abs(daysSince(sh.blocked_since)) : 0;
-              const escalated = days >= 1;
-              return (
-                <div key={sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span className="font-mono">{sh.jira_key}</span>
-                    <span className={escalated ? "font-medium text-destructive" : ""}>
-                      {days}d blocked {escalated && "· P2"}
-                    </span>
-                  </div>
-                  <p className="mt-1 font-medium leading-snug">{sig?.title}</p>
-                  {sh.blocker_description && (
-                    <p className="mt-1 text-[11px] italic text-muted-foreground">"{sh.blocker_description}"</p>
-                  )}
-                  <button
-                    onClick={() => unblock(sh.id, "In Progress")}
-                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-input bg-surface px-2 py-1 text-[11px] hover:bg-muted"
-                  >
-                    Unblock → In Progress
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Kanban */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {COLUMNS.map((status) => (
-          <div key={status} className="rounded-lg border border-border bg-muted/20 p-2">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS_TONE[status])}>
-                {status}
-              </span>
-              <span className="text-[11px] text-muted-foreground">{grouped[status].length}</span>
-            </div>
-            <div className="space-y-2">
-              {grouped[status].map(({ sh, sig }) => {
-                const assignee = USERS.find((u) => u.id === sh.delivery_assignee_id);
-                const initials = assignee?.name.split(" ").map((p) => p[0]).join("") ?? "—";
-                const days = Math.abs(daysSince(sh.updated_at));
-                const isOpen = expanded === sh.id;
-                const gateReady =
-                  sh.dev_complete.merged_to_main &&
-                  sh.dev_complete.deployed_to_staging &&
-                  sh.dev_complete.smoke_test_passed;
-                return (
-                  <div
-                    key={sh.id}
-                    className={cn(
-                      "rounded-md border bg-surface p-2.5 text-sm shadow-sm transition",
-                      isOpen ? "border-primary/40" : "border-border",
-                    )}
-                  >
-                    <button
-                      onClick={() => setExpanded(isOpen ? null : sh.id)}
-                      className="block w-full text-left"
-                    >
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span className="font-mono">{sh.jira_key}</span>
-                        <span className="font-mono">{sh.tech_estimate_pts ?? "—"}p</span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 font-medium leading-snug">{sig?.title}</p>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">
-                          {initials}
-                        </span>
-                        <span>{days}d in status</span>
-                      </div>
-                    </button>
-
-                    {isOpen && (
-                      <div className="mt-2 space-y-2 border-t border-border/60 pt-2">
-                        <p className="text-[11px] text-muted-foreground">{sig?.product}</p>
-                        {status === "In Progress" && (
-                          <div className="rounded-md border border-border bg-muted/20 p-2">
-                            <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                              Dev Complete gate
-                            </p>
-                            <ul className="space-y-0.5 text-[11px]">
-                              <li>
-                                {sh.dev_complete.merged_to_main ? "✓" : "○"} Merged to main
-                              </li>
-                              <li>
-                                {sh.dev_complete.deployed_to_staging ? "✓" : "○"} Deployed to staging
-                              </li>
-                              <li>
-                                {sh.dev_complete.smoke_test_passed ? "✓" : "○"} Smoke test passed
-                              </li>
-                            </ul>
-                            {sh.dev_complete.signed_off_at && (
-                              <p className="mt-1 text-[10px] text-[var(--color-status-proceed)]">
-                                Gate signed off {fmtDateTime(sh.dev_complete.signed_off_at)}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-1.5">
-                          {COLUMNS.filter((s) => s !== status).map((target) => {
-                            const warning = movementWarning(me, sh, target);
-                            const needsGate =
-                              status === "In Progress" && target === "Done" && !gateReady && me.role !== "QA Scrum Master";
-                            return (
-                              <button
-                                key={target}
-                                onClick={() => handleMove(sh, target)}
-                                className={cn(
-                                  "rounded-md border px-2 py-1 text-[11px]",
-                                  warning
-                                    ? "border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 text-[var(--color-status-hold)] hover:bg-[var(--color-status-hold)]/10"
-                                    : "border-input bg-surface hover:bg-muted",
-                                )}
-                                title={
-                                  warning
-                                    ? warning
-                                    : needsGate
-                                      ? "Dev Complete gate required"
-                                      : ""
-                                }
-                              >
-                                → {target}
-                              </button>
-                            );
-                          })}
-                          <button
-                            onClick={() => setBlockerFor(sh)}
-                            className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"
-                          >
-                            <Pause className="mr-1 inline h-3 w-3" /> Block
-                          </button>
-                          {status !== "Done" && (
-                            <button
-                              onClick={() => removeFromSprint(sh.id)}
-                              disabled={sprintLocked}
-                              title={sprintLocked ? "Sprint locked" : "Move back to backlog"}
-                              className="rounded-md border border-input bg-surface px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-40"
-                            >
-                              ← Backlog
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {grouped[status].length === 0 && (
-                <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">—</p>
-              )}
-            </div>
-          </div>
+      <div className="mb-5 flex flex-wrap gap-2 border-b border-border">
+        {(
+          [
+            ["backlog", "Backlog"],
+            ["planning", "Sprint Planning"],
+            ["board", "Sprint Board"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setTab(value)}
+            className={cn(
+              "border-b-2 px-3 py-2 text-sm font-medium transition",
+              tab === value
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
-      {/* Dev Complete gate modal */}
-      {devCompleteFor && (
-        <DevCompleteModal
-          item={devCompleteFor}
-          onToggle={(key, v) => toggleGate(devCompleteFor.id, key, v)}
-          onConfirm={() => {
-            signOff(devCompleteFor.id);
-            setStatus(devCompleteFor.id, "In QA");
-            toast.success("Gate signed off · Abdul Karim notified");
-            setDevCompleteFor(null);
-          }}
-          onClose={() => setDevCompleteFor(null)}
+      {tab === "backlog" && (
+        <BacklogTab rows={orderedBacklog} onMove={movePriority} onAdd={addPlanning} />
+      )}
+      {tab === "planning" && (
+        <PlanningTab
+          backlogRows={planningBacklog}
+          planningRows={planningRows}
+          sprintGoal={sprintGoal}
+          setSprintGoal={setSprintGoal}
+          usedPoints={usedPoints}
+          usable={usable}
+          onPick={(id) => setPlanningIds((current) => [...current, id])}
+          onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
+          onConfirm={confirmSprint}
+          confirmed={confirmed}
+          sprint={sprint}
+        />
+      )}
+      {tab === "board" && (
+        <SprintBoard
+          rows={sprintRows}
+          users={users}
+          expandedCriteria={expandedCriteria}
+          setExpandedCriteria={setExpandedCriteria}
+          onViewBrief={setBriefFor}
+          onLogBlocker={setBlockerFor}
         />
       )}
 
-      {/* Blocker reason modal */}
+      {briefFor && <BriefSlideover row={briefFor} onClose={() => setBriefFor(null)} />}
       {blockerFor && (
         <BlockerModal
-          item={blockerFor}
-          onConfirm={(desc) => {
-            setBlocked(blockerFor.id, desc);
-            toast.success("Item flagged as blocked");
-            setBlockerFor(null);
-          }}
-          onClose={() => setBlockerFor(null)}
-        />
-      )}
-
-      {overrideFor && (
-        <InlineOverrideModal
-          item={overrideFor.item}
-          title={overrideFor.title}
-          description={overrideFor.description}
-          kind={overrideFor.kind}
-          onConfirm={(reason) => {
-            overrideFor.onConfirm(reason);
-            toast.success("Override recorded");
-            setOverrideFor(null);
-          }}
-          onClose={() => setOverrideFor(null)}
+          row={blockerFor}
+          users={users}
+          onCancel={() => setBlockerFor(null)}
+          onSave={logProductBlocker}
         />
       )}
     </div>
   );
 }
 
-function InlineOverrideModal({
-  item,
-  title,
-  description,
-  kind,
-  onConfirm,
-  onClose,
+function BacklogTab({
+  rows,
+  onMove,
+  onAdd,
 }: {
-  item: ShapingItem;
-  title: string;
-  description: string;
-  kind: OverrideKind;
-  onConfirm: (reason: string) => void;
-  onClose: () => void;
+  rows: Row[];
+  onMove: (dragId: string, targetId: string) => void;
+  onAdd: (id: string) => void;
 }) {
-  const [reason, setReason] = useState("");
-  const valid = reason.trim().length >= 20;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-lg">{title}</h3>
-          <button onClick={onClose}><X className="h-4 w-4 text-muted-foreground" /></button>
-        </div>
-        <p className="mb-1 text-xs text-muted-foreground">{item.jira_key} · {kind}</p>
-        <p className="mb-3 text-xs text-muted-foreground">{description}</p>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={4}
-          placeholder="Why is this exception needed now?"
-          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <div className="mt-1 text-[11px] text-muted-foreground">{reason.trim().length}/20 chars minimum</div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
-          <button disabled={!valid} onClick={() => onConfirm(reason.trim())} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40">
-            Record override
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DevCompleteModal({
-  item,
-  onToggle,
-  onConfirm,
-  onClose,
-}: {
-  item: ShapingItem;
-  onToggle: (key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", v: boolean) => void;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const g = item.dev_complete;
-  const allChecked = g.merged_to_main && g.deployed_to_staging && g.smoke_test_passed;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-lg">Confirm Dev Complete</h3>
-          <button onClick={onClose}>
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-        <p className="mb-4 text-xs text-muted-foreground">
-          {item.jira_key} · all three checks must pass before Abdul Karim can pick it up for QA.
-        </p>
-        <div className="space-y-2 text-sm">
-          {[
-            { key: "merged_to_main" as const, label: "Code merged to main branch" },
-            { key: "deployed_to_staging" as const, label: "Deployed to staging environment" },
-            { key: "smoke_test_passed" as const, label: "Basic smoke test passed — core happy path verified" },
-          ].map((row) => (
-            <label key={row.key} className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
-              <input type="checkbox" checked={g[row.key]} onChange={(e) => onToggle(row.key, e.target.checked)} />
-              <span>{row.label}</span>
-            </label>
-          ))}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">
-            Cancel
-          </button>
+    <section className="rounded-md border border-border bg-surface/50">
+      <BacklogTable
+        rows={rows}
+        onMove={onMove}
+        action={(row) => (
           <button
-            disabled={!allChecked}
-            onClick={onConfirm}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40"
+            onClick={() => onAdd(row.sh.id)}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           >
-            Confirm Dev Complete
+            Add to Sprint Planning
           </button>
-        </div>
+        )}
+      />
+    </section>
+  );
+}
+
+function BacklogTable({
+  rows,
+  onMove,
+  action,
+  onRowClick,
+}: {
+  rows: Row[];
+  onMove?: (dragId: string, targetId: string) => void;
+  action?: (row: Row) => ReactNode;
+  onRowClick?: (row: Row) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] text-left text-sm">
+        <thead className="border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground">
+          <tr>
+            <th className="w-24 px-3 py-3">Priority</th>
+            <th className="px-3 py-3">Title</th>
+            <th className="px-3 py-3">Product</th>
+            <th className="px-3 py-3">Commitment type</th>
+            <th className="px-3 py-3">Estimate</th>
+            <th className="px-3 py-3">Tech Lead</th>
+            <th className="px-3 py-3">Days waiting</th>
+            {action && <th className="px-3 py-3">Action</th>}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((row, index) => {
+            const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
+            return (
+              <tr
+                key={row.sh.id}
+                draggable={!!onMove}
+                onDragStart={(event) => event.dataTransfer.setData("text/plain", row.sh.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => onMove?.(event.dataTransfer.getData("text/plain"), row.sh.id)}
+                onClick={() => onRowClick?.(row)}
+                className={cn("bg-surface/40 hover:bg-accent/20", onRowClick && "cursor-pointer")}
+              >
+                <td className="px-3 py-3">
+                  <span className="inline-flex items-center gap-2 text-muted-foreground">
+                    <GripVertical className="h-4 w-4" /> {index + 1}
+                  </span>
+                </td>
+                <td className="max-w-md px-3 py-3 font-medium">{row.sig.title}</td>
+                <td className="px-3 py-3 text-muted-foreground">{row.sig.product}</td>
+                <td className="px-3 py-3">{commitmentType(row.sig)}</td>
+                <td className="px-3 py-3 font-mono">{row.sh.tech_estimate_pts ?? "—"} pts</td>
+                <td className="px-3 py-3">{reviewer?.name ?? "—"}</td>
+                <td className="px-3 py-3">{daysSince(row.sh.updated_at)}d</td>
+                {action && <td className="px-3 py-3">{action(row)}</td>}
+              </tr>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={action ? 8 : 7} className="px-3 py-10 text-center text-muted-foreground">
+                No ready backlog items.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PlanningTab(props: {
+  backlogRows: Row[];
+  planningRows: Row[];
+  sprintGoal: string;
+  setSprintGoal: (value: string) => void;
+  usedPoints: number;
+  usable: number;
+  onPick: (id: string) => void;
+  onRemove: (id: string) => void;
+  onConfirm: () => void;
+  confirmed: boolean;
+  sprint: {
+    name: string;
+    gross_capacity_pts: number;
+    leave_deduction_pts: number;
+    interrupt_buffer_pts: number;
+    qa_buffer_pts: number;
+    uncertainty_buffer_pts: number;
+    carryforward_estimate_pts: number;
+  };
+}) {
+  const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
+  const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
+  if (props.confirmed) {
+    return (
+      <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
+        <CheckCircle2 className="mb-3 h-8 w-8" />
+        <h2 className="font-display text-2xl">Sprint confirmed and pushed to Jira</h2>
+        <p className="mt-2 text-sm">Committed items are now visible on the Sprint Board.</p>
       </div>
+    );
+  }
+  return (
+    <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <section className="rounded-md border border-border bg-surface/50">
+        <div className="border-b border-border p-4">
+          <h2 className="font-display text-lg">Prioritized backlog</h2>
+        </div>
+        <BacklogTable
+          rows={props.backlogRows}
+          onRowClick={(row) => props.onPick(row.sh.id)}
+          action={undefined}
+        />
+        <div className="border-t border-border p-3 text-xs text-muted-foreground">
+          Click a row to move it into sprint planning.
+        </div>
+      </section>
+
+      <section className="rounded-md border border-border bg-surface p-4">
+        <h2 className="font-display text-lg">Active Sprint</h2>
+        <label className="mt-4 block text-sm font-medium">Sprint Goal</label>
+        <input
+          value={props.sprintGoal}
+          onChange={(e) => props.setSprintGoal(e.target.value)}
+          placeholder="One sentence describing what this sprint achieves"
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <CapacityBar
+          used={props.usedPoints}
+          usable={props.usable}
+          usedPct={usedPct}
+          sprint={props.sprint}
+        />
+        <div className="mt-5 space-y-2">
+          {props.planningRows.map((row) => (
+            <div
+              key={row.sh.id}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+            >
+              <div>
+                <p className="font-medium">{row.sig.title}</p>
+                <p className="text-xs text-muted-foreground">{row.sh.tech_estimate_pts ?? 0} pts</p>
+              </div>
+              <button
+                onClick={() => props.onRemove(row.sh.id)}
+                className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/40"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {props.planningRows.length === 0 && (
+            <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Select backlog items from the left panel.
+            </p>
+          )}
+        </div>
+        <button
+          disabled={!canConfirm}
+          onClick={props.onConfirm}
+          className="mt-5 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+        >
+          Confirm Sprint & Push to Jira
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function CapacityBar({
+  used,
+  usable,
+  usedPct,
+  sprint,
+}: {
+  used: number;
+  usable: number;
+  usedPct: number;
+  sprint: {
+    gross_capacity_pts: number;
+    leave_deduction_pts: number;
+    interrupt_buffer_pts: number;
+    qa_buffer_pts: number;
+    uncertainty_buffer_pts: number;
+    carryforward_estimate_pts: number;
+  };
+}) {
+  return (
+    <div className="mt-4 rounded-md border border-border bg-surface-2 p-3">
+      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+        <span>Gross {sprint.gross_capacity_pts}</span>
+        <span>- Leave {sprint.leave_deduction_pts}</span>
+        <span>- Interrupts {sprint.interrupt_buffer_pts}</span>
+        <span>- QA {sprint.qa_buffer_pts}</span>
+        <span>- Uncertainty {sprint.uncertainty_buffer_pts}</span>
+        <span>- Carryforward {sprint.carryforward_estimate_pts}</span>
+        <span>= Usable {usable}</span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full",
+            usedPct >= 100
+              ? "bg-destructive"
+              : usedPct >= 80
+                ? "bg-[var(--color-status-hold)]"
+                : "bg-primary",
+          )}
+          style={{ width: `${Math.min(100, usedPct)}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {used} / {usable} pts committed
+      </p>
+    </div>
+  );
+}
+
+function SprintBoard({
+  rows,
+  users,
+  expandedCriteria,
+  setExpandedCriteria,
+  onViewBrief,
+  onLogBlocker,
+}: {
+  rows: Row[];
+  users: User[];
+  expandedCriteria: Record<string, boolean>;
+  setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>;
+  onViewBrief: (row: Row) => void;
+  onLogBlocker: (row: Row) => void;
+}) {
+  const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
+  return (
+    <div className="space-y-5">
+      <BlockedRail rows={blocked} onLogBlocker={onLogBlocker} />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {BOARD_COLUMNS.map((status) => {
+          const columnRows = rows.filter((row) => row.sh.delivery_status === status);
+          return (
+            <section key={status} className="rounded-md border border-border bg-muted/20 p-3">
+              <div className="mb-3 flex justify-between text-sm font-medium">
+                <span>{status}</span>
+                <span className="text-muted-foreground">{columnRows.length}</span>
+              </div>
+              <div className="space-y-3">
+                {columnRows.map((row) => (
+                  <BoardCard
+                    key={row.sh.id}
+                    row={row}
+                    users={users}
+                    expanded={!!expandedCriteria[row.sh.id]}
+                    onToggleMore={() =>
+                      setExpandedCriteria((current) => ({
+                        ...current,
+                        [row.sh.id]: !current[row.sh.id],
+                      }))
+                    }
+                    onViewBrief={() => onViewBrief(row)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BoardCard({
+  row,
+  users,
+  expanded,
+  onToggleMore,
+  onViewBrief,
+}: {
+  row: Row;
+  users: User[];
+  expanded: boolean;
+  onToggleMore: () => void;
+  onViewBrief: () => void;
+}) {
+  const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
+  const staleDays = daysSince(row.sh.updated_at);
+  return (
+    <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span className="font-mono">{row.sh.jira_key}</span>
+        <span>{row.sh.tech_estimate_pts ?? "—"} pts</span>
+      </div>
+      <h3 className="mt-1 line-clamp-2 font-medium leading-snug">{row.sig.title}</h3>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">
+          {initials(assignee?.name)}
+        </span>
+        <span>{row.sh.delivery_status}</span>
+        <span>{staleDays}d in status</span>
+        {staleDays >= 2 && (
+          <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
+            {staleDays}d stale
+          </span>
+        )}
+      </div>
+      <div className="mt-3 rounded-md bg-surface-2 p-2 text-xs text-muted-foreground">
+        <p className={expanded ? "" : "line-clamp-2"}>
+          {row.sh.solution_criteria || "No success criteria recorded."}
+        </p>
+        {row.sh.solution_criteria.length > 90 && (
+          <button onClick={onToggleMore} className="mt-1 text-primary hover:underline">
+            {expanded ? "less" : "more"}
+          </button>
+        )}
+      </div>
+      <button
+        onClick={onViewBrief}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
+      >
+        <Eye className="h-3.5 w-3.5" /> View brief
+      </button>
+    </article>
+  );
+}
+
+function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: Row) => void }) {
+  return (
+    <section className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-destructive">
+        <AlertTriangle className="h-4 w-4" /> Blocked rail ({rows.length})
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => {
+          const days = row.sh.blocked_since ? daysSince(row.sh.blocked_since) : 0;
+          return (
+            <div key={row.sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span className="font-mono">{row.sh.jira_key}</span>
+                <span>{days}d blocked</span>
+              </div>
+              <p className="mt-1 font-medium">{row.sig.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {row.sh.blocker_description || "No blocker description logged."}
+              </p>
+              {days >= 2 && (
+                <span className="mt-2 inline-flex rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
+                  Escalated to Leadership
+                </span>
+              )}
+              <button
+                onClick={() => onLogBlocker(row)}
+                className="mt-3 block rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
+              >
+                Log product blocker
+              </button>
+            </div>
+          );
+        })}
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">No blocked items.</p>}
+      </div>
+    </section>
+  );
+}
+
+function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
+  const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
+  return (
+    <div className="fixed inset-0 z-50 bg-background/50" onClick={onClose}>
+      <aside
+        onClick={(e) => e.stopPropagation()}
+        className="ml-auto h-full w-full max-w-xl overflow-y-auto border-l border-border bg-surface p-6 shadow-xl"
+      >
+        <button onClick={onClose} className="float-right rounded-md p-1 hover:bg-accent/40">
+          <X className="h-4 w-4" />
+        </button>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          Shaping brief
+        </p>
+        <h2 className="mt-1 font-display text-2xl">{row.sig.title}</h2>
+        <dl className="mt-6 space-y-4">
+          {briefField("Problem", row.sh.problem_what)}
+          {briefField("Why now", row.sh.problem_why)}
+          {briefField("Who is affected", row.sh.problem_who)}
+          {briefField("Success criteria", row.sh.solution_criteria)}
+          {briefField("Proposed approach", row.sh.solution_approach)}
+          {briefField("Open questions", row.sh.solution_questions || "—")}
+          {briefField("Out of scope", row.sh.problem_out_of_scope || "—")}
+          <div className="border-t border-border pt-4">
+            {briefField("Reviewer", reviewer?.name ?? "—")}
+            {briefField("Estimate", `${row.sh.tech_estimate_pts ?? "—"} pts`)}
+            {briefField("Review notes", row.sh.tech_review_notes || "—")}
+            {briefField("Concerns", row.sh.tech_concerns || "—")}
+          </div>
+        </dl>
+      </aside>
     </div>
   );
 }
 
 function BlockerModal({
-  item,
-  onConfirm,
-  onClose,
+  row,
+  users,
+  onCancel,
+  onSave,
 }: {
-  item: ShapingItem;
-  onConfirm: (description: string) => void;
-  onClose: () => void;
+  row: Row;
+  users: User[];
+  onCancel: () => void;
+  onSave: (data: { description: string; ownerId: string; expectedDate: string }) => void;
 }) {
-  const [desc, setDesc] = useState(item.blocker_description ?? "");
-  const valid = desc.trim().length >= 20;
+  const [description, setDescription] = useState(row.sh.blocker_description);
+  const [ownerId, setOwnerId] = useState(row.sh.delivery_assignee_id ?? users[0]?.id ?? "");
+  const [expectedDate, setExpectedDate] = useState("");
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-lg">Mark blocked</h3>
-          <button onClick={onClose}>
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-        <p className="mb-3 text-xs text-muted-foreground">{item.jira_key} · describe the blocker (min 20 chars).</p>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Log product blocker</h2>
+        <label className="mt-4 block text-sm font-medium">Blocker description</label>
         <textarea
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          rows={4}
-          placeholder="What's blocking this item? Who do we need to unblock it?"
-          className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
         />
-        <div className="mt-1 text-[11px] text-muted-foreground">{desc.trim().length}/20 chars minimum</div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-muted">
+        <label className="mt-3 block text-sm font-medium">Owner</label>
+        <select
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
+        >
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <label className="mt-3 block text-sm font-medium">Expected resolution date</label>
+        <input
+          type="date"
+          value={expectedDate}
+          onChange={(e) => setExpectedDate(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40"
+          >
             Cancel
           </button>
           <button
-            disabled={!valid}
-            onClick={() => onConfirm(desc.trim())}
-            className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground disabled:opacity-40"
+            disabled={description.trim().length === 0}
+            onClick={() => onSave({ description, ownerId, expectedDate })}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
           >
-            Mark blocked
+            Save
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function commitmentType(sig: Signal): CommitmentType {
+  if (sig.issue_type === "Bug" || sig.issue_type === "Incident") return "Fix";
+  if (sig.issue_type === "Dependency Change") return "Dependency";
+  if (sig.issue_type === "Support") return "Research";
+  return "Feature";
+}
+
+function initials(name?: string) {
+  return (
+    name
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2) ?? "—"
+  );
+}
+
+function briefField(label: string, value: string) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="mt-1 whitespace-pre-wrap text-sm">{value}</dd>
     </div>
   );
 }
