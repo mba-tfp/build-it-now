@@ -136,7 +136,8 @@ const uid = () => {
   return _uidCounter.toString(36).padStart(4, "0");
 };
 
-const SEED_EPOCH = new Date().getTime();
+const today = new Date();
+const SEED_EPOCH = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
 
 const blankUser = (id: string, name: string, role: User["role"]): User => ({
   id,
@@ -161,19 +162,19 @@ export const USERS: User[] = [
 const seedSprint: Sprint = {
   id: "s-6",
   name: "Active Sprint",
-  start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
-  end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
+  start_date: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
+  end_date: new Date(SEED_EPOCH + 7 * 86400000).toISOString(),
   status: "Active",
   scope_locked_at: null,
   scope_locked_by: null,
   gross_capacity_pts: 60,
-  leave_deduction_pts: 5,
-  interrupt_buffer_pts: 6,
+  leave_deduction_pts: 4,
+  interrupt_buffer_pts: 5,
   qa_buffer_pts: 4,
   uncertainty_buffer_pts: 3,
   golive_deduction_pts: 0,
-  carryforward_estimate_pts: 5,
-  allocated_pts: 34,
+  carryforward_estimate_pts: 4,
+  allocated_pts: 38,
 };
 
 function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: boolean }): ShapingItem {
@@ -243,10 +244,10 @@ function buildSeedSignal(args: {
   product: Signal["product"];
   daysAgo: number;
   status?: Signal["status"];
-  owner?: string;
+  owner?: string | null;
   hold_until?: string | null;
   triage_reason?: string | null;
-}): Signal {
+}) {
   const created = new Date(SEED_EPOCH - args.daysAgo * 86400000);
   const c = classifySignal({ source: args.source, description: args.description });
   return {
@@ -271,398 +272,361 @@ function buildSeedSignal(args: {
   };
 }
 
+const sigDone: Signal = buildSeedSignal({
+  title: "OttoNotes autosave indicator — coordinators cannot tell if notes have saved",
+  description:
+    "Coordinators cannot tell whether OttoNotes content has synced before closing the editor, causing lost notes and rework.",
+  source: "Clinic",
+  product: "Otto Notes",
+  daysAgo: 14,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+const sigInDelivery: Signal = buildSeedSignal({
+  title: "2FA enforcement for clinic admin accounts — security policy requirement",
+  description:
+    "Clinic admin accounts require TOTP-based 2FA to satisfy new clinic security policy and onboarding compliance requirements.",
+  source: "Internal",
+  product: "Platform",
+  daysAgo: 21,
+  status: "Proceed",
+  owner: "u-alizar",
+});
+
+const sigInQA: Signal = buildSeedSignal({
+  title: "EngagedMD consent assignment not automating for RCC and Olive tenants",
+  description:
+    "EngagedMD consent and video assignments are not automating for RCC and Olive tenants, forcing staff into manual assignment.",
+  source: "Clinic",
+  product: "Otto-Onboard",
+  daysAgo: 10,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+const sigBlocked: Signal = buildSeedSignal({
+  title: "Phelix AI webhook latency causing notes sync delays over 30 seconds",
+  description:
+    "Phelix AI webhook latency is causing OttoNotes sync delays over 30 seconds and creating data reliability concerns.",
+  source: "Internal",
+  product: "Platform",
+  daysAgo: 8,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+const sigForApproval: Signal = buildSeedSignal({
+  title: "eIVF creating duplicate patient records when CNP sends to EMR at Generation Fertility",
+  description:
+    "CNP to eIVF patient send flow creates duplicate records at Generation Fertility when returning patients were originally registered outside CNP.",
+  source: "Clinic",
+  product: "Platform",
+  daysAgo: 5,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+const sigForTechReview: Signal = buildSeedSignal({
+  title: "Heartland pre-production environment needs workflow configuration before go-live",
+  description:
+    "Heartland pre-production tenant needs workflows, forms, templates, and integration configuration before UAT can start.",
+  source: "Internal",
+  product: "Otto-Onboard",
+  daysAgo: 4,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+const sigHelpCenter: Signal = buildSeedSignal({
+  title: "No centralized help center for clinic staff — Sami's training videos have no home",
+  description:
+    "Clinic staff need a single home for Sami's training videos and onboarding materials instead of scattered Teams links.",
+  source: "Internal",
+  product: "Platform",
+  daysAgo: 0,
+  status: "New",
+  owner: null,
+});
+
+const sigUniquePatientId: Signal = buildSeedSignal({
+  title:
+    "No unique patient identifier across OttoOnboard, OttoNotes, and downstream EMRs — same patient has separate records in every system with no way to link them",
+  description:
+    "Patients have separate records across OttoOnboard, OttoNotes, OttoPulse, eIVF, Accuro, and Athena with no shared identifier to link them.",
+  source: "Internal",
+  product: "Platform",
+  daysAgo: 6,
+  status: "Proceed",
+  owner: "u-bazil",
+});
+
+sigDone.tier = "P2";
+sigInDelivery.tier = "P2";
+sigInQA.tier = "P2";
+sigBlocked.tier = "P2";
+sigForApproval.tier = "P1";
+sigForTechReview.tier = "P2";
+sigHelpCenter.tier = "P2";
+sigUniquePatientId.tier = "P2";
+[sigDone, sigInDelivery, sigInQA, sigBlocked, sigForApproval, sigForTechReview, sigHelpCenter, sigUniquePatientId].forEach((signal) => {
+  signal.sla_due_at = slaDueAt(signal.tier, new Date(signal.created_at)).toISOString();
+});
+
 const seedSignals: Signal[] = [
-  buildSeedSignal({
-    title: "Patients cannot complete intake on Safari",
-    description:
-      "Multiple clinics report patients cannot access the intake form on Safari iOS — the submit button does nothing. Urgent, blocking onboarding.",
-    source: "Clinic",
-    product: "Otto-Onboard",
-    daysAgo: 1,
-    owner: "u-bazil",
-  }),
-  buildSeedSignal({
-    title: "Add bulk export to clinic dashboard",
-    description:
-      "Clinic ops would like to export the weekly cohort report as CSV. Would save them 2 hours per week. Can we add a download button?",
-    source: "Clinic",
-    product: "Otto Pulse",
-    daysAgo: 3,
-    status: "In Review",
-    owner: "u-bazil",
-  }),
-  buildSeedSignal({
-    title: "Refactor Notes sync queue",
-    description:
-      "The Notes sync worker is slow when more than 200 items are queued — needs refactor and performance cleanup before next clinic onboarding.",
-    source: "Dev Team",
-    product: "Otto Notes",
-    daysAgo: 6,
-  }),
-  buildSeedSignal({
-    title: "Board wants headline KPIs on FertiWise",
-    description:
-      "Leadership ask: surface conversion KPIs on the FertiWise homepage for the board presentation tomorrow.",
-    source: "Leadership",
-    product: "FertiWise",
-    daysAgo: 2,
-    owner: "u-bazil",
-  }),
-  buildSeedSignal({
-    title: "Reset password flow broken in StimSmart",
-    description:
-      "Clinic reports the password reset email never arrives — error in the logs after submit.",
-    source: "Clinic",
-    product: "StimSmart",
-    daysAgo: 4,
-    status: "Hold",
-    owner: "u-bazil",
-    hold_until: new Date(SEED_EPOCH + 5 * 86400000).toISOString(),
-    triage_reason: "Waiting on SMTP provider investigation",
-  }),
-  buildSeedSignal({
-    title: "Concurrent edit collisions in Otto-Onboard",
-    description:
-      "Two coordinators editing the same patient record cause data integrity issues — one overwrites the other silently.",
-    source: "Internal",
-    product: "Otto-Onboard",
-    daysAgo: 0,
-    owner: "u-alizar",
-  }),
+  sigDone,
+  sigInDelivery,
+  sigInQA,
+  sigBlocked,
+  sigForApproval,
+  sigForTechReview,
+  sigHelpCenter,
+  sigUniquePatientId,
 ];
 
-const shapingInProgress: ShapingItem = {
-  ...blankShaping(seedSignals[1].id, "u-bazil"),
-  shaping_status: "In Shaping",
-  current_step: 2,
-  problem_what:
-    "Clinic ops teams need a way to export weekly cohort metrics so they can share with their leadership without screenshotting dashboards.",
-  problem_why:
-    "Clinics currently spend ~2h per week manually copying figures. Without exports they can't share trended views with their own boards or referrers.",
-  problem_who: "Clinic operations leads at all 14 clinics, weekly.",
-  problem_where: "Otto Pulse > Cohort Reports > Weekly view",
-  problem_evidence:
-    "Three clinics raised this in the November ops call; Sami logged 6 separate signals in the past 4 weeks.",
-  problem_out_of_scope: "PDF export, scheduled email delivery, custom date ranges (Phase 2).",
-  roadmap_bucket: "Backlog",
-  created_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
-  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-};
-seedSignals[1].status = "Proceed";
-seedSignals[1].shaping_item_id = shapingInProgress.id;
-
-const sigForTechReview: Signal = {
-  ...buildSeedSignal({
-    title: "SSO for clinic admins via Microsoft Entra",
-    description:
-      "Clinic IT teams want their admins to log into Otto with their existing Microsoft accounts to reduce password sprawl.",
-    source: "Clinic",
-    product: "Platform",
-    daysAgo: 8,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
-
-const shapingInTechReview: ShapingItem = {
-  ...blankShaping(sigForTechReview.id, "u-bazil"),
-  shaping_status: "In Tech Review",
-  current_step: 4,
-  problem_what:
-    "Clinic admins maintain a separate Otto password, leading to lockouts and ~15 reset tickets per week from IT teams who already provision Microsoft accounts.",
-  problem_why:
-    "Reduces support burden, improves security posture, and is a precondition for two clinics to roll Otto to all coordinators.",
-  problem_who: "Clinic IT admins (14 clinics) and ~120 coordinator users.",
-  problem_where: "Otto login screen and admin user management.",
-  problem_evidence:
-    "15 weekly tickets, two clinics gating expansion on this, raised in three ops calls.",
-  problem_out_of_scope: "SCIM provisioning, Google Workspace SSO (later).",
-  roadmap_bucket: "Committed",
-  displacement: "Defer the inline-comment polish on Notes",
-  solution_complexity: "Medium",
-  solution_approach:
-    "Add an OIDC provider integration using Entra; map email-domain → tenant; keep password fallback for non-SSO users.",
-  solution_criteria:
-    "Admins from the two pilot clinics can sign in with Entra and land on their tenant; password reset tickets drop by 50% in 30 days.",
-  solution_effort: "13 points (1.5 sprints).",
-  solution_decisions: "Email-domain mapping vs. tenant claim — going with domain.",
-  solution_questions: "Which clinics first? Confirm Entra app registration owner.",
-  solution_risks:
-    "Multi-tenant edge cases; need a fallback for users with personal Microsoft accounts.",
-  created_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
-  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-};
-sigForTechReview.shaping_item_id = shapingInTechReview.id;
-
-const sigForApproval: Signal = {
-  ...buildSeedSignal({
-    title: "Bulk patient import for new clinic onboarding",
-    description:
-      "When a new clinic onboards we need to import their existing patient list rather than re-keying.",
-    source: "Internal",
-    product: "Otto-Onboard",
-    daysAgo: 10,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
-
-const shapingForApproval: ShapingItem = {
-  ...blankShaping(sigForApproval.id, "u-bazil"),
-  shaping_status: "Ready for Sprint",
-  current_step: 2,
-  problem_what:
-    "Clinics joining Otto have to re-enter every existing patient record manually, which delays go-live by 2–3 weeks.",
-  problem_why:
-    "We have three clinics onboarding next quarter. Without an import path each takes ~80 hours of coordinator time.",
-  problem_who: "Onboarding coordinators across 3 incoming clinics.",
-  problem_where: "Otto-Onboard > Admin > Patients.",
-  problem_evidence:
-    "Two of the three clinics named this as a blocker in their onboarding kickoff.",
-  problem_out_of_scope: "Historical appointment / treatment history import (Phase 2).",
-  roadmap_bucket: "Committed",
-  displacement: "Push the cycle-summary export to Sprint 7",
-  solution_complexity: "Medium",
-  solution_approach:
-    "CSV upload with column mapping UI, dry-run preview, then committed insert with per-row validation log.",
-  solution_criteria:
-    "A clinic can import 1,000 patients in under 10 minutes with a clear error report on failed rows.",
-  solution_effort: "8 points",
-  solution_decisions: "CSV format, max 5,000 rows per upload.",
-  solution_questions: "How do we deduplicate against existing records?",
-  solution_risks: "Bad data in CSVs; mitigated by dry-run preview.",
-  tech_reviewer_id: "u-waseem",
-  tech_review_notes:
-    "Approach is sound. Use the existing CSV parser. Add a queue worker for >500 rows.",
-  tech_estimate_pts: 8,
-  tech_concerns: "None blocking — flag dedup strategy decision back to PM.",
-  tech_signed_off_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-  created_at: new Date(SEED_EPOCH - 9 * 86400000).toISOString(),
-  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-};
-sigForApproval.shaping_item_id = shapingForApproval.id;
-
-const sigInDelivery: Signal = {
-  ...buildSeedSignal({
-    title: "Two-factor auth for clinic admin accounts",
-    description: "Add TOTP-based 2FA for admin accounts to meet new clinic security policy.",
-    source: "Internal",
-    product: "Platform",
-    daysAgo: 14,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
-
-const shapingInDelivery: ShapingItem = {
-  ...blankShaping(sigInDelivery.id, "u-bazil"),
+const shapingDone: ShapingItem = {
+  ...blankShaping(sigDone.id, "u-bazil"),
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what:
-    "Admin accounts only require a password — new clinic security policy mandates 2FA for any account that can edit patient records.",
+    "Coordinators have no visual indicator showing whether their notes have been saved. They frequently close the tab assuming notes saved when they have not.",
   problem_why:
-    "Compliance deadline in Q2; one clinic has flagged this as a gating item for renewal.",
-  problem_who: "All 60 admin users across clinics.",
-  problem_where: "Otto login + admin profile settings.",
-  problem_evidence: "Compliance email from clinic IT, escalated by leadership.",
-  problem_out_of_scope: "WebAuthn / hardware key support (Phase 2).",
+    "Three clinics reported lost notes in the past month. Coordinators lose 20-30 minutes of work when this happens and have to reconstruct from memory.",
+  problem_who: "All clinic coordinators across 13 active clinics, used daily.",
+  problem_where: "OttoNotes — note editing screen.",
+  problem_evidence: "3 clinic support tickets in past 30 days. Raised in ops call November 2025.",
   roadmap_bucket: "Committed",
-  displacement: "",
   solution_complexity: "Simple",
-  solution_approach: "TOTP enrollment flow + recovery codes; enforce on next login.",
-  solution_criteria: "100% of admins enrolled within 30 days; no lockouts beyond recovery flow.",
+  solution_approach:
+    "Add a save-status indicator component to the OttoNotes editing screen. Shows Saving, Saved, or Error states. Pulls from existing autosave event.",
+  solution_criteria:
+    "A visible save status indicator appears on the note editing screen. Coordinators can see at a glance whether their notes have synced. Indicator updates within 2 seconds of save.",
   solution_effort: "5 points",
-  solution_decisions: "TOTP first; WebAuthn later.",
-  solution_questions: "",
-  solution_risks: "Lockouts — mitigated by recovery codes.",
-  tech_reviewer_id: "u-ahmed",
-  tech_review_notes: "Use otplib. Standard pattern, low risk.",
+  tech_reviewer_id: "u-waseem",
+  tech_review_notes: "Small UI addition using existing autosave events.",
   tech_estimate_pts: 5,
-  tech_concerns: "",
-  tech_signed_off_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+  tech_signed_off_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Approved for Active Sprint. Push to Jira.",
-  approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+  approval_notes: "Approved for Active Sprint.",
+  approved_at: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
+  jira_key: "TFP-1038",
+  in_sprint: true,
+  delivery_status: "Done",
+  delivery_assignee_id: "u-zeeshan",
+  dev_complete: {
+    merged_to_main: true,
+    deployed_to_staging: true,
+    smoke_test_passed: true,
+    signed_off_by: "u-karim",
+    signed_off_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+  },
+  created_at: new Date(SEED_EPOCH - 14 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+};
+sigDone.shaping_item_id = shapingDone.id;
+
+const shapingInDelivery: ShapingItem = {
+  ...blankShaping(sigInDelivery.id, "u-alizar"),
+  shaping_status: "In Delivery",
+  current_step: 5,
+  problem_what: "Clinic admin accounts have no second factor. A stolen password gives full admin access.",
+  problem_why:
+    "New clinic security policy requires 2FA for all admin accounts by Q2 2026. Two clinics have flagged this as a compliance blocker.",
+  problem_who: "All clinic admins across 13 clinics, approximately 40 users.",
+  problem_where: "Otto platform login screen and admin user management.",
+  problem_evidence: "Security policy document received February 2026. Two clinics flagged in onboarding calls.",
+  roadmap_bucket: "Committed",
+  solution_complexity: "Medium",
+  solution_approach:
+    "Add TOTP-based 2FA using existing auth infrastructure. Add enrolment UI to admin profile settings. Add enforcement logic with grace period.",
+  solution_criteria:
+    "Clinic admins can enrol in TOTP-based 2FA. 2FA is enforced on next login after enrolment deadline. Recovery codes provided.",
+  solution_effort: "8 points",
+  tech_reviewer_id: "u-ahmed",
+  tech_review_notes: "Use existing auth infrastructure and recovery code pattern.",
+  tech_estimate_pts: 8,
+  tech_signed_off_at: new Date(SEED_EPOCH - 18 * 86400000).toISOString(),
+  approver_id: "u-alizar",
+  approval_decision: "Approved",
+  approval_notes: "Compliance deadline requires this in the active sprint.",
+  approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
   jira_key: "TFP-1042",
   in_sprint: true,
   delivery_status: "In Progress",
   delivery_assignee_id: "u-farooq",
-  created_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
+  created_at: new Date(SEED_EPOCH - 21 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
 sigInDelivery.shaping_item_id = shapingInDelivery.id;
-
-const sigInQA: Signal = {
-  ...buildSeedSignal({
-    title: "Notes auto-save indicator",
-    description: "Add a save-status indicator so coordinators know their notes have synced.",
-    source: "Clinic",
-    product: "Otto Notes",
-    daysAgo: 12,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
 
 const shapingInQA: ShapingItem = {
   ...blankShaping(sigInQA.id, "u-bazil"),
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what:
-    "Coordinators don't know if their notes saved — leading to duplicate entries and uncertainty in patient handoffs.",
-  problem_why: "Reduces data integrity risk and coordinator anxiety.",
-  problem_who: "All coordinators using Otto Notes.",
-  problem_where: "Otto Notes > patient note editor.",
-  problem_evidence: "12 signals in two months from coordinators.",
-  problem_out_of_scope: "Offline editing (Phase 2).",
+    "EngagedMD consent and video assignments are not automating correctly for RCC and Olive tenants. Staff are manually assigning consents.",
+  problem_why:
+    "Manual assignment takes 15 minutes per patient. RCC onboards 30 patients per week. This is 7.5 hours of avoidable admin work weekly.",
+  problem_who: "RCC and Olive clinic coordinators, weekly.",
+  problem_where: "Otto-Onboard EngagedMD integration layer.",
+  problem_evidence: "Raised by RCC coordinator in support ticket. Olive confirmed same issue.",
   roadmap_bucket: "Committed",
-  displacement: "",
-  solution_complexity: "Simple",
-  solution_approach: "Add a status indicator: Saved · Saving… · Failed (retry).",
-  solution_criteria: "Visible at all times; tested across slow networks.",
-  solution_effort: "3 points",
-  solution_decisions: "",
-  solution_questions: "",
-  solution_risks: "",
+  solution_complexity: "Medium",
+  solution_approach:
+    "Fix tenant-specific automation rules in EngagedMD integration. Add RCC and Olive to automated assignment config.",
+  solution_criteria:
+    "Consent and video assignments trigger automatically when patient reaches the relevant workflow stage for RCC and Olive tenants. Manual override still available.",
+  solution_effort: "8 points",
   tech_reviewer_id: "u-waseem",
-  tech_review_notes: "Trivial — wire to existing autosave hook.",
-  tech_estimate_pts: 3,
-  tech_concerns: "",
+  tech_review_notes: "Tenant config change with regression coverage for RCC and Olive.",
+  tech_estimate_pts: 8,
   tech_signed_off_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Approved.",
+  approval_notes: "Approved for active tenant rollout.",
   approved_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
-  jira_key: "TFP-1038",
+  jira_key: "TFP-1045",
   in_sprint: true,
-  delivery_status: "In QA",
+  delivery_status: "In Progress",
   delivery_assignee_id: "u-zeeshan",
-  created_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
+  created_at: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
 sigInQA.shaping_item_id = shapingInQA.id;
-
-// A blocked item (>1 day) — gives notifications work to do.
-const sigBlocked: Signal = {
-  ...buildSeedSignal({
-    title: "FertiWise lead capture form errors",
-    description: "Lead form intermittently 500s after submit — losing inbound leads.",
-    source: "Internal",
-    product: "FertiWise",
-    daysAgo: 9,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
 
 const shapingBlocked: ShapingItem = {
   ...blankShaping(sigBlocked.id, "u-bazil"),
   shaping_status: "In Delivery",
   current_step: 5,
-  problem_what: "Lead form fails ~8% of submissions, no error shown to user.",
-  problem_why: "Each lost lead is ~£600 LTV; visible to marketing leadership.",
-  problem_who: "Marketing ops + FertiWise prospects.",
-  problem_where: "FertiWise > Get in touch form.",
-  problem_evidence: "APM 500-rate spike since deploy 2026-04-08.",
-  problem_out_of_scope: "Form redesign.",
+  problem_what: "Phelix AI webhook delivery is taking over 30 seconds for notes sync events causing visible lag in OttoNotes.",
+  problem_why:
+    "Coordinators see a delay between completing a note in Phelix and it appearing in OttoNotes. Two clinics have reported this as a data reliability concern.",
+  problem_who: "All clinics using Phelix AI integration, currently RCC and OFC.",
+  problem_where: "Phelix AI to OttoNotes webhook integration.",
+  problem_evidence: "Monitoring alert fired 6 hours ago. Taha confirmed in Jira comment.",
   roadmap_bucket: "Committed",
-  displacement: "",
-  solution_complexity: "Simple",
-  solution_approach: "Patch validator handling for blank phone fields, add observability.",
-  solution_criteria: "500-rate < 0.5% over 7 days.",
-  solution_effort: "3 points",
-  solution_decisions: "",
-  solution_questions: "",
-  solution_risks: "",
+  solution_complexity: "Medium",
+  solution_approach:
+    "Investigate Phelix webhook retry logic and queue depth. Implement exponential backoff. Add latency monitoring.",
+  solution_criteria:
+    "Webhook delivery latency under 5 seconds for 95% of events. Alert threshold updated to flag anything over 10 seconds.",
+  solution_effort: "5 points",
   tech_reviewer_id: "u-waseem",
-  tech_review_notes: "Confirmed root cause. Quick fix.",
-  tech_estimate_pts: 3,
-  tech_concerns: "",
-  tech_signed_off_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
+  tech_review_notes: "Requires vendor documentation before retry changes are finalized.",
+  tech_estimate_pts: 5,
+  tech_signed_off_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Ship.",
-  approved_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
-  jira_key: "TFP-1045",
+  approval_notes: "Approved with vendor-doc dependency noted.",
+  approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+  jira_key: "TFP-1047",
   in_sprint: true,
   delivery_status: "Blocked",
   blocked_since: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
-  blocker_description: "Awaiting SMTP provider response — needed before we can validate retry path.",
-  delivery_assignee_id: "u-ahmed",
+  blocker_description:
+    "Waiting on Phelix AI to share updated webhook documentation. Hamim confirmed docs are being updated but no ETA given.",
+  delivery_assignee_id: "u-waseem",
   created_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
   updated_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
 };
 sigBlocked.shaping_item_id = shapingBlocked.id;
 
-const sigDone: Signal = {
-  ...buildSeedSignal({
-    title: "Coordinator dashboard load time",
-    description:
-      "Coordinator dashboard takes 6+ seconds to load on slow clinic networks. Needs performance work.",
-    source: "Clinic",
-    product: "Otto Pulse",
-    daysAgo: 22,
-    owner: "u-bazil",
-  }),
-  status: "Proceed",
-};
-
-const shapingDone: ShapingItem = {
-  ...blankShaping(sigDone.id, "u-bazil"),
+const shapingForApproval: ShapingItem = {
+  ...blankShaping(sigForApproval.id, "u-bazil"),
   shaping_status: "In Delivery",
   current_step: 5,
-  problem_what: "Coordinator dashboard takes 6+ seconds to first paint on clinic Wi-Fi.",
-  problem_why: "Coordinators check this 20+ times a day; latency wastes ~25min/day per user.",
-  problem_who: "All ~120 coordinator users.",
-  problem_where: "Otto Pulse > Coordinator Dashboard.",
-  problem_evidence: "Five clinics complained; APM shows p95 6.4s on 4G.",
-  problem_out_of_scope: "Native mobile rewrite (Phase 2).",
+  problem_what:
+    "When CNP sends a returning patient to eIVF at Generation Fertility, a duplicate patient record is created if the patient was originally registered outside CNP.",
+  problem_why:
+    "Duplicate records cause billing errors, treatment history gaps, and confusion for clinic staff. Generation Fertility reported 12 duplicate records in the past 2 weeks.",
+  problem_who: "Generation Fertility clinical staff and patients. Affects all returning patients not originally registered via CNP.",
+  problem_where: "CNP to eIVF EMR integration — send patient flow.",
+  problem_evidence: "Generation Fertility support ticket CNP-12852. 12 confirmed duplicates reported.",
   roadmap_bucket: "Committed",
-  displacement: "",
-  solution_complexity: "Simple",
-  solution_approach: "Cache aggregations, defer non-critical widgets, add skeleton states.",
-  solution_criteria: "p95 first paint < 2.0s on 4G in 30 days.",
-  solution_effort: "5 points",
-  solution_decisions: "Server cache TTL = 60s.",
-  solution_questions: "",
-  solution_risks: "Stale data perception — mitigated by visible refresh time.",
-  tech_reviewer_id: "u-waseem",
-  tech_review_notes: "Standard caching pattern.",
-  tech_estimate_pts: 5,
-  tech_concerns: "",
-  tech_signed_off_at: new Date(SEED_EPOCH - 18 * 86400000).toISOString(),
+  solution_complexity: "Medium",
+  solution_approach:
+    "Add pre-send deduplication check to eIVF integration. Match on email + DOB. If match found, return existing eIVF ID. Log all matches for audit.",
+  solution_criteria:
+    "CNP checks for existing eIVF record by email and date of birth before creating new record. If match found, links to existing record instead of creating duplicate.",
+  solution_effort: "8 points",
+  tech_reviewer_id: "u-ahmed",
+  tech_review_notes: "Dedup check should be audited and guarded behind integration feature flag.",
+  tech_estimate_pts: 8,
+  tech_signed_off_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Ship.",
-  approved_at: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
-  jira_key: "TFP-1031",
+  approval_notes: "Added for patient care risk at Generation Fertility.",
+  approved_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+  jira_key: "TFP-1049",
   in_sprint: true,
-  delivery_status: "Done",
+  delivery_status: "To Do",
   delivery_assignee_id: "u-farooq",
-  dev_complete: {
-    merged_to_main: true,
-    deployed_to_staging: true,
-    smoke_test_passed: true,
-    signed_off_by: "u-karim",
-    signed_off_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
-  },
-  created_at: new Date(SEED_EPOCH - 21 * 86400000).toISOString(),
-  updated_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+  created_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
 };
-sigDone.shaping_item_id = shapingDone.id;
+sigForApproval.shaping_item_id = shapingForApproval.id;
 
-seedSignals.push(sigForTechReview, sigForApproval, sigInDelivery, sigInQA, sigBlocked, sigDone);
+const shapingInTechReview: ShapingItem = {
+  ...blankShaping(sigForTechReview.id, "u-bazil"),
+  shaping_status: "In Tech Review",
+  current_step: 4,
+  problem_what:
+    "Heartland clinic is scheduled for go-live but their pre-production environment has not been configured. Workflows, forms, and templates need to be set up before UAT can begin.",
+  problem_why:
+    "Heartland go-live is planned for next sprint. Without pre-prod setup this week, UAT cannot start and the go-live date slips.",
+  problem_who: "Heartland clinic coordinator team and TFP onboarding team.",
+  problem_where: "CNP admin panel — tenant configuration for Heartland.",
+  problem_evidence: "CNP-13562 in Jira. Go-live planning ticket.",
+  roadmap_bucket: "Committed",
+  solution_complexity: "Medium",
+  solution_approach:
+    "Create Heartland tenant in pre-prod. Configure workflows from requirements doc. Set up email templates. Verify integrations in pre-prod.",
+  solution_criteria:
+    "Heartland pre-production environment is fully configured. Workflows match clinic requirements document. Sami can begin UAT walkthrough with clinic.",
+  solution_effort: "Pending tech review",
+  tech_reviewer_id: "u-waseem",
+  tech_review_notes: "",
+  tech_estimate_pts: null,
+  created_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+};
+sigForTechReview.shaping_item_id = shapingInTechReview.id;
+
+const shapingInProgress: ShapingItem = {
+  ...blankShaping(sigUniquePatientId.id, "u-bazil"),
+  shaping_status: "In Shaping",
+  current_step: 2,
+  problem_what:
+    "Patients exist in OttoOnboard, OttoNotes, OttoPulse, and downstream EMRs (eIVF, Accuro, Athena) as completely separate records with no shared identifier. The same patient has a different ID in every system.",
+  problem_why:
+    "Consent forms cannot route to correct records. Nurses cannot reliably match patients across systems. Duplicate records keep appearing (see CNP-12852, CNP-12662, TPI-113). A unified patient timeline is impossible without a shared key.",
+  problem_who: "All clinic staff across 13 clinics. Affects every patient interaction that touches more than one system.",
+  problem_where: "Cross-system: OttoOnboard, OttoNotes, OttoPulse, eIVF, Accuro, Athena.",
+  problem_evidence:
+    "Three live Jira tickets: CNP-12852 (eIVF duplicates at GF), CNP-12662 (Olive duplicate on phone match), TPI-113 (Athena/Illume duplicates). Raised as strategic issue April 28 2026.",
+  roadmap_bucket: "Backlog",
+  solution_complexity: "Complex",
+  solution_questions:
+    "Should CNP UUID become the master key or do we create a new TFP-wide patient ID? What changes are needed in OttoNotes and OttoPulse to store a foreign key? How do we handle patients who exist in EMR but were never in CNP? Who owns the master record and what triggers a merge?",
+  solution_decisions: "Research commitment.",
+  created_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+  updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+};
+sigUniquePatientId.shaping_item_id = shapingInProgress.id;
 
 const seedShaping: ShapingItem[] = [
-  shapingInProgress,
-  shapingInTechReview,
-  shapingForApproval,
+  shapingDone,
   shapingInDelivery,
   shapingInQA,
   shapingBlocked,
-  shapingDone,
+  shapingForApproval,
+  shapingInTechReview,
+  shapingInProgress,
 ];
+seedShaping.forEach((item) => {
+  item.shaping_started_at = item.created_at;
+});
 
 function pickReviewSize(s: ShapingItem): ReviewSize {
   const pts = s.tech_estimate_pts ?? 0;
@@ -696,16 +660,16 @@ const seedReviews: Review[] = [
 const seedJiraEvents: JiraEvent[] = [
   {
     id: "je-" + uid(),
-    ts: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    ts: new Date(SEED_EPOCH - 17 * 86400000).toISOString(),
     direction: "outbound",
     type: "issue.created",
     jira_key: "TFP-1042",
     shaping_id: shapingInDelivery.id,
-    payload: { summary: shapingInDelivery.problem_what.slice(0, 60), points: 5 },
+    payload: { summary: shapingInDelivery.problem_what.slice(0, 60), points: 8 },
   },
   {
     id: "je-" + uid(),
-    ts: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+    ts: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
     direction: "inbound",
     type: "issue.transitioned",
     jira_key: "TFP-1042",
@@ -717,24 +681,69 @@ const seedJiraEvents: JiraEvent[] = [
     ts: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
     direction: "outbound",
     type: "issue.created",
-    jira_key: "TFP-1038",
+    jira_key: "TFP-1045",
     shaping_id: shapingInQA.id,
-    payload: { summary: shapingInQA.problem_what.slice(0, 60), points: 3 },
+    payload: { summary: shapingInQA.problem_what.slice(0, 60), points: 8 },
   },
   {
     id: "je-" + uid(),
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
     direction: "inbound",
     type: "issue.transitioned",
-    jira_key: "TFP-1038",
+    jira_key: "TFP-1045",
     shaping_id: shapingInQA.id,
-    payload: { from: "In Progress", to: "In QA" },
+    payload: { from: "To Do", to: "In Progress" },
+  },
+  {
+    id: "je-" + uid(),
+    ts: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+    direction: "outbound",
+    type: "issue.created",
+    jira_key: "TFP-1047",
+    shaping_id: shapingBlocked.id,
+    payload: { summary: shapingBlocked.problem_what.slice(0, 60), points: 5 },
+  },
+  {
+    id: "je-" + uid(),
+    ts: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+    direction: "inbound",
+    type: "issue.transitioned",
+    jira_key: "TFP-1047",
+    shaping_id: shapingBlocked.id,
+    payload: { from: "In Progress", to: "Blocked" },
+  },
+  {
+    id: "je-" + uid(),
+    ts: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+    direction: "outbound",
+    type: "issue.created",
+    jira_key: "TFP-1049",
+    shaping_id: shapingForApproval.id,
+    payload: { summary: shapingForApproval.problem_what.slice(0, 60), points: 8 },
+  },
+  {
+    id: "je-" + uid(),
+    ts: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
+    direction: "outbound",
+    type: "issue.created",
+    jira_key: "TFP-1038",
+    shaping_id: shapingDone.id,
+    payload: { summary: shapingDone.problem_what.slice(0, 60), points: 5 },
+  },
+  {
+    id: "je-" + uid(),
+    ts: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+    direction: "inbound",
+    type: "issue.transitioned",
+    jira_key: "TFP-1038",
+    shaping_id: shapingDone.id,
+    payload: { from: "In QA", to: "Done" },
   },
 ];
 
 // ============ Wave 4 seed data ============
 
-let _ovrCounter = 5;
+let _ovrCounter = 2;
 function nextOverrideId() {
   _ovrCounter += 1;
   return "OVR-" + _ovrCounter.toString().padStart(3, "0");
@@ -748,31 +757,15 @@ function nextDecisionId() {
 
 const seedOverrides: Override[] = [
   {
-    id: "OVR-003",
+    id: "OVR-001",
     kind: "Capacity exceeded",
-    reason: "2FA pulled forward for compliance deadline; carried 87% allocation.",
+    reason: "2FA pulled forward for clinic compliance deadline. Sprint at 87% allocation. Accepted risk.",
     signal_id: sigInDelivery.id,
     shaping_id: shapingInDelivery.id,
     sprint_id: seedSprint.id,
-    displaced_shaping_ids: [shapingInProgress.id],
-    displaced_pts: 5,
-    raised_by: "u-alizar",
-    raised_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
-    ack_status: "Acknowledged",
-    acknowledged_by: "u-shahid",
-    acknowledged_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
-    shahid_visible: true,
-  },
-  {
-    id: "OVR-004",
-    kind: "Bypass tech review",
-    reason: "FertiWise lead form 500s — patched live with Waseem on call.",
-    signal_id: sigBlocked.id,
-    shaping_id: shapingBlocked.id,
-    sprint_id: seedSprint.id,
     displaced_shaping_ids: [],
     displaced_pts: 0,
-    raised_by: "u-bazil",
+    raised_by: "u-alizar",
     raised_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
     ack_status: "Acknowledged",
     acknowledged_by: "u-shahid",
@@ -780,16 +773,16 @@ const seedOverrides: Override[] = [
     shahid_visible: true,
   },
   {
-    id: "OVR-005",
+    id: "OVR-002",
     kind: "Scope added mid-sprint",
-    reason: "Board KPI dashboard added for Friday board pack.",
-    signal_id: seedSignals[3].id,
-    shaping_id: null,
+    reason: "eIVF duplicate records causing patient care risk at Generation Fertility. Added to sprint with Shahid approval.",
+    signal_id: sigForApproval.id,
+    shaping_id: shapingForApproval.id,
     sprint_id: seedSprint.id,
     displaced_shaping_ids: [],
     displaced_pts: 0,
-    raised_by: "u-alizar",
-    raised_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    raised_by: "u-bazil",
+    raised_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
     ack_status: "Pending",
     acknowledged_by: null,
     acknowledged_at: null,
@@ -800,54 +793,96 @@ const seedOverrides: Override[] = [
 const seedGoLive: GoLiveChecklist[] = [
   {
     id: "gl-" + uid(),
-    shaping_id: shapingInQA.id,
-    product: "Otto Notes",
-    release_name: "Notes autosave indicator v1",
-    scheduled_for: new Date(SEED_EPOCH + 2 * 86400000).toISOString(),
+    shaping_id: shapingInTechReview.id,
+    product: "Otto-Onboard",
+    release_name: "Procrea QC Go-Live",
+    scheduled_for: new Date(SEED_EPOCH + 14 * 86400000).toISOString(),
     status: "In Progress",
     war_room: false,
     criteria: {
-      "Clinic staff trained": {
+      "Phase 1: Kickoff completed": {
         done: true,
-        note: "Trained 2026-04-13.",
+        note: "Kickoff completed with Procrea QC clinic leadership.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH - 2 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
       },
-      "Data migrated and verified": { done: false, note: "Verifying notes backfill.", checked_by: null, checked_at: null },
-      "UAT completed by clinic contact": { done: false, note: "Awaiting clinic sign-off.", checked_by: null, checked_at: null },
-      "Rollback plan confirmed and tested": {
+      "Phase 1: Clinic requirements documented": {
         done: true,
-        note: "Feature flag toggle in admin.",
-        checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+        note: "Workflow requirements captured and attached to onboarding ticket.",
+        checked_by: "u-bazil",
+        checked_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
       },
-      "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
+      "Phase 1: Tenant shell created": {
+        done: true,
+        note: "Procrea QC tenant shell created in pre-production.",
+        checked_by: "u-waseem",
+        checked_at: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
+      },
+      "Phase 1: User roles mapped": {
+        done: true,
+        note: "Coordinator and admin role mapping reviewed.",
+        checked_by: "u-sami",
+        checked_at: new Date(SEED_EPOCH - 9 * 86400000).toISOString(),
+      },
+      "Phase 1: Data template approved": {
+        done: true,
+        note: "Initial migration template approved by clinic contact.",
+        checked_by: "u-bazil",
+        checked_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
+      },
+      "Phase 2: Workflow configuration started": {
+        done: true,
+        note: "Phase 2 active — workflow configuration in progress.",
+        checked_by: "u-waseem",
+        checked_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
+      },
+      "Phase 2: Intake forms configured": {
+        done: true,
+        note: "Core intake forms configured in pre-production.",
+        checked_by: "u-waseem",
+        checked_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
+      },
+      "Phase 2: Email templates configured": {
+        done: true,
+        note: "Welcome, reminder, and consent email templates configured.",
+        checked_by: "u-sami",
+        checked_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
+      },
+      "Phase 2: Integration credentials requested": {
+        done: true,
+        note: "Clinic IT provided integration credential request path.",
+        checked_by: "u-bazil",
+        checked_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
+      },
+      "Phase 2: Internal smoke test completed": {
+        done: true,
+        note: "Internal smoke test passed for core onboarding workflow.",
+        checked_by: "u-karim",
+        checked_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
+      },
+      "Phase 2: Clinic UAT walkthrough completed": {
+        done: false,
+        note: "Pending Sami walkthrough with clinic coordinator team.",
+        checked_by: null,
+        checked_at: null,
+      },
+      "Phase 2: Go-live comms approved": {
+        done: false,
+        note: "Pending comms approval after UAT walkthrough.",
+        checked_by: null,
+        checked_at: null,
+      },
+      "Phase 2: Final go/no-go confirmed": {
+        done: false,
+        note: "Pending final readiness review.",
+        checked_by: null,
+        checked_at: null,
+      },
     },
     go_no_go_decision: null,
     go_no_go_by: null,
     go_no_go_at: null,
-    created_at: new Date(SEED_EPOCH - 3 * 86400000).toISOString(),
-    updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
-  },
-  {
-    id: "gl-" + uid(),
-    shaping_id: shapingInDelivery.id,
-    product: "Platform",
-    release_name: "2FA for clinic admins",
-    scheduled_for: new Date(SEED_EPOCH + 6 * 86400000).toISOString(),
-    status: "Not Started",
-    war_room: true,
-    criteria: {
-      "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
-      "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
-      "UAT completed by clinic contact": { done: false, note: "Pilot clinic scheduled.", checked_by: null, checked_at: null },
-      "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
-      "Go-live comms sent to clinic staff": { done: false, note: "Sami drafting.", checked_by: null, checked_at: null },
-    },
-    go_no_go_decision: null,
-    go_no_go_by: null,
-    go_no_go_at: null,
-    created_at: new Date(SEED_EPOCH - 86400000).toISOString(),
+    created_at: new Date(SEED_EPOCH - 14 * 86400000).toISOString(),
     updated_at: new Date(SEED_EPOCH - 86400000).toISOString(),
   },
 ];
@@ -1171,54 +1206,46 @@ const seedAudit: AuditEntry[] = [
 
 const seedNotifications: Notification[] = [
   buildNotification({
-    trigger: "sla_breach",
-    title: "SLA breach: Patients cannot complete intake on Safari",
-    body: "P1 signal past SLA. Owner: Bazil.",
-    link_to: "/inbox",
-    entity_id: seedSignals[0].id,
-    ts: new Date(SEED_EPOCH - 3600000).toISOString(),
-  }),
-  buildNotification({
     trigger: "blocked_over_1d",
-    title: "TFP-1045 blocked > 1 day",
-    body: "FertiWise lead form fix has been blocked since 13 Apr.",
+    title: "TFP-1047 blocked > 1 day",
+    body: "Phelix AI webhook latency is waiting on updated vendor documentation.",
     link_to: "/delivery",
     entity_id: shapingBlocked.id,
     ts: new Date(SEED_EPOCH - 7200000).toISOString(),
   }),
   buildNotification({
-    trigger: "comms_approval",
-    title: "Sami needs approval: Notes autosave email",
-    body: "Draft sitting in comms log awaiting PM sign-off.",
-    link_to: "/comms",
-    ts: new Date(SEED_EPOCH - 1800000).toISOString(),
-  }),
-  buildNotification({
     trigger: "override_logged",
-    title: "OVR-005 awaiting Shahid acknowledgement",
-    body: "Scope added mid-sprint: board KPI dashboard.",
+    title: "OVR-002 awaiting Shahid acknowledgement",
+    body: "Scope added mid-sprint for eIVF duplicate records at Generation Fertility.",
     link_to: "/delivery",
-    entity_id: "OVR-005",
+    entity_id: "OVR-002",
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
   }),
   buildNotification({
-    trigger: "review_overdue",
-    title: "Outcome review pending: Coordinator dashboard load time",
-    body: "Item shipped 4 days ago — review still in Pending.",
-    link_to: "/governance",
-    ts: new Date(SEED_EPOCH - 14400000).toISOString(),
+    trigger: "tech_review_ready",
+    title: "Heartland configuration ready for tech review",
+    body: "Heartland pre-production setup needs Waseem's estimate before UAT can begin.",
+    link_to: "/shaping",
+    entity_id: shapingInTechReview.id,
+    ts: new Date(SEED_EPOCH - 1800000).toISOString(),
   }),
   buildNotification({
-    trigger: "retro_escalation",
-    title: "Capacity theme escalated (3 sprints)",
-    body: "Sprints 3, 4, 5 all flagged Capacity as primary theme.",
-    link_to: "/retros",
-    ts: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
+    trigger: "sla_breach",
+    title: "SLA breach: eIVF duplicate patient records",
+    body: "P1 signal needs close delivery tracking. Owner: Bazil.",
+    link_to: "/delivery",
+    entity_id: sigForApproval.id,
+    ts: new Date(SEED_EPOCH - 3600000).toISOString(),
+  }),
+  buildNotification({
+    trigger: "shaping_stuck",
+    title: "Research needed: TFP-wide patient identifier",
+    body: "Unique patient ID strategy is in shaping with open architecture questions.",
+    link_to: "/shaping",
+    entity_id: shapingInProgress.id,
+    ts: new Date(SEED_EPOCH - 14400000).toISOString(),
   }),
 ];
-seedNotifications[5].read = true;
-
-// ============ Store ============
 
 type State = {
   currentUserId: string;
