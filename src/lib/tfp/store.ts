@@ -409,8 +409,8 @@ const sigForApproval: Signal = {
 
 const shapingForApproval: ShapingItem = {
   ...blankShaping(sigForApproval.id, "u-bazil"),
-  shaping_status: "Tech Approved",
-  current_step: 5,
+  shaping_status: "Ready for Sprint",
+  current_step: 2,
   problem_what:
     "Clinics joining Otto have to re-enter every existing patient record manually, which delays go-live by 2–3 weeks.",
   problem_why:
@@ -1649,8 +1649,8 @@ export const useTfpStore = create<State>()(
                   ...s,
                   tech_reviewer_id: reviewerId,
                   tech_signed_off_at: new Date().toISOString(),
-                  shaping_status: "Tech Approved",
-                  current_step: 5,
+                  shaping_status: "Ready for Sprint",
+                  current_step: 2,
                   updated_at: new Date().toISOString(),
                 }
               : s,
@@ -1954,37 +1954,7 @@ export const useTfpStore = create<State>()(
         });
       },
 
-      syncFromJira: () => {
-        const items = get().shaping.filter(
-          (s) => s.jira_key && s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
-        );
-        const events: JiraEvent[] = [];
-        const updates = new Map<string, DeliveryStatus>();
-        items.forEach((s, i) => {
-          if (i % 2 !== 0) return;
-          const idx = JIRA_FLOW.indexOf(s.delivery_status as DeliveryStatus);
-          if (idx < 0 || idx >= JIRA_FLOW.length - 1) return;
-          const next = JIRA_FLOW[idx + 1];
-          updates.set(s.id, next);
-          events.push({
-            id: "je-" + uid(),
-            ts: new Date().toISOString(),
-            direction: "inbound",
-            type: "issue.transitioned",
-            jira_key: s.jira_key!,
-            shaping_id: s.id,
-            payload: { from: s.delivery_status, to: next },
-          });
-        });
-        if (updates.size === 0) return 0;
-        set({
-          shaping: get().shaping.map((s) =>
-            updates.has(s.id) ? { ...s, delivery_status: updates.get(s.id)!, updated_at: new Date().toISOString() } : s,
-          ),
-          jiraEvents: [...events, ...get().jiraEvents],
-        });
-        return updates.size;
-      },
+      syncFromJira: () => 0,
 
       startReview: (shapingId) => {
         const item = get().shaping.find((s) => s.id === shapingId);
