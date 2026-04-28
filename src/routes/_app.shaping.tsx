@@ -31,6 +31,11 @@ function displayStep(step: number): 1 | 2 {
   return 1;
 }
 
+function techLeadName(user?: { name: string } | null): string {
+  if (!user) return "Tech Lead";
+  return user.name === "M. Ahmed" ? "Ahmed" : user.name;
+}
+
 function ShapingPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
@@ -160,7 +165,7 @@ function ShapingPage() {
                         </span>
                         {sh.shaping_status === "In Tech Review" && (
                           <span className="font-medium text-[var(--color-status-hold)]">
-                            Waiting on {techLead?.name ?? "Tech Lead"}
+                            Waiting on {techLeadName(techLead)}
                           </span>
                         )}
                       </span>
