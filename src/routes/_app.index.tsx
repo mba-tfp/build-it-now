@@ -1,141 +1,176 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { AlertTriangle, CheckCircle2, Clock, HelpCircle, MessageSquare, TrendingUp } from "lucide-react";
-import { USERS, useTfpStore, usableCapacity } from "@/lib/tfp/store";
+import { AlertTriangle, CheckCircle2, Clock, Inbox, ShieldCheck } from "lucide-react";
+import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
 import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { StaleBadge } from "@/components/tfp/StaleBadge";
+import type { ShapingItem, Signal } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/")({
   component: DashboardPage,
 });
 
+type Tone = "good" | "warn" | "bad" | "neutral";
+
 function DashboardPage() {
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);
-  const sprint = useTfpStore((s) => s.sprint);
-  const audit = useTfpStore((s) => s.audit);
-  const decisions = useTfpStore((s) => s.decisions);
-  const comms = useTfpStore((s) => s.comms);
+  const goLives = useTfpStore((s) => s.goLives);
   const users = useTfpStore((s) => s.users);
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const me = users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId) ?? USERS[0];
 
-  const usable = usableCapacity(sprint);
-  const sprintItems = shaping.filter((s) => s.in_sprint && s.delivery_status);
-  const blocked = shaping.filter((s) => s.delivery_status === "Blocked");
-  const staleShaping = shaping.filter((s) => s.shaping_status !== "In Delivery" && Date.now() - new Date(s.updated_at).getTime() > 7 * 86400000);
-  const openDecisions = decisions.filter((d) => d.status === "Open");
-  const commsNeedsApproval = comms.filter((c) => c.status === "Pending Approval");
-  const questions = shaping
-    .filter((s) => s.solution_questions.trim().length > 0 && s.shaping_status !== "In Delivery")
-    .map((s) => ({ sh: s, sig: signals.find((x) => x.id === s.signal_id) }))
-    .filter((x) => !!x.sig)
-    .slice(0, 6);
+  const openSignals = signals.filter((s) => s.status === "New" || s.status === "In Review");
+  const waitingOnYou = shaping.filter(
+    (item) =>
+      item.pm_owner_id === currentUserId &&
+      ((item.shaping_status === "In Shaping" && daysSince(item.updated_at) > 5) ||
+        (item.shaping_status === "In Tech Review" && item.tech_reviewer_id === currentUserId)),
+  );
+  const sprintItems = shaping.filter((item) => item.in_sprint && item.delivery_status);
+  const healthySprintItems = sprintItems.filter(
+    (item) => item.delivery_status !== "Blocked" && daysSince(item.updated_at) < 2,
+  );
+  const sprintHealth = sprintItems.length === 0 ? 100 : Math.round((healthySprintItems.length / sprintItems.length) * 100);
+  const blockers = sprintItems.filter((item) => item.delivery_status === "Blocked");
 
-  const recent = useMemo(() => audit.slice(0, 12), [audit]);
+  const urgentSignal = [...openSignals].sort(
+    (a, b) => new Date(a.sla_due_at).getTime() - new Date(b.sla_due_at).getTime(),
+  )[0];
+  const stalestSprintItem = [...sprintItems].sort(
+    (a, b) => daysSince(b.updated_at) - daysSince(a.updated_at),
+  )[0];
+  const overdueClinicPhase = goLives
+    .map((checklist) => {
+      const entries = Object.entries(checklist.criteria);
+      const firstOpenIndex = entries.findIndex(([, state]) => !state.done);
+      if (firstOpenIndex < 0) return null;
+      const [criterion] = entries[firstOpenIndex];
+      const previousCompleted = entries
+        .slice(0, firstOpenIndex)
+        .map(([, state]) => state.checked_at)
+        .filter((date): date is string => Boolean(date))
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+      return {
+        id: checklist.id,
+        clinic: clinicNameFromText(checklist.release_name),
+        phase: criterion.includes(":") ? criterion.split(":")[0] : criterion,
+        days: daysSince(previousCompleted ?? checklist.created_at),
+      };
+    })
+    .filter((item): item is { id: string; clinic: string; phase: string; days: number } => Boolean(item))
+    .sort((a, b) => b.days - a.days)[0];
 
   return (
-    <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Signal → Delivery</p>
-          <h1 className="mt-1 font-display text-3xl">Today's Work</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            One place to manage product work from signal to delivery.
-          </p>
-        </div>
-        <Link to="/inbox" className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-          Open Inbox
-        </Link>
+    <div className="space-y-6">
+      <header>
+        <h1 className="font-display text-3xl">Good morning, {me.name}.</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Here is where things stand.</p>
       </header>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<TrendingUp className="h-4 w-4" />} label="Sprint allocation" value={`${sprint.allocated_pts}/${usable} pts`} detail={`${Math.round((sprint.allocated_pts / Math.max(1, usable)) * 100)}% of usable capacity`} tone={sprint.allocated_pts > usable ? "bad" : "neutral"} />
-        <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Blocked" value={`${blocked.length}`} detail="items needing unblock" tone={blocked.length ? "bad" : "good"} />
-        <Metric icon={<Clock className="h-4 w-4" />} label="Stale shaping" value={`${staleShaping.length}`} detail="no update in 7+ days" tone={staleShaping.length ? "warn" : "good"} />
-        <Metric icon={<HelpCircle className="h-4 w-4" />} label="Needs attention" value={`${openDecisions.length + commsNeedsApproval.length}`} detail={`${openDecisions.length} decisions · ${commsNeedsApproval.length} comms`} tone={openDecisions.length + commsNeedsApproval.length ? "warn" : "good"} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MetricTile to="/inbox" icon={<Inbox className="h-4 w-4" />} label="Signals to triage" value={`${openSignals.length}`} detail="New or in review" tone={openSignals.length ? "warn" : "good"} />
+        <MetricTile to="/shaping" icon={<Clock className="h-4 w-4" />} label="Waiting on you" value={`${waitingOnYou.length}`} detail="Shaping work needing action" tone={waitingOnYou.length ? "warn" : "good"} />
+        <MetricTile to="/delivery" search={{ tab: "board" }} icon={<ShieldCheck className="h-4 w-4" />} label="Sprint health" value={`${sprintHealth}%`} detail="Not blocked and not stale" tone={sprintHealth > 70 ? "good" : sprintHealth >= 50 ? "warn" : "bad"} />
+        <MetricTile to="/delivery" search={{ tab: "board" }} icon={<AlertTriangle className="h-4 w-4" />} label="Open blockers" value={`${blockers.length}`} detail="Items currently blocked" tone={blockers.length ? "bad" : "good"} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Panel title="Needs action" subtitle={`${sprintItems.length} sprint items, ${blocked.length} blocked`}>
-          <div className="space-y-2">
-            {sprintItems.slice(0, 8).map((sh) => {
-              const sig = signals.find((s) => s.id === sh.signal_id);
-              const owner = users.find((u) => u.id === sh.delivery_assignee_id) ?? USERS.find((u) => u.id === sh.delivery_assignee_id);
-              return (
-                <Link key={sh.id} to="/delivery" className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-sm hover:bg-muted/40">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{sig?.title ?? sh.jira_key}</div>
-                    <div className="text-xs text-muted-foreground">{sh.jira_key} · {owner?.name ?? "Unassigned"}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StaleBadge iso={sh.updated_at} />
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{sh.delivery_status}</span>
-                  </div>
-                </Link>
-              );
-            })}
-            {sprintItems.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No sprint items yet.</p>}
-          </div>
-        </Panel>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {urgentSignal ? (
+          <UrgentCard title="Most urgent signal" tone="warn">
+            <p className="font-medium leading-snug">{urgentSignal.title}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{urgentSignal.source} · SLA due {fmtDateTime(urgentSignal.sla_due_at)}</p>
+            <Link to="/inbox" search={{ tab: "triage", signal: urgentSignal.id }} className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+              Triage now
+            </Link>
+          </UrgentCard>
+        ) : (
+          <AllClearCard title="Most urgent signal" />
+        )}
 
-        <Panel title="Open questions" subtitle="Shaping items that need a reply">
-          <div className="space-y-3">
-            {questions.map(({ sh, sig }) => (
-              <Link key={sh.id} to="/shaping" className="block rounded-md border border-border bg-surface p-3 hover:bg-muted/40">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-medium text-sm">{sig?.title}</p>
-                  <StaleBadge iso={sh.updated_at} />
-                </div>
-                <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">{sh.solution_questions}</p>
-              </Link>
-            ))}
-            {questions.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No open shaping questions.</p>}
-          </div>
-        </Panel>
-      </div>
+        {stalestSprintItem ? (
+          <UrgentCard title="Most stale sprint item" tone={daysSince(stalestSprintItem.updated_at) >= 2 ? "bad" : "neutral"}>
+            <p className="font-mono text-xs text-muted-foreground">{stalestSprintItem.jira_key ?? "No Jira key"}</p>
+            <p className="mt-1 font-medium leading-snug">{signalTitle(signals, stalestSprintItem)}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{stalestSprintItem.delivery_status} · {daysSince(stalestSprintItem.updated_at)}d stale</p>
+            <Link to="/delivery" search={{ tab: "board" }} className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+              View on board
+            </Link>
+          </UrgentCard>
+        ) : (
+          <AllClearCard title="Most stale sprint item" />
+        )}
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <Panel title="Recent changes" subtitle="Meaningful transitions and approvals">
-          <div className="space-y-2">
-            {recent.map((a) => (
-              <div key={a.id} className="flex gap-3 rounded-md border border-border bg-surface px-3 py-2 text-sm">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
-                <div>
-                  <p>{a.action}</p>
-                  <p className="text-xs text-muted-foreground">{a.entity_type} · {fmtDateTime(a.ts)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
-        <Panel title="Core workflow" subtitle="Home → Inbox → Shaping → Delivery → Roadmap">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <QuickLink to="/inbox" icon={<MessageSquare className="h-4 w-4" />} title="Inbox" detail={`${signals.filter((s) => s.status === "New" || s.status === "In Review").length} incoming signals`} />
-            <QuickLink to="/shaping" icon={<TrendingUp className="h-4 w-4" />} title="Shape work" detail={`${shaping.filter((s) => s.shaping_status !== "In Delivery").length} active items`} />
-            <QuickLink to="/delivery" icon={<TrendingUp className="h-4 w-4" />} title="Delivery board" detail={`${blocked.length} blocked`} />
-            <QuickLink to="/leadership" icon={<CheckCircle2 className="h-4 w-4" />} title="Leadership brief" detail={`Updated ${fmtDate(new Date().toISOString())}`} />
-          </div>
-        </Panel>
+        {overdueClinicPhase ? (
+          <UrgentCard title="Most overdue clinic phase" tone={overdueClinicPhase.days > 5 ? "bad" : "warn"}>
+            <p className="font-medium leading-snug">{overdueClinicPhase.clinic}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{overdueClinicPhase.phase} · {overdueClinicPhase.days}d in phase</p>
+            <Link to="/health" className="mt-4 inline-flex rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+              Check in
+            </Link>
+          </UrgentCard>
+        ) : (
+          <AllClearCard title="Most overdue clinic phase" />
+        )}
       </div>
     </div>
   );
 }
 
-function Metric({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string; detail: string; tone: "good" | "warn" | "bad" | "neutral" }) {
+function MetricTile({ to, search, icon, label, value, detail, tone }: { to: "/inbox" | "/shaping" | "/delivery"; search?: { tab: "board" }; icon: React.ReactNode; label: string; value: string; detail: string; tone: Tone }) {
   return (
-    <div className="tfp-card p-4">
-      <div className={cn("mb-3 inline-flex rounded-md p-2", tone === "good" && "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]", tone === "warn" && "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]", tone === "bad" && "bg-destructive/10 text-destructive", tone === "neutral" && "bg-primary/10 text-primary")}>{icon}</div>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="mt-1 font-display text-2xl">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
-    </div>
+    <Link to={to} search={search} className="tfp-card block p-5 transition hover:bg-muted/30">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className={cn("mt-2 font-display text-4xl", toneClass(tone))}>{value}</p>
+        </div>
+        <span className={cn("rounded-md p-2", toneBg(tone))}>{icon}</span>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
+    </Link>
   );
 }
 
-function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <section className="tfp-card p-5"><div className="mb-4"><h2 className="font-display text-lg">{title}</h2><p className="text-xs text-muted-foreground">{subtitle}</p></div>{children}</section>;
+function UrgentCard({ title, tone, children }: { title: string; tone: Tone; children: React.ReactNode }) {
+  return (
+    <section className={cn("tfp-card min-h-48 p-5", tone === "bad" && "border-destructive/40", tone === "warn" && "border-[var(--color-status-hold)]/40")}>
+      <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">{title}</p>
+      {children}
+    </section>
+  );
 }
 
-function QuickLink({ to, icon, title, detail }: { to: "/inbox" | "/shaping" | "/delivery" | "/leadership"; icon: React.ReactNode; title: string; detail: string }) {
-  return <Link to={to} className="rounded-md border border-border bg-surface p-4 hover:bg-muted/40"><div className="mb-2 text-primary">{icon}</div><div className="font-medium">{title}</div><div className="mt-1 text-xs text-muted-foreground">{detail}</div></Link>;
+function AllClearCard({ title }: { title: string }) {
+  return (
+    <section className="tfp-card min-h-48 border-[var(--color-status-proceed)]/30 p-5">
+      <p className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">{title}</p>
+      <div className="flex items-center gap-2 text-[var(--color-status-proceed)]">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="font-medium">All clear</span>
+      </div>
+    </section>
+  );
+}
+
+function signalTitle(signals: Signal[], item: ShapingItem) {
+  return signals.find((signal) => signal.id === item.signal_id)?.title ?? item.jira_key ?? item.id;
+}
+
+function clinicNameFromText(text: string) {
+  const known = ["Generation Fertility", "Procrea QC", "Heartland", "RCC", "Olive"];
+  return known.find((name) => text.toLowerCase().includes(name.toLowerCase())) ?? text.replace(/\s*Go-Live\s*/i, "").trim();
+}
+
+function toneClass(tone: Tone) {
+  if (tone === "good") return "text-[var(--color-status-proceed)]";
+  if (tone === "warn") return "text-[var(--color-status-hold)]";
+  if (tone === "bad") return "text-destructive";
+  return "text-foreground";
+}
+
+function toneBg(tone: Tone) {
+  if (tone === "good") return "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]";
+  if (tone === "warn") return "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]";
+  if (tone === "bad") return "bg-destructive/10 text-destructive";
+  return "bg-primary/10 text-primary";
 }

@@ -1,48 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import {
-  USERS,
-  daysSince,
-  useTfpStore,
-  usableCapacity,
-} from "@/lib/tfp/store";
-import type {
-  IssueType,
-  Product,
-  ShapingItem,
-  Signal,
-  Source,
-  Tier,
-} from "@/lib/tfp/types";
-import { fmtDate, fmtDateTime } from "@/lib/tfp/format";
-import { cn } from "@/lib/utils";
-import {
-  Activity,
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  Download,
-  FileText,
-  Gauge,
-  Printer,
-  TrendingUp,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { TierBadge, StatusBadge } from "@/components/tfp/Badge";
-import { SignalTimelineDrawer } from "@/components/tfp/SignalTimelineDrawer";
 import { SprintUpdateModal } from "@/components/tfp/SprintUpdateModal";
-import { downloadCsv, signalsToCsv } from "@/lib/tfp/exports";
-import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
-import { sortRows } from "@/components/tfp/SortableHeader";
+import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
+import { fmtDate } from "@/lib/tfp/format";
+import { cn } from "@/lib/utils";
+import type { DeliveryStatus, OutcomeRating, Review, ShapingItem, Signal } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/leadership")({
   component: LeadershipPage,
 });
 
-const TIERS: Tier[] = ["P1", "P2", "P3"];
+const STATUS_ORDER: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Blocked", "Done"];
 
 function LeadershipPage() {
   const signals = useTfpStore((s) => s.signals);
@@ -50,196 +20,50 @@ function LeadershipPage() {
   const reviews = useTfpStore((s) => s.reviews);
   const sprint = useTfpStore((s) => s.sprint);
   const overrides = useTfpStore((s) => s.overrides);
-  const goLives = useTfpStore((s) => s.goLives);
-  const decisions = useTfpStore((s) => s.decisions);
-  const ackOverride = useTfpStore((s) => s.ackOverride);
-  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const retros = useTfpStore((s) => s.retros);
   const users = useTfpStore((s) => s.users);
-  const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
-  const [openSignalId, setOpenSignalId] = useState<string | null>(null);
+  const ackOverride = useTfpStore((s) => s.ackOverride);
   const [updateOpen, setUpdateOpen] = useState(false);
 
-  // ---------- KPI computation ----------
-  const now = useMemo(() => new Date().getTime(), []);
-
-  const open = signals.filter((s) => s.status === "New" || s.status === "In Review");
-  const breached = signals.filter(
-    (s) => (s.status === "New" || s.status === "In Review") && new Date(s.sla_due_at).getTime() < now,
-  );
-  const slaOnTime = open.length === 0 ? 100 : Math.round(((open.length - breached.length) / open.length) * 100);
-
-  const delivered = shaping.filter((s) => s.delivery_status === "Done");
-  const deliveredPts = delivered.reduce((acc, s) => acc + (s.tech_estimate_pts ?? 0), 0);
-  const inFlight = shaping.filter(
-    (s) => s.delivery_status && s.delivery_status !== "Done" && s.delivery_status !== "Blocked",
-  );
-  const blocked = shaping.filter((s) => s.delivery_status === "Blocked");
-
-  const displaced = signals.filter((s) => s.displacement_flag).length;
-
-  // Avg cycle time: signal created_at -> delivery Done (using updated_at as proxy)
-  const cycleTimes = delivered
-    .map((sh) => {
-      const sig = signals.find((s) => s.id === sh.signal_id);
-      if (!sig) return null;
-      return (new Date(sh.updated_at).getTime() - new Date(sig.created_at).getTime()) / 86400000;
-    })
-    .filter((x): x is number => x !== null);
-  const avgCycle = cycleTimes.length === 0 ? 0 : Math.round(cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length);
-
-  const completedReviews = reviews.filter((r) => r.status === "Completed");
-  const outcomeMet = completedReviews.filter((r) => r.outcome_rating === "Met").length;
-  const outcomePct = completedReviews.length === 0 ? 0 : Math.round((outcomeMet / completedReviews.length) * 100);
-
   const usable = usableCapacity(sprint);
-  const allocated = sprint.allocated_pts;
-  const capacityPct = Math.min(100, Math.round((allocated / Math.max(1, usable)) * 100));
-
-  // ---------- Throughput by week (last 6 weeks) ----------
-  const throughput = useMemo(() => {
-    const weeks: { label: string; pts: number; count: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const start = now - (i + 1) * 7 * 86400000;
-      const end = now - i * 7 * 86400000;
-      const items = delivered.filter((s) => {
-        const t = new Date(s.updated_at).getTime();
-        return t >= start && t < end;
-      });
-      // also include in-flight created in week to give signal volume
-      const sigs = signals.filter((s) => {
-        const t = new Date(s.created_at).getTime();
-        return t >= start && t < end;
-      });
-      weeks.push({
-        label: `W-${i}`,
-        pts: items.reduce((a, b) => a + (b.tech_estimate_pts ?? 0), 0),
-        count: sigs.length,
-      });
-    }
-    return weeks;
-  }, [delivered, signals, now]);
-  const maxPts = Math.max(8, ...throughput.map((w) => w.pts));
-  const maxCount = Math.max(4, ...throughput.map((w) => w.count));
-
-  // ---------- Tier mix ----------
-  const tierMix = useMemo(() => {
-    const m: Record<Tier, number> = { P1: 0, P2: 0, P3: 0 };
-    signals.forEach((s) => m[s.tier]++);
-    const total = signals.length || 1;
-    return TIERS.map((t) => ({ tier: t, count: m[t], pct: Math.round((m[t] / total) * 100) }));
-  }, [signals]);
-
-  // ---------- Source / Product breakdown ----------
-  const sourceMix = useMemo(() => {
-    const m: Record<string, number> = {};
-    signals.forEach((s) => (m[s.source] = (m[s.source] ?? 0) + 1));
-    return Object.entries(m).map(([k, v]) => ({ name: k, count: v }));
-  }, [signals]);
-
-  const productMix = useMemo(() => {
-    const m: Record<string, number> = {};
-    signals.forEach((s) => (m[s.product] = (m[s.product] ?? 0) + 1));
-    return Object.entries(m)
-      .map(([k, v]) => ({ name: k, count: v }))
-      .sort((a, b) => b.count - a.count);
-  }, [signals]);
-
-  const issueTypeMix = useMemo(() => {
-    const m: Record<string, number> = {};
-    signals.forEach((s) => (m[s.issue_type] = (m[s.issue_type] ?? 0) + 1));
-    return Object.entries(m)
-      .map(([k, v]) => ({ name: k, count: v }))
-      .sort((a, b) => b.count - a.count);
-  }, [signals]);
-
-  // ---------- Sprint burndown ----------
-  const sprintBurndown = useMemo(() => {
-    const start = new Date(sprint.start_date).getTime();
-    const end = new Date(sprint.end_date).getTime();
-    const totalDays = Math.max(1, Math.round((end - start) / 86400000));
-    const points: { x: number; ideal: number; actual: number; label: string }[] = [];
-    for (let i = 0; i <= totalDays; i++) {
-      const dayTs = start + i * 86400000;
-      const ideal = allocated * (1 - i / totalDays);
-      // actual: subtract done points up to this day
-      const doneByDay = delivered
-        .filter((s) => new Date(s.updated_at).getTime() <= dayTs)
-        .reduce((a, b) => a + (b.tech_estimate_pts ?? 0), 0);
-      const actual = Math.max(0, allocated - doneByDay);
-      // Only show actual up to "today" (now)
-      const showActual = dayTs <= now;
-      points.push({
-        x: i,
-        ideal: Math.round(ideal * 10) / 10,
-        actual: showActual ? actual : -1,
-        label: `D${i}`,
-      });
-    }
-    return { points, totalDays };
-  }, [sprint, allocated, delivered, now]);
-
-  // ---------- Signal table filters ----------
-  const [statusFilter, setStatusFilter] = useState<"All" | "Open" | "Breached" | "Hold" | "Done">("All");
-  const [sourceFilter, setSourceFilter] = useState<Source | "All">("All");
-  const [productFilter, setProductFilter] = useState<Product | "All">("All");
-  const [tierFilter, setTierFilter] = useState<Tier | "All">("All");
-
-  type SignalSortKey = "created_at" | "source" | "tier";
-  const { sort: signalSort, setSort: setSignalSort } = useSortMenu<SignalSortKey>("leadership-signals", { key: "created_at", dir: "desc" });
-
-  const filteredSignals = useMemo(() => {
-    const base = signals.filter((s) => {
-      if (sourceFilter !== "All" && s.source !== sourceFilter) return false;
-      if (productFilter !== "All" && s.product !== productFilter) return false;
-      if (tierFilter !== "All" && s.tier !== tierFilter) return false;
-      if (statusFilter === "Open" && !(s.status === "New" || s.status === "In Review")) return false;
-      if (statusFilter === "Hold" && s.status !== "Hold") return false;
-      if (statusFilter === "Breached") {
-        if (!(s.status === "New" || s.status === "In Review")) return false;
-        if (new Date(s.sla_due_at).getTime() >= now) return false;
-      }
-      if (statusFilter === "Done") {
-        const sh = shaping.find((x) => x.signal_id === s.id);
-        if (sh?.delivery_status !== "Done") return false;
-      }
-      return true;
-    });
-    return sortRows(base, signalSort, (s, k) => {
-      if (k === "created_at") return new Date(s.created_at).getTime();
-      if (k === "source") return s.source;
-      if (k === "tier") return s.tier;
-      return null;
-    });
-  }, [signals, sourceFilter, productFilter, tierFilter, statusFilter, shaping, now, signalSort]);
-
-  function exportCsv() {
-    const csv = signalsToCsv(filteredSignals, shaping, USERS);
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadCsv(`tfp-signals-${stamp}.csv`, csv);
-    toast.success("CSV exported", {
-      description: `${filteredSignals.length} signals downloaded.`,
-    });
-  }
-
+  const inSprint = shaping.filter((item) => item.in_sprint && item.delivery_status);
+  const blocked = inSprint.filter((item) => item.delivery_status === "Blocked");
+  const done = inSprint.filter((item) => item.delivery_status === "Done");
+  const inProgress = inSprint.filter((item) => item.delivery_status === "In Progress" || item.delivery_status === "In QA");
+  const capacityPct = Math.round((sprint.allocated_pts / Math.max(1, usable)) * 100);
+  const pendingOverrides = overrides.filter((override) => override.shahid_visible && override.ack_status === "Pending");
+  const blocked48 = blocked.filter((item) => item.blocked_since && daysSince(item.blocked_since) >= 2);
+  const slaBreached = signals.filter((signal) => isOpen(signal) && new Date(signal.sla_due_at).getTime() < Date.now());
+  const reviewsMissing = shaping.filter((item) => item.delivery_status === "Done" && daysSince(item.updated_at) > 5 && !completedReview(reviews, item.id));
+  const retroOverdue = new Date(sprint.end_date).getTime() < Date.now() && !retros.some((retro) => retro.sprint_id === sprint.id);
+  const attentionCount = pendingOverrides.length + blocked48.length + slaBreached.length + reviewsMissing.length + (retroOverdue ? 1 : 0);
+  const sprintAtRisk = blocked.length >= 2 || sprint.allocated_pts > usable;
+  const recentClinicSignals = signals.filter((signal) => signal.source === "Clinic" && daysSince(signal.created_at) <= 14);
+  const rejectedClinicSignals = recentClinicSignals.filter((signal) => signal.status === "Rejected");
+  const shipped = shaping
+    .filter((item) => item.delivery_status === "Done")
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 5);
 
   const briefingMarkdown = useMemo(() => {
-    const shipped = shaping.filter((s) => s.delivery_status === "Done").slice(0, 5);
-    const blockedItems = shaping.filter((s) => s.delivery_status === "Blocked").slice(0, 5);
-    const needsDecision = decisions.filter((d) => d.status === "Open").slice(0, 5);
     const lines = [
-      `# TFP weekly briefing — ${fmtDate(new Date(now).toISOString())}`,
+      `# Leadership briefing — ${fmtDate(new Date().toISOString())}`,
       "",
-      "## What shipped",
-      ...(shipped.length ? shipped.map((s) => `- ${signals.find((x) => x.id === s.signal_id)?.title ?? s.jira_key}`) : ["- Nothing marked Done yet."]),
+      "## Needs your attention",
+      attentionCount ? `- ${attentionCount} item(s): ${pendingOverrides.length} overrides, ${blocked48.length} 48h blockers, ${slaBreached.length} SLA breaches, ${reviewsMissing.length} overdue reviews${retroOverdue ? ", retro overdue" : ""}.` : "- Nothing needs your attention right now.",
       "",
-      "## What's blocked",
-      ...(blockedItems.length ? blockedItems.map((s) => `- ${s.jira_key}: ${s.blocker_description || "Blocked"}`) : ["- No active blockers."]),
+      "## This sprint",
+      `- ${sprint.notes || "Sprint goal not set."}`,
+      `- ${done.length}/${inSprint.length} done · ${blocked.length} blocked · ${sprint.allocated_pts}/${usable} pts allocated.`,
       "",
-      "## Needs decision",
-      ...(needsDecision.length ? needsDecision.map((d) => `- ${d.title}`) : ["- No open decisions."]),
+      "## Clinic signals",
+      `- ${recentClinicSignals.length} clinic signals in the last 14 days; ${rejectedClinicSignals.length} rejected.`,
+      "",
+      "## What shipped and did it work",
+      ...(shipped.length ? shipped.map((item) => `- ${signalTitle(signals, item)} — ${reviewLabel(completedReview(reviews, item.id))}`) : ["- Nothing marked Done yet."]),
     ];
     return lines.join("\n");
-  }, [shaping, signals, decisions, now]);
+  }, [attentionCount, blocked.length, blocked48.length, done.length, inSprint.length, pendingOverrides.length, recentClinicSignals.length, rejectedClinicSignals.length, reviews, reviewsMissing.length, retroOverdue, shipped, signals, slaBreached.length, sprint, usable]);
 
   function copyBriefing() {
     navigator.clipboard?.writeText(briefingMarkdown);
@@ -247,682 +71,193 @@ function LeadershipPage() {
   }
 
   return (
-    <div>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Leadership</p>
-          <h1 className="mt-1 font-display text-3xl">Portfolio Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Live read-out of signals, throughput, capacity and outcomes across the TFP product surface.
-          </p>
+          <h1 className="mt-1 font-display text-3xl">Leadership Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Attention, sprint status, clinic signals, and outcomes.</p>
         </div>
-        <div className="no-print flex flex-wrap items-center gap-2">
-          <button
-            onClick={copyBriefing}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Copy briefing
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={copyBriefing} className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+            <FileText className="h-3.5 w-3.5" /> Copy briefing
           </button>
-          <button
-            onClick={() => setUpdateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Sprint update
-          </button>
-          <button
-            onClick={exportCsv}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Print / PDF
+          <button onClick={() => setUpdateOpen(true)} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+            <FileText className="h-3.5 w-3.5" /> Sprint update
           </button>
         </div>
       </header>
 
       <BriefingPanel markdown={briefingMarkdown} />
 
-      <SprintStatusStrip
-        sprint={sprint}
-        usable={usable}
-        allocated={allocated}
-        capacityPct={capacityPct}
-        blockedCount={blocked.length}
-        deliveredCount={delivered.length}
-        committedCount={shaping.filter((s) => s.delivery_status).length}
-        now={now}
-      />
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr] print-page-break">
-        <OverrideLogPanel
-          overrides={overrides}
-          sprintId={sprint.id}
-          onAck={ackOverride}
-          canAck={me.role === "Leadership"}
-        />
-        <GoLivePipelinePanel goLives={goLives} />
-      </div>
-
-      {/* KPI tiles */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          label="SLA on-time"
-          value={`${slaOnTime}%`}
-          delta={breached.length === 0 ? "All open signals within SLA" : `${breached.length} breached`}
-          tone={breached.length === 0 ? "good" : "warn"}
-          icon={<Gauge className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Throughput (pts done)"
-          value={`${deliveredPts}`}
-          delta={`${delivered.length} items shipped`}
-          tone="neutral"
-          icon={<TrendingUp className="h-4 w-4" />}
-        />
-        <Kpi
-          label="In flight / blocked"
-          value={`${inFlight.length}`}
-          delta={`${blocked.length} blocked`}
-          tone={blocked.length > 0 ? "warn" : "neutral"}
-          icon={<Activity className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Avg cycle time"
-          value={`${avgCycle}d`}
-          delta={`signal → done · n=${cycleTimes.length}`}
-          tone="neutral"
-          icon={<Clock className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Sprint allocation"
-          value={`${allocated} / ${usable} pts`}
-          delta={`${capacityPct}% of usable capacity`}
-          tone={capacityPct > 100 ? "bad" : capacityPct > 90 ? "warn" : "good"}
-          icon={<Gauge className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Outcomes met"
-          value={`${outcomePct}%`}
-          delta={`${outcomeMet}/${completedReviews.length} reviews`}
-          tone={outcomePct >= 70 ? "good" : "warn"}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Displacement"
-          value={`${displaced}`}
-          delta="signals flagged as trade-offs"
-          tone={displaced > 5 ? "warn" : "neutral"}
-          icon={<ArrowDownRight className="h-4 w-4" />}
-        />
-        <Kpi
-          label="Open signals"
-          value={`${open.length}`}
-          delta={`${signals.length} total in system`}
-          tone="neutral"
-          icon={<ArrowUpRight className="h-4 w-4" />}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Throughput */}
-        <Panel title="Throughput · last 6 weeks" subtitle="Pts delivered (bars) vs. signals received (line)">
-          <div className="flex h-48 items-end gap-3 px-2">
-            {throughput.map((w) => (
-              <div key={w.label} className="flex flex-1 flex-col items-center gap-1">
-                <div className="relative w-full flex-1">
-                  <div
-                    className="absolute inset-x-1 bottom-0 rounded-t bg-primary/80 transition-all"
-                    style={{ height: `${(w.pts / maxPts) * 100}%` }}
-                    title={`${w.pts} pts`}
-                  />
-                  <div
-                    className="absolute inset-x-0 rounded-full bg-[var(--color-status-hold)]"
-                    style={{
-                      height: 6,
-                      bottom: `${(w.count / maxCount) * 100}%`,
-                      transform: "translateY(50%)",
-                    }}
-                    title={`${w.count} signals`}
-                  />
-                </div>
-                <div className="text-[10px] font-mono text-muted-foreground">{w.label}</div>
-                <div className="text-[10px] text-muted-foreground">{w.pts}p · {w.count}s</div>
-              </div>
+      <Panel title="Needs your attention" className={attentionCount ? "border-destructive/50" : "border-[var(--color-status-proceed)]/30"}>
+        {attentionCount === 0 ? (
+          <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 px-3 py-2 text-sm text-[var(--color-status-proceed)]">Nothing needs your attention right now</div>
+        ) : (
+          <div className="space-y-3">
+            {pendingOverrides.map((override) => (
+              <AttentionRow key={override.id} tone="bad" title={`${override.kind}: ${override.reason}`} meta={`Raised by ${userName(users, override.raised_by)} · ${fmtDate(override.raised_at)}`}>
+                <button onClick={() => ackOverride(override.id)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Acknowledge</button>
+              </AttentionRow>
             ))}
+            {blocked48.map((item) => (
+              <AttentionRow key={item.id} tone="bad" title={`${item.jira_key}: ${signalTitle(signals, item)}`} meta={`${item.blocker_description || "Blocked"} · ${item.blocked_since ? daysSince(item.blocked_since) : 0}d blocked`} />
+            ))}
+            {slaBreached.map((signal) => (
+              <AttentionRow key={signal.id} tone="bad" title={signal.title} meta={`${signal.source} · ${daysSince(signal.sla_due_at)}d overdue`} />
+            ))}
+            {reviewsMissing.map((item) => (
+              <AttentionRow key={item.id} tone="bad" title={signalTitle(signals, item)} meta={`${daysSince(item.updated_at)}d since Done`} />
+            ))}
+            {retroOverdue && <AttentionRow tone="bad" title={`${sprint.name} retro overdue`} meta={`${daysSince(sprint.end_date)}d overdue`} />}
           </div>
-          <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary/80" /> Pts delivered</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-1 w-3 rounded-full bg-[var(--color-status-hold)]" /> Signals received</span>
-          </div>
-        </Panel>
+        )}
+      </Panel>
 
-        {/* Priority mix */}
-        <Panel title="Priority mix" subtitle="All signals by P1/P2/P3">
-          <div className="flex items-center gap-6">
-            <DonutChart segments={tierMix.map((t) => ({
-              label: t.tier,
-              value: t.count,
-              color: `var(--color-tier-${t.tier.toLowerCase()})`,
-            }))} />
-            <div className="flex-1 space-y-2">
-              {tierMix.map((t) => (
-                <div key={t.tier} className="flex items-center gap-2 text-sm">
-                  <TierBadge tier={t.tier} />
-                  <div className="ml-auto font-mono text-xs text-muted-foreground">
-                    {t.count} · {t.pct}%
-                  </div>
-                </div>
-              ))}
+      <Panel title="This sprint">
+        {sprintAtRisk && <div className="mb-4 rounded-md border border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/10 px-3 py-2 text-sm text-[var(--color-status-hold)]"><AlertTriangle className="mr-2 inline h-4 w-4" />Sprint at risk</div>}
+        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div>
+            <p className="text-sm font-medium">{sprint.notes || "Sprint goal not set."}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{sprint.name} · {fmtDate(sprint.start_date)} → {fmtDate(sprint.end_date)}</p>
+            <div className="mt-4">
+              <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Capacity</span><span className="font-mono">{sprint.allocated_pts}/{usable} pts</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className={cn("h-full", capacityPct > 100 ? "bg-destructive" : "bg-primary")} style={{ width: `${Math.min(100, capacityPct)}%` }} /></div>
             </div>
           </div>
-        </Panel>
-
-        {/* Sprint burndown */}
-        <Panel title={`Sprint burndown · ${sprint.name}`} subtitle={`${fmtDate(sprint.start_date)} → ${fmtDate(sprint.end_date)}`}>
-          <Burndown points={sprintBurndown.points} allocated={allocated} />
-        </Panel>
-
-        {/* Source / product breakdown */}
-        <Panel title="Source & product mix" subtitle="Where signals come from and where they land">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <BarList title="By source" data={sourceMix} />
-            <BarList title="By product" data={productMix} />
-          </div>
-          <div className="mt-4">
-            <BarList title="By issue type" data={issueTypeMix} />
-          </div>
-        </Panel>
-      </div>
-
-      {/* Breached & Blocked drill-down */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Panel
-          title={`SLA breaches (${breached.length})`}
-          subtitle="Open signals past their tier-based due date"
-          tone={breached.length > 0 ? "warn" : "ok"}
-        >
-          {breached.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">All open signals within SLA.</p>
-          ) : (
-            <ul className="space-y-2">
-              {breached.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{s.title}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {s.product} · due {fmtDateTime(s.sla_due_at)} · {Math.abs(daysSince(s.sla_due_at))}d overdue
-                    </div>
-                  </div>
-                  <TierBadge tier={s.tier} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel title={`Blocked work (${blocked.length})`} subtitle="Delivery items currently blocked" tone={blocked.length > 0 ? "warn" : "ok"}>
-          {blocked.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nothing blocked. 🎉</p>
-          ) : (
-            <ul className="space-y-2">
-              {blocked.map((sh) => {
-                const sig = signals.find((s) => s.id === sh.signal_id);
-                return (
-                  <li key={sh.id} className="rounded-md border border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/5 px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-muted-foreground">{sh.jira_key}</span>
-                      <span className="font-medium">{sig?.title}</span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{sig?.product} · {sh.tech_estimate_pts ?? "—"} pts</div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
-      </div>
-
-      {/* Signal table */}
-      <div className="mt-6 tfp-card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-          <div>
-            <h3 className="font-display text-lg">All signals</h3>
-            <p className="text-xs text-muted-foreground">Filter and drill in to any signal across the system.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <SelectFilter value={statusFilter} onChange={(v) => setStatusFilter(v as typeof statusFilter)} options={["All", "Open", "Breached", "Hold", "Done"]} />
-            <SelectFilter value={sourceFilter} onChange={(v) => setSourceFilter(v as Source | "All")} options={["All", "Leadership", "Clinic", "Internal", "Dev Team"]} />
-            <SelectFilter value={productFilter} onChange={(v) => setProductFilter(v as Product | "All")} options={["All", "Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"]} />
-            <SelectFilter value={tierFilter} onChange={(v) => setTierFilter(v as Tier | "All")} options={["All", "P1", "P2", "P3"]} />
-            <SortMenu
-              tableId="leadership-signals"
-              sort={signalSort}
-              onChange={setSignalSort}
-              options={[
-                { key: "created_at", label: "Created date" },
-                { key: "source", label: "Source" },
-                { key: "tier", label: "Priority" },
-              ]}
-            />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+            <Count label="Committed" value={inSprint.length} />
+            <Count label="Done" value={done.length} />
+            <Count label="In Progress" value={inProgress.length} />
+            <Count label="Blocked" value={blocked.length} tone={blocked.length ? "bad" : "good"} />
           </div>
         </div>
-        <div className="max-h-[480px] overflow-y-auto">
+        <div className="mt-5 space-y-4">
+          {STATUS_ORDER.map((status) => {
+            const rows = inSprint.filter((item) => item.delivery_status === status);
+            if (!rows.length) return null;
+            return (
+              <div key={status}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{status}</h3>
+                <div className="overflow-hidden rounded-md border border-border">
+                  {rows.map((item) => (
+                    <div key={item.id} className="grid gap-2 border-b border-border px-3 py-2 text-sm last:border-0 md:grid-cols-[90px_1fr_130px_110px_90px_70px]">
+                      <span className="font-mono text-xs text-muted-foreground">{item.jira_key ?? "—"}</span>
+                      <span className="font-medium">{signalTitle(signals, item)}</span>
+                      <span className="text-xs text-muted-foreground">{userName(users, item.delivery_assignee_id)}</span>
+                      <span className="text-xs text-muted-foreground">{item.delivery_status}</span>
+                      <span className="text-xs text-muted-foreground">{daysSince(item.updated_at)}d</span>
+                      {daysSince(item.updated_at) >= 2 ? <Badge tone="warn">Stale</Badge> : <span />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+
+      <Panel title="Clinic signals (last 14 days)">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 border-b border-border bg-surface text-[11px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">Title</th>
-                <th className="px-3 py-2 text-left font-medium">Source</th>
-                <th className="px-3 py-2 text-left font-medium">Product</th>
-                  <th className="px-3 py-2 text-left font-medium">Priority</th>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
-                <th className="px-3 py-2 text-left font-medium">Owner</th>
-                <th className="px-3 py-2 text-left font-medium">Created</th>
-                <th className="px-3 py-2 text-left font-medium">SLA due</th>
-              </tr>
-            </thead>
+            <thead className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground"><tr><th className="px-3 py-2 font-medium">Title</th><th className="px-3 py-2 font-medium">Clinic</th><th className="px-3 py-2 font-medium">Product</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium">Days since logged</th></tr></thead>
             <tbody>
-              {filteredSignals.length === 0 ? (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">No signals match these filters.</td></tr>
-              ) : (
-                filteredSignals.map((s) => {
-                  const owner = USERS.find((u) => u.id === s.owner_id);
-                  const breach = (s.status === "New" || s.status === "In Review") && new Date(s.sla_due_at).getTime() < now;
-                  return (
-                    <tr
-                      key={s.id}
-                      onClick={() => setOpenSignalId(s.id)}
-                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/30"
-                      title="View timeline"
-                    >
-                      <td className="px-3 py-2"><div className="font-medium leading-tight">{s.title}</div><div className="text-[10px] text-muted-foreground">{s.id}</div></td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{s.source}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{s.product}</td>
-                      <td className="px-3 py-2"><TierBadge tier={s.tier} /></td>
-                      <td className="px-3 py-2"><StatusBadge status={s.status} /></td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{owner?.name ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{fmtDate(s.created_at)}</td>
-                      <td className={cn("px-3 py-2 text-xs", breach ? "text-destructive" : "text-muted-foreground")}>
-                        {fmtDateTime(s.sla_due_at)}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              {recentClinicSignals.map((signal) => (
+                <tr key={signal.id} className="border-b border-border/60 last:border-0"><td className="px-3 py-2 font-medium">{signal.title}</td><td className="px-3 py-2 text-muted-foreground">{clinicNameFromSignal(signal)}</td><td className="px-3 py-2 text-muted-foreground">{signal.product}</td><td className="px-3 py-2 text-muted-foreground">{signal.status}</td><td className="px-3 py-2 text-muted-foreground">{daysSince(signal.created_at)}d</td></tr>
+              ))}
+              {recentClinicSignals.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">No clinic signals in the last 14 days.</td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
+        <div className="mt-4 rounded-md border border-border bg-surface p-3">
+          <h3 className="text-sm font-medium">What we said no to and why</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{rejectedClinicSignals.length} rejected in the last 14 days</p>
+          <div className="mt-3 space-y-2">
+            {rejectedClinicSignals.map((signal) => <p key={signal.id} className="text-sm"><span className="font-medium">{signal.title}</span> — {signal.triage_reason || "No reason recorded."}</p>)}
+            {rejectedClinicSignals.length === 0 && <p className="text-sm text-muted-foreground">No rejected clinic signals in this period.</p>}
+          </div>
+        </div>
+      </Panel>
 
-      <SignalTimelineDrawer signalId={openSignalId} onClose={() => setOpenSignalId(null)} />
+      <Panel title="What shipped and did it work">
+        <div className="space-y-3">
+          {shipped.map((item) => {
+            const signal = signals.find((s) => s.id === item.signal_id);
+            const review = completedReview(reviews, item.id);
+            const overdue = !review && daysSince(item.updated_at) > 5;
+            return (
+              <div key={item.id} className="rounded-md border border-border bg-surface p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div><p className="font-medium">{signal?.title ?? item.jira_key}</p><p className="mt-1 text-xs text-muted-foreground">{signal?.product ?? "—"} · {item.jira_key ?? "—"} · completed {fmtDate(item.updated_at)}</p></div>
+                  <div className="flex flex-wrap gap-2"><OutcomeBadge rating={review?.outcome_rating ?? null} />{overdue && <Badge tone="bad">Review overdue</Badge>}</div>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{reviewSummary(review)}</p>
+              </div>
+            );
+          })}
+          {shipped.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing marked Done yet.</p>}
+        </div>
+      </Panel>
+
       <SprintUpdateModal open={updateOpen} onClose={() => setUpdateOpen(false)} />
     </div>
   );
 }
 
-function Kpi({
-  label, value, delta, tone, icon,
-}: { label: string; value: string; delta: string; tone: "good" | "warn" | "bad" | "neutral"; icon?: React.ReactNode }) {
-  const toneCls = {
-    good: "text-[var(--color-status-proceed)]",
-    warn: "text-[var(--color-status-hold)]",
-    bad: "text-destructive",
-    neutral: "text-muted-foreground",
-  }[tone];
-  return (
-    <div className="tfp-card p-4">
-      <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-      <div className="font-display text-2xl">{value}</div>
-      <div className={cn("mt-1 text-[11px]", toneCls)}>{delta}</div>
-    </div>
-  );
-}
-
-function Panel({
-  title, subtitle, tone, children,
-}: { title: string; subtitle?: string; tone?: "ok" | "warn"; children: React.ReactNode }) {
-  return (
-    <section className={cn("tfp-card p-5", tone === "warn" && "border-[var(--color-status-hold)]/40")}>
-      <header className="mb-3">
-        <h3 className="font-display text-lg leading-tight">{title}</h3>
-        {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function BarList({ title, data }: { title: string; data: { name: string; count: number }[] }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
-  return (
-    <div>
-      <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">{title}</p>
-      <ul className="space-y-1.5">
-        {data.map((d) => (
-          <li key={d.name} className="flex items-center gap-2 text-xs">
-            <span className="w-28 truncate text-foreground">{d.name}</span>
-            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted">
-              <div className="absolute inset-y-0 left-0 bg-primary/70" style={{ width: `${(d.count / max) * 100}%` }} />
-            </div>
-            <span className="w-6 text-right font-mono text-muted-foreground">{d.count}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
-  const total = segments.reduce((a, b) => a + b.value, 0) || 1;
-  const radius = 38;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  return (
-    <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
-      <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--color-muted)" strokeWidth="14" />
-      {segments.map((s) => {
-        const len = (s.value / total) * circumference;
-        const dasharray = `${len} ${circumference - len}`;
-        const dashoffset = -offset;
-        offset += len;
-        return (
-          <circle
-            key={s.label}
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke={s.color}
-            strokeWidth="14"
-            strokeDasharray={dasharray}
-            strokeDashoffset={dashoffset}
-          />
-        );
-      })}
-      <text x="50" y="52" textAnchor="middle" className="rotate-90 fill-foreground font-mono text-[10px]" transform="rotate(90 50 50)">
-        {total}
-      </text>
-    </svg>
-  );
-}
-
-function Burndown({ points, allocated }: { points: { x: number; ideal: number; actual: number; label: string }[]; allocated: number }) {
-  if (points.length === 0) return <p className="text-sm text-muted-foreground">No sprint data.</p>;
-  const w = 360;
-  const h = 160;
-  const padX = 28;
-  const padY = 16;
-  const innerW = w - padX * 2;
-  const innerH = h - padY * 2;
-  const maxX = points.length - 1;
-  const maxY = Math.max(allocated, 1);
-
-  const fx = (x: number) => padX + (x / maxX) * innerW;
-  const fy = (y: number) => padY + (1 - y / maxY) * innerH;
-
-  const idealPath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${fx(p.x)} ${fy(p.ideal)}`).join(" ");
-  const actualPoints = points.filter((p) => p.actual >= 0);
-  const actualPath = actualPoints.map((p, i) => `${i === 0 ? "M" : "L"} ${fx(p.x)} ${fy(p.actual)}`).join(" ");
-
-  return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${w} ${h}`} className="h-44 w-full min-w-[320px]">
-        {/* gridlines */}
-        {[0, 0.5, 1].map((g) => (
-          <line key={g} x1={padX} x2={w - padX} y1={padY + g * innerH} y2={padY + g * innerH} stroke="var(--color-border)" strokeDasharray="2 3" />
-        ))}
-        <path d={idealPath} fill="none" stroke="var(--color-muted-foreground)" strokeWidth="1" strokeDasharray="3 3" />
-        <path d={actualPath} fill="none" stroke="var(--color-primary)" strokeWidth="2" />
-        {actualPoints.map((p) => (
-          <circle key={p.x} cx={fx(p.x)} cy={fy(p.actual)} r="2.5" fill="var(--color-primary)" />
-        ))}
-        {/* axis labels */}
-        <text x={padX} y={h - 2} className="fill-muted-foreground font-mono text-[8px]">{points[0].label}</text>
-        <text x={w - padX} y={h - 2} textAnchor="end" className="fill-muted-foreground font-mono text-[8px]">{points[points.length - 1].label}</text>
-        <text x={padX - 4} y={padY + 4} textAnchor="end" className="fill-muted-foreground font-mono text-[8px]">{maxY}</text>
-        <text x={padX - 4} y={h - padY} textAnchor="end" className="fill-muted-foreground font-mono text-[8px]">0</text>
-      </svg>
-      <div className="mt-2 flex items-center gap-4 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 bg-muted-foreground" /> Ideal</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-3 bg-primary" /> Actual</span>
-        <span className="ml-auto inline-flex items-center gap-1 text-foreground"><ChevronRight className="h-3 w-3" /> {allocated} pts allocated</span>
-      </div>
-    </div>
-  );
-}
-
-function SelectFilter({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border border-input bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
-    </select>
-  );
-}
-
-// Suppress unused-type warnings — these are imported for documentation.
-const _types: { sh?: ShapingItem; sig?: Signal; it?: IssueType } = {};
-void _types;
-
-// ============== Wave 4 panels ==============
-
 function BriefingPanel({ markdown }: { markdown: string }) {
-  return (
-    <section className="mb-4 rounded-lg border border-border bg-surface p-5 print-page-break">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Stakeholder one-pager</p>
-      <h2 className="mt-1 font-display text-xl">Weekly briefing</h2>
-      <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed text-foreground">{markdown}</pre>
-    </section>
-  );
+  return <section className="rounded-lg border border-border bg-surface p-5"><p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Stakeholder one-pager</p><h2 className="mt-1 font-display text-xl">Briefing summary</h2><pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed text-foreground">{markdown}</pre></section>;
 }
 
-function SprintStatusStrip({
-  sprint,
-  usable,
-  allocated,
-  capacityPct,
-  blockedCount,
-  deliveredCount,
-  committedCount,
-  now,
-}: {
-  sprint: { name: string; start_date: string; end_date: string };
-  usable: number;
-  allocated: number;
-  capacityPct: number;
-  blockedCount: number;
-  deliveredCount: number;
-  committedCount: number;
-  now: number;
-}) {
-  const daysLeft = Math.max(0, Math.ceil((new Date(sprint.end_date).getTime() - now) / 86400000));
-  const tone = capacityPct > 100 ? "bg-destructive" : capacityPct > 90 ? "bg-amber-500" : "bg-primary";
-  return (
-    <section className="rounded-lg border border-border bg-surface p-4">
-      <div className="flex flex-wrap items-center gap-6">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active sprint</p>
-          <p className="font-display text-lg leading-tight">{sprint.name}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {fmtDate(sprint.start_date)} → {fmtDate(sprint.end_date)} · {daysLeft}d remaining
-          </p>
-        </div>
-        <div className="min-w-[200px] flex-1">
-          <div className="mb-1 flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground">Capacity</span>
-            <span className="font-mono">
-              {allocated} / {usable} pts · {capacityPct}%
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div className={cn("h-full transition-all", tone)} style={{ width: `${Math.min(100, capacityPct)}%` }} />
-          </div>
-        </div>
-        <div className="text-center">
-          <p className="font-mono text-2xl">{deliveredCount}<span className="text-muted-foreground">/{committedCount}</span></p>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Done / committed</p>
-        </div>
-        <div className="text-center">
-          <p
-            className={cn(
-              "font-mono text-2xl",
-              blockedCount > 0 ? "text-destructive" : "text-muted-foreground",
-            )}
-          >
-            {blockedCount}
-          </p>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Blocked</p>
-        </div>
-      </div>
-    </section>
-  );
+function Panel({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
+  return <section className={cn("tfp-card p-5", className)}><h2 className="mb-4 font-display text-xl">{title}</h2>{children}</section>;
 }
 
-function OverrideLogPanel({
-  overrides,
-  sprintId,
-  onAck,
-  canAck,
-}: {
-  overrides: import("@/lib/tfp/types").Override[];
-  sprintId: string;
-  onAck: (id: string) => void;
-  canAck: boolean;
-}) {
-  const sprintOverrides = overrides.filter((o) => o.sprint_id === sprintId || o.sprint_id === null);
-  const pending = sprintOverrides.filter((o) => o.ack_status === "Pending").length;
-  return (
-    <div className="tfp-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-base">Sprint overrides</h3>
-          <p className="text-[11px] text-muted-foreground">
-            {sprintOverrides.length} total
-            {pending > 0 && (
-              <span className="ml-2 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-amber-700">
-                {pending} pending
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-      {sprintOverrides.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">No overrides this sprint.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-2 py-1.5 text-left font-medium">Kind</th>
-                <th className="px-2 py-1.5 text-left font-medium">Reason</th>
-                <th className="px-2 py-1.5 text-left font-medium">Displaced</th>
-                <th className="px-2 py-1.5 text-left font-medium">Status</th>
-                <th className="px-2 py-1.5 text-right font-medium no-print"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sprintOverrides.map((o) => (
-                <tr key={o.id} className="border-b border-border/60 last:border-0">
-                  <td className="px-2 py-2 font-medium">{o.kind}</td>
-                  <td className="px-2 py-2 text-muted-foreground">{o.reason}</td>
-                  <td className="px-2 py-2 text-muted-foreground">{o.displaced_pts}p</td>
-                  <td className="px-2 py-2">
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px]",
-                        o.ack_status === "Acknowledged"
-                          ? "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]"
-                          : "bg-amber-500/15 text-amber-700",
-                      )}
-                    >
-                      {o.ack_status}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-right no-print">
-                    {o.ack_status === "Pending" && canAck && (
-                      <button
-                        onClick={() => onAck(o.id)}
-                        className="rounded-md bg-primary px-2 py-1 text-[10px] text-primary-foreground hover:bg-primary/90"
-                      >
-                        Acknowledge
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+function AttentionRow({ title, meta, tone, children }: { title: string; meta: string; tone: "bad" | "warn"; children?: React.ReactNode }) {
+  return <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm", tone === "bad" ? "border-destructive/30 bg-destructive/5" : "border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/5")}><div className="min-w-0"><p className="font-medium">{title}</p><p className="mt-1 text-xs text-muted-foreground">{meta}</p></div>{children}</div>;
 }
 
-function GoLivePipelinePanel({ goLives }: { goLives: import("@/lib/tfp/types").GoLiveChecklist[] }) {
-  const sorted = [...goLives].sort(
-    (a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime(),
-  );
-  return (
-    <div className="tfp-card p-4">
-      <h3 className="mb-3 font-display text-base">Go-live pipeline</h3>
-      {sorted.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">No go-lives scheduled.</p>
-      ) : (
-        <ul className="space-y-2">
-          {sorted.map((g) => {
-            const total = Object.values(g.criteria).length;
-            const done = Object.values(g.criteria).filter((c) => c.done).length;
-            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-            return (
-              <li key={g.id} className="rounded-md border border-border bg-muted/20 p-2.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium">{g.release_name}</span>
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 py-0.5 text-[10px]",
-                      g.go_no_go_decision === "Go"
-                        ? "bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]"
-                        : g.go_no_go_decision === "No-Go"
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {g.go_no_go_decision ?? "Pending"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {g.product} · {fmtDate(g.scheduled_for)}
-                </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {done}/{total}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+function Count({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "good" | "bad" | "neutral" }) {
+  return <div className="rounded-md border border-border bg-surface p-3"><p className={cn("font-display text-2xl", tone === "good" && "text-[var(--color-status-proceed)]", tone === "bad" && "text-destructive")}>{value}</p><p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p></div>;
 }
 
+function Badge({ tone, children }: { tone: "good" | "warn" | "bad" | "muted"; children: React.ReactNode }) {
+  return <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", tone === "good" && "border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]", tone === "warn" && "border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]", tone === "bad" && "border-destructive/30 bg-destructive/10 text-destructive", tone === "muted" && "border-border bg-muted text-muted-foreground")}>{children}</span>;
+}
+
+function OutcomeBadge({ rating }: { rating: OutcomeRating | null }) {
+  if (rating === "Met") return <Badge tone="good">Met</Badge>;
+  if (rating === "Partially Met") return <Badge tone="warn">Partially Met</Badge>;
+  if (rating === "Missed") return <Badge tone="bad">Missed</Badge>;
+  return <Badge tone="muted">Review pending</Badge>;
+}
+
+function isOpen(signal: Signal) {
+  return signal.status === "New" || signal.status === "In Review";
+}
+
+function completedReview(reviews: Review[], shapingId: string) {
+  return reviews.find((review) => review.shaping_id === shapingId && review.status === "Completed") ?? null;
+}
+
+function reviewLabel(review: Review | null) {
+  return review?.outcome_rating ?? "Review pending";
+}
+
+function reviewSummary(review: Review | null) {
+  if (!review) return "Outcome review has not been completed yet.";
+  return review.notes || review.what_worked || review.what_didnt || "Review completed without detailed notes.";
+}
+
+function signalTitle(signals: Signal[], item: ShapingItem) {
+  return signals.find((signal) => signal.id === item.signal_id)?.title ?? item.jira_key ?? item.id;
+}
+
+function userName(users: typeof USERS, id: string | null | undefined) {
+  return users.find((user) => user.id === id)?.name ?? USERS.find((user) => user.id === id)?.name ?? "Unassigned";
+}
+
+function clinicNameFromSignal(signal: Signal) {
+  const text = `${signal.title} ${signal.description}`.toLowerCase();
+  const known = ["Generation Fertility", "Procrea QC", "Heartland", "RCC", "Olive"];
+  return known.find((name) => text.includes(name.toLowerCase())) ?? "Clinic";
+}
