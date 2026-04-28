@@ -201,7 +201,7 @@ function ClinicsPage() {
 
           <div className="space-y-5">
             {PHASES.map((phase) => {
-              const locked = isPhaseLocked(selected, phase.id);
+              const locked = isPhaseLocked(selected, phase.id, pushed);
               const progress = phaseProgress(selected, phase);
               const complete = progress.done === progress.total;
               const pushKey = `${selected.id}:${phase.id}`;
@@ -324,11 +324,13 @@ function phaseProgress(clinic: GoLiveChecklist, phase: Phase) {
   return { done: applicable.filter((item) => clinic.criteria[item]?.done).length, total: applicable.length };
 }
 
-function isPhaseLocked(clinic: GoLiveChecklist, phaseId: number) {
+function isPhaseLocked(clinic: GoLiveChecklist, phaseId: number, pushed: Record<string, boolean>) {
   if (phaseId === 1) return false;
   return PHASES.filter((phase) => phase.id < phaseId).some((phase) => {
     const progress = phaseProgress(clinic, phase);
-    return progress.done < progress.total;
+    const targetPhase = PHASES.find((candidate) => candidate.id === phaseId);
+    const targetAlreadyStarted = targetPhase?.items.some((item) => clinic.criteria[item]?.done) ?? false;
+    return progress.done < progress.total || (!pushed[`${clinic.id}:${phase.id}`] && !targetAlreadyStarted);
   });
 }
 
