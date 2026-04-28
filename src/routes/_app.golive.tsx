@@ -10,7 +10,7 @@ import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 
 export const Route = createFileRoute("/_app/golive")({
-  component: () => <Navigate to="/delivery" search={{ tab: "golive" }} />,
+  component: () => <Navigate to="/clinics" />,
 });
 
 export function GoLivePage() {

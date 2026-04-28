@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useMemo, useState } from "react";
@@ -10,7 +10,7 @@ import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types"
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
-  tab: fallback(z.enum(["backlog", "planning", "board"]), "backlog").default("backlog"),
+  tab: fallback(z.enum(["backlog", "planning", "board", "golive", "clinics"]), "backlog").default("backlog"),
 });
 
 export const Route = createFileRoute("/_app/delivery")({
@@ -78,6 +78,8 @@ function DeliveryPage() {
     .filter((row): row is Row => !!row.sig);
   const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
   const usable = usableCapacity(sprint);
+
+  if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
 
   function handleSync() {
     syncFromJira();

@@ -29,6 +29,7 @@ import { Route as AppGoliveRouteImport } from './routes/_app.golive'
 import { Route as AppDeliveryRouteImport } from './routes/_app.delivery'
 import { Route as AppDecisionsRouteImport } from './routes/_app.decisions'
 import { Route as AppCommsRouteImport } from './routes/_app.comms'
+import { Route as AppClinicsRouteImport } from './routes/_app.clinics'
 import { Route as AppAdminRouteImport } from './routes/_app.admin'
 import { Route as AppHelpSlugRouteImport } from './routes/_app.help.$slug'
 
@@ -131,6 +132,11 @@ const AppCommsRoute = AppCommsRouteImport.update({
   path: '/comms',
   getParentRoute: () => AppRoute,
 } as any)
+const AppClinicsRoute = AppClinicsRouteImport.update({
+  id: '/clinics',
+  path: '/clinics',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/clinic-feedback': typeof ClinicFeedbackRoute
   '/admin': typeof AppAdminRoute
+  '/clinics': typeof AppClinicsRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/clinic-feedback': typeof ClinicFeedbackRoute
   '/admin': typeof AppAdminRoute
+  '/clinics': typeof AppClinicsRoute
   '/comms': typeof AppCommsRoute
   '/decisions': typeof AppDecisionsRoute
   '/delivery': typeof AppDeliveryRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/clinic-feedback': typeof ClinicFeedbackRoute
   '/_app/admin': typeof AppAdminRoute
+  '/_app/clinics': typeof AppClinicsRoute
   '/_app/comms': typeof AppCommsRoute
   '/_app/decisions': typeof AppDecisionsRoute
   '/_app/delivery': typeof AppDeliveryRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/'
     | '/clinic-feedback'
     | '/admin'
+    | '/clinics'
     | '/comms'
     | '/decisions'
     | '/delivery'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
   to:
     | '/clinic-feedback'
     | '/admin'
+    | '/clinics'
     | '/comms'
     | '/decisions'
     | '/delivery'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/clinic-feedback'
     | '/_app/admin'
+    | '/_app/clinics'
     | '/_app/comms'
     | '/_app/decisions'
     | '/_app/delivery'
@@ -433,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCommsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/clinics': {
+      id: '/_app/clinics'
+      path: '/clinics'
+      fullPath: '/clinics'
+      preLoaderRoute: typeof AppClinicsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin': {
       id: '/_app/admin'
       path: '/admin'
@@ -463,6 +482,7 @@ const AppHelpRouteWithChildren =
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppClinicsRoute: typeof AppClinicsRoute
   AppCommsRoute: typeof AppCommsRoute
   AppDecisionsRoute: typeof AppDecisionsRoute
   AppDeliveryRoute: typeof AppDeliveryRoute
@@ -485,6 +505,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppClinicsRoute: AppClinicsRoute,
   AppCommsRoute: AppCommsRoute,
   AppDecisionsRoute: AppDecisionsRoute,
   AppDeliveryRoute: AppDeliveryRoute,
