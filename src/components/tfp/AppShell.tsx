@@ -38,7 +38,7 @@ const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
-  { to: "/health", label: "Clinics", icon: Building2 },
+  { to: "/clinics", label: "Clinics", icon: Building2 },
   { to: "/leadership", label: "Leadership", icon: Crown },
 ];
 
@@ -76,7 +76,7 @@ function AppSidebar() {
                     location.pathname.startsWith(n.to + "/") ||
                     (n.to === "/inbox" &&
                       (location.pathname === "/intake" || location.pathname === "/triage")) ||
-                    (n.to === "/delivery" && location.pathname === "/golive");
+                    (n.to === "/clinics" && location.pathname === "/golive");
                   const Icon = n.icon;
                   return (
                     <SidebarMenuItem key={n.to}>
