@@ -655,7 +655,7 @@ function DefineBrief({ item }: { item: ShapingItem }) {
               onChange={(e) => setSelectedTechLead(e.target.value)}
               className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}
+              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{techLeadName(lead)}</option>)}
             </select>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
@@ -755,11 +755,11 @@ function TechReview({ item }: { item: ShapingItem }) {
         </p>
         <div className="mt-5 rounded-md border border-border bg-surface-2 p-3 text-sm">
           <span className="text-muted-foreground">Assigned to</span>
-          <span className="ml-2 font-medium">{assignedLead?.name ?? "Tech Lead"}</span>
+          <span className="ml-2 font-medium">{techLeadName(assignedLead)}</span>
         </div>
         {!canEdit && (
           <div className="mt-3 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/5 p-3 text-sm text-[var(--color-status-hold)]">
-            Switch to {assignedLead?.name ?? "Tech Lead"} to complete this review.
+            Switch to {techLeadName(assignedLead)} to complete this review.
           </div>
         )}
 
