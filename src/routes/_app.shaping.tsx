@@ -543,45 +543,58 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
 
 function DefineBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
-  const setComplexity = useTfpStore((s) => s.setComplexity);
   const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
+  const pushNotification = useTfpStore((s) => s.pushNotification);
   const currentUserId = useTfpStore((s) => s.currentUserId);
-  const missingRequired = [
-    !item.problem_what.trim() && "Problem",
-    !item.problem_why.trim() && "Why now / evidence",
-    !item.solution_approach.trim() && "Proposed approach",
-  ].filter(Boolean) as string[];
+  const [assignOpen, setAssignOpen] = useState(false);
+  const techLeads = USERS.filter((u) => u.role === "Tech Lead");
+  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? techLeads[0]?.id ?? "");
+  const requiredFields = [
+    { key: "problem_what" as const, label: "Problem", min: 30 },
+    { key: "problem_why" as const, label: "Why now", min: 30 },
+    { key: "problem_who" as const, label: "Who is affected", min: 20 },
+    { key: "solution_criteria" as const, label: "Success criteria", min: 30 },
+    { key: "solution_approach" as const, label: "Proposed approach", min: 30 },
+  ];
+  const missingRequired = requiredFields
+    .filter((f) => String(item[f.key] ?? "").trim().length < f.min)
+    .map((f) => f.label);
   const ready = missingRequired.length === 0;
+
+  function confirmAssignment() {
+    const lead = USERS.find((u) => u.id === selectedTechLead);
+    if (!lead) return;
+    updateShaping(item.id, {
+      current_step: 2,
+      shaping_status: "In Tech Review",
+      tech_reviewer_id: lead.id,
+      solution_complexity: item.solution_complexity ?? "Medium",
+    });
+    pushNotification({
+      trigger: "tech_review_ready",
+      title: "Tech review assigned",
+      body: "A shaping item is waiting for your review.",
+      link_to: "/shaping",
+      for_user_id: lead.id,
+      entity_id: item.id,
+    });
+    setAssignOpen(false);
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
       <div className="tfp-card divide-y divide-border">
         <div className="p-5">
           <h3 className="font-display text-lg">Define</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            One lightweight brief: problem, evidence, approach, open questions and rough effort. Extra detail can live in notes.
-          </p>
         </div>
-        <div className="grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Problem" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} placeholder="What problem are we solving?" />
-          <Field label="Why now / evidence" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v, problem_evidence: v })} rows={4} placeholder="Why does it matter, and what evidence do we have?" />
-          <div>
-            <label className="mb-1 block text-sm font-medium">Complexity</label>
-            <select
-              value={item.solution_complexity ?? ""}
-              onChange={(e) => e.target.value && setComplexity(item.id, e.target.value as Complexity)}
-              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Select…</option>
-              {(["Simple", "Medium", "Complex"] as Complexity[]).map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <Field label="Effort estimate" value={item.solution_effort} onChange={(v) => updateShaping(item.id, { solution_effort: v })} rows={2} placeholder="S/M/L or notes before tech estimate" />
-          <div className="md:col-span-2">
-            <Field label="Proposed approach" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} placeholder="How should we solve this?" />
-          </div>
-          <Field label="Success criteria" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} placeholder="What must be true when this is done?" />
-          <Field label="Open questions" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} placeholder="Questions for tech, QA, clinic, or leadership" />
+        <div className="space-y-4 p-5">
+          <Field label="Problem (what is broken or missing?)" value={item.problem_what} onChange={(v) => updateShaping(item.id, { problem_what: v })} rows={4} min={30} required />
+          <Field label="Why now (why does this matter and what happens if we don't solve it?)" value={item.problem_why} onChange={(v) => updateShaping(item.id, { problem_why: v })} rows={4} min={30} required />
+          <Field label="Who is affected (which clinics, which roles, how many people)" value={item.problem_who} onChange={(v) => updateShaping(item.id, { problem_who: v })} rows={3} min={20} required />
+          <Field label="Success criteria (what must be true when this is done?)" value={item.solution_criteria} onChange={(v) => updateShaping(item.id, { solution_criteria: v })} rows={3} min={30} required />
+          <Field label="Proposed approach (how do we solve this at a high level?)" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} min={30} required />
+          <Field label="Open questions (what needs to be answered before building?)" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} />
+          <Field label="Out of scope (what are we explicitly not solving?)" value={item.problem_out_of_scope} onChange={(v) => updateShaping(item.id, { problem_out_of_scope: v })} rows={3} />
           <div className="md:col-span-2 rounded-md border border-border bg-surface-2 p-3">
             <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Supporting attachments</p>
             <AttachmentsField attachments={item.attachments ?? []} onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)} currentUserId={currentUserId} compact />
@@ -593,39 +606,56 @@ function DefineBrief({ item }: { item: ShapingItem }) {
           </p>
           <button
             disabled={!ready}
-            onClick={() =>
-              updateShaping(item.id, {
-                current_step: 4,
-                shaping_status: "In Tech Review",
-                solution_complexity: item.solution_complexity ?? "Medium",
-              })
-            }
+            onClick={() => setAssignOpen(true)}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
           >
             Send to Tech Review
           </button>
         </div>
       </div>
+      {assignOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+            <h3 className="font-display text-lg">Assign a Tech Lead for this review</h3>
+            <select
+              value={selectedTechLead}
+              onChange={(e) => setSelectedTechLead(e.target.value)}
+              className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}
+            </select>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+              <button onClick={confirmAssignment} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <div className="tfp-card p-5">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Simplified shaping</p>
-          <p className="mt-2 text-sm text-muted-foreground">Roadmap bucket, displacement, detailed who/where and risk notes are no longer required to advance.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Completeness</p>
+          <div className="mt-2 flex items-baseline gap-1"><span className="font-display text-4xl">{completenessScore(item)}</span><span className="text-sm text-muted-foreground">/ 5</span></div>
         </div>
       </aside>
     </div>
   );
 }
 
-function Field({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
+function Field({ label, value, onChange, rows, placeholder, min, required }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string; min?: number; required?: boolean }) {
+  const len = value.trim().length;
+  const ok = !required || len >= (min ?? 0);
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium">{label}</label>
+      <label className="mb-1 flex items-baseline justify-between gap-3 text-sm font-medium">
+        <span>{label}{required && <span className="ml-1 text-destructive">*</span>}</span>
+        {required && <span className={cn("text-xs", ok ? "text-[var(--color-status-proceed)]" : "text-muted-foreground")}>{len}/{min}</span>}
+      </label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="w-full resize-y rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className={cn("w-full resize-y rounded-md border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring", !ok && len > 0 ? "border-destructive/50" : "border-input")}
       />
     </div>
   );
