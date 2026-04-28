@@ -136,8 +136,7 @@ const uid = () => {
   return _uidCounter.toString(36).padStart(4, "0");
 };
 
-// Stable epoch for seed data so SSR and client render identical timestamps.
-const SEED_EPOCH = new Date("2026-04-15T09:00:00.000Z").getTime();
+const SEED_EPOCH = new Date().getTime();
 
 const blankUser = (id: string, name: string, role: User["role"]): User => ({
   id,
@@ -161,7 +160,7 @@ export const USERS: User[] = [
 
 const seedSprint: Sprint = {
   id: "s-6",
-  name: "Sprint 6",
+  name: "Active Sprint",
   start_date: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
   end_date: new Date(SEED_EPOCH + 10 * 86400000).toISOString(),
   status: "Active",
@@ -483,7 +482,7 @@ const shapingInDelivery: ShapingItem = {
   tech_signed_off_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
   approver_id: "u-alizar",
   approval_decision: "Approved",
-  approval_notes: "Approved for Sprint 6. Push to Jira.",
+  approval_notes: "Approved for Active Sprint. Push to Jira.",
   approved_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
   jira_key: "TFP-1042",
   in_sprint: true,
