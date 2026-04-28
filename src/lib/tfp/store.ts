@@ -247,11 +247,9 @@ function buildSeedSignal(args: {
   owner?: string | null;
   hold_until?: string | null;
   triage_reason?: string | null;
-  tier?: Signal["tier"];
 }) {
   const created = new Date(SEED_EPOCH - args.daysAgo * 86400000);
   const c = classifySignal({ source: args.source, description: args.description });
-  const tier = args.tier ?? c.tier;
   return {
     id: "sig-" + uid(),
     title: args.title,
@@ -259,12 +257,12 @@ function buildSeedSignal(args: {
     source: args.source,
     product: args.product,
     issue_type: c.issue_type,
-    tier,
+    tier: c.tier,
     status: args.status ?? "New",
     owner_id: args.owner ?? null,
     triage_reason: args.triage_reason ?? null,
     hold_until: args.hold_until ?? null,
-    sla_due_at: slaDueAt(tier, created).toISOString(),
+    sla_due_at: slaDueAt(c.tier, created).toISOString(),
     created_at: created.toISOString(),
     created_by: "u-sami",
     shaping_item_id: null,
@@ -283,7 +281,6 @@ const sigDone: Signal = buildSeedSignal({
   daysAgo: 14,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P2",
 });
 
 const sigInDelivery: Signal = buildSeedSignal({
@@ -295,7 +292,6 @@ const sigInDelivery: Signal = buildSeedSignal({
   daysAgo: 21,
   status: "Proceed",
   owner: "u-alizar",
-  tier: "P2",
 });
 
 const sigInQA: Signal = buildSeedSignal({
@@ -307,7 +303,6 @@ const sigInQA: Signal = buildSeedSignal({
   daysAgo: 10,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P2",
 });
 
 const sigBlocked: Signal = buildSeedSignal({
@@ -319,7 +314,6 @@ const sigBlocked: Signal = buildSeedSignal({
   daysAgo: 8,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P2",
 });
 
 const sigForApproval: Signal = buildSeedSignal({
@@ -331,7 +325,6 @@ const sigForApproval: Signal = buildSeedSignal({
   daysAgo: 5,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P1",
 });
 
 const sigForTechReview: Signal = buildSeedSignal({
@@ -343,7 +336,6 @@ const sigForTechReview: Signal = buildSeedSignal({
   daysAgo: 4,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P2",
 });
 
 const sigHelpCenter: Signal = buildSeedSignal({
@@ -355,7 +347,6 @@ const sigHelpCenter: Signal = buildSeedSignal({
   daysAgo: 0,
   status: "New",
   owner: null,
-  tier: "P2",
 });
 
 const sigUniquePatientId: Signal = buildSeedSignal({
@@ -368,7 +359,6 @@ const sigUniquePatientId: Signal = buildSeedSignal({
   daysAgo: 6,
   status: "Proceed",
   owner: "u-bazil",
-  tier: "P2",
 });
 
 const seedSignals: Signal[] = [
