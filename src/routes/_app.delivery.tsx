@@ -15,7 +15,12 @@ type DeliveryTab = "backlog" | "planning" | "board";
 type Row = { sh: ShapingItem; sig: Signal };
 type CommitmentType = "Feature" | "Fix" | "Research" | "Dependency";
 
-const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = ["To Do", "In Progress", "In QA", "Done"];
+const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
+  "To Do",
+  "In Progress",
+  "In QA",
+  "Done",
+];
 
 function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
@@ -50,7 +55,9 @@ function DeliveryPage() {
     const ids = orderedIds.filter((id) => readyRows.some((row) => row.sh.id === id));
     const missing = readyRows.filter((row) => !ids.includes(row.sh.id)).map((row) => row.sh.id);
     const finalIds = [...ids, ...missing];
-    return finalIds.map((id) => readyRows.find((row) => row.sh.id === id)).filter((row): row is Row => !!row);
+    return finalIds
+      .map((id) => readyRows.find((row) => row.sh.id === id))
+      .filter((row): row is Row => !!row);
   }, [orderedIds, readyRows]);
 
   const planningRows = planningIds
@@ -140,7 +147,9 @@ function DeliveryPage() {
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
           <h1 className="mt-1 font-display text-3xl">Delivery</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Backlog, sprint planning, and read-only Jira visibility.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Backlog, sprint planning, and read-only Jira visibility.
+          </p>
         </div>
         <button
           onClick={handleSync}
@@ -151,17 +160,21 @@ function DeliveryPage() {
       </header>
 
       <div className="mb-5 flex flex-wrap gap-2 border-b border-border">
-        {([
-          ["backlog", "Backlog"],
-          ["planning", "Sprint Planning"],
-          ["board", "Sprint Board"],
-        ] as const).map(([value, label]) => (
+        {(
+          [
+            ["backlog", "Backlog"],
+            ["planning", "Sprint Planning"],
+            ["board", "Sprint Board"],
+          ] as const
+        ).map(([value, label]) => (
           <button
             key={value}
             onClick={() => setTab(value)}
             className={cn(
               "border-b-2 px-3 py-2 text-sm font-medium transition",
-              tab === value ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground",
+              tab === value
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {label}
@@ -169,7 +182,9 @@ function DeliveryPage() {
         ))}
       </div>
 
-      {tab === "backlog" && <BacklogTab rows={orderedBacklog} onMove={movePriority} onAdd={addPlanning} />}
+      {tab === "backlog" && (
+        <BacklogTab rows={orderedBacklog} onMove={movePriority} onAdd={addPlanning} />
+      )}
       {tab === "planning" && (
         <PlanningTab
           backlogRows={planningBacklog}
@@ -197,20 +212,56 @@ function DeliveryPage() {
       )}
 
       {briefFor && <BriefSlideover row={briefFor} onClose={() => setBriefFor(null)} />}
-      {blockerFor && <BlockerModal row={blockerFor} users={users} onCancel={() => setBlockerFor(null)} onSave={logProductBlocker} />}
+      {blockerFor && (
+        <BlockerModal
+          row={blockerFor}
+          users={users}
+          onCancel={() => setBlockerFor(null)}
+          onSave={logProductBlocker}
+        />
+      )}
     </div>
   );
 }
 
-function BacklogTab({ rows, onMove, onAdd }: { rows: Row[]; onMove: (dragId: string, targetId: string) => void; onAdd: (id: string) => void }) {
+function BacklogTab({
+  rows,
+  onMove,
+  onAdd,
+}: {
+  rows: Row[];
+  onMove: (dragId: string, targetId: string) => void;
+  onAdd: (id: string) => void;
+}) {
   return (
     <section className="rounded-md border border-border bg-surface/50">
-      <BacklogTable rows={rows} onMove={onMove} action={(row) => <button onClick={() => onAdd(row.sh.id)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Add to Sprint Planning</button>} />
+      <BacklogTable
+        rows={rows}
+        onMove={onMove}
+        action={(row) => (
+          <button
+            onClick={() => onAdd(row.sh.id)}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Add to Sprint Planning
+          </button>
+        )}
+      />
     </section>
   );
 }
 
-function BacklogTable({ rows, onMove, action, onRowClick }: { rows: Row[]; onMove?: (dragId: string, targetId: string) => void; action?: (row: Row) => ReactNode; onRowClick?: (row: Row) => void }) {
+function BacklogTable({
+  rows,
+  onMove,
+  action,
+  onRowClick,
+}: {
+  rows: Row[];
+  onMove?: (dragId: string, targetId: string) => void;
+  action?: (row: Row) => ReactNode;
+  onRowClick?: (row: Row) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] text-left text-sm">
@@ -239,7 +290,11 @@ function BacklogTable({ rows, onMove, action, onRowClick }: { rows: Row[]; onMov
                 onClick={() => onRowClick?.(row)}
                 className={cn("bg-surface/40 hover:bg-accent/20", onRowClick && "cursor-pointer")}
               >
-                <td className="px-3 py-3"><span className="inline-flex items-center gap-2 text-muted-foreground"><GripVertical className="h-4 w-4" /> {index + 1}</span></td>
+                <td className="px-3 py-3">
+                  <span className="inline-flex items-center gap-2 text-muted-foreground">
+                    <GripVertical className="h-4 w-4" /> {index + 1}
+                  </span>
+                </td>
                 <td className="max-w-md px-3 py-3 font-medium">{row.sig.title}</td>
                 <td className="px-3 py-3 text-muted-foreground">{row.sig.product}</td>
                 <td className="px-3 py-3">{commitmentType(row.sig)}</td>
@@ -250,7 +305,13 @@ function BacklogTable({ rows, onMove, action, onRowClick }: { rows: Row[]; onMov
               </tr>
             );
           })}
-          {rows.length === 0 && <tr><td colSpan={action ? 8 : 7} className="px-3 py-10 text-center text-muted-foreground">No ready backlog items.</td></tr>}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={action ? 8 : 7} className="px-3 py-10 text-center text-muted-foreground">
+                No ready backlog items.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -268,49 +329,158 @@ function PlanningTab(props: {
   onRemove: (id: string) => void;
   onConfirm: () => void;
   confirmed: boolean;
-  sprint: { name: string; gross_capacity_pts: number; leave_deduction_pts: number; interrupt_buffer_pts: number; qa_buffer_pts: number; uncertainty_buffer_pts: number; carryforward_estimate_pts: number };
+  sprint: {
+    name: string;
+    gross_capacity_pts: number;
+    leave_deduction_pts: number;
+    interrupt_buffer_pts: number;
+    qa_buffer_pts: number;
+    uncertainty_buffer_pts: number;
+    carryforward_estimate_pts: number;
+  };
 }) {
   const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
   const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
   if (props.confirmed) {
-    return <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]"><CheckCircle2 className="mb-3 h-8 w-8" /><h2 className="font-display text-2xl">Sprint confirmed and pushed to Jira</h2><p className="mt-2 text-sm">Committed items are now visible on the Sprint Board.</p></div>;
+    return (
+      <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
+        <CheckCircle2 className="mb-3 h-8 w-8" />
+        <h2 className="font-display text-2xl">Sprint confirmed and pushed to Jira</h2>
+        <p className="mt-2 text-sm">Committed items are now visible on the Sprint Board.</p>
+      </div>
+    );
   }
   return (
     <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
       <section className="rounded-md border border-border bg-surface/50">
-        <div className="border-b border-border p-4"><h2 className="font-display text-lg">Prioritized backlog</h2></div>
-        <BacklogTable rows={props.backlogRows} onRowClick={(row) => props.onPick(row.sh.id)} action={undefined} />
-        <div className="border-t border-border p-3 text-xs text-muted-foreground">Click a row to move it into sprint planning.</div>
+        <div className="border-b border-border p-4">
+          <h2 className="font-display text-lg">Prioritized backlog</h2>
+        </div>
+        <BacklogTable
+          rows={props.backlogRows}
+          onRowClick={(row) => props.onPick(row.sh.id)}
+          action={undefined}
+        />
+        <div className="border-t border-border p-3 text-xs text-muted-foreground">
+          Click a row to move it into sprint planning.
+        </div>
       </section>
 
       <section className="rounded-md border border-border bg-surface p-4">
         <h2 className="font-display text-lg">Active Sprint</h2>
         <label className="mt-4 block text-sm font-medium">Sprint Goal</label>
-        <input value={props.sprintGoal} onChange={(e) => props.setSprintGoal(e.target.value)} placeholder="One sentence describing what this sprint achieves" className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-        <CapacityBar used={props.usedPoints} usable={props.usable} usedPct={usedPct} sprint={props.sprint} />
+        <input
+          value={props.sprintGoal}
+          onChange={(e) => props.setSprintGoal(e.target.value)}
+          placeholder="One sentence describing what this sprint achieves"
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <CapacityBar
+          used={props.usedPoints}
+          usable={props.usable}
+          usedPct={usedPct}
+          sprint={props.sprint}
+        />
         <div className="mt-5 space-y-2">
-          {props.planningRows.map((row) => <div key={row.sh.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm"><div><p className="font-medium">{row.sig.title}</p><p className="text-xs text-muted-foreground">{row.sh.tech_estimate_pts ?? 0} pts</p></div><button onClick={() => props.onRemove(row.sh.id)} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/40">Remove</button></div>)}
-          {props.planningRows.length === 0 && <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Select backlog items from the left panel.</p>}
+          {props.planningRows.map((row) => (
+            <div
+              key={row.sh.id}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+            >
+              <div>
+                <p className="font-medium">{row.sig.title}</p>
+                <p className="text-xs text-muted-foreground">{row.sh.tech_estimate_pts ?? 0} pts</p>
+              </div>
+              <button
+                onClick={() => props.onRemove(row.sh.id)}
+                className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/40"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {props.planningRows.length === 0 && (
+            <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Select backlog items from the left panel.
+            </p>
+          )}
         </div>
-        <button disabled={!canConfirm} onClick={props.onConfirm} className="mt-5 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40">Confirm Sprint & Push to Jira</button>
+        <button
+          disabled={!canConfirm}
+          onClick={props.onConfirm}
+          className="mt-5 w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+        >
+          Confirm Sprint & Push to Jira
+        </button>
       </section>
     </div>
   );
 }
 
-function CapacityBar({ used, usable, usedPct, sprint }: { used: number; usable: number; usedPct: number; sprint: { gross_capacity_pts: number; leave_deduction_pts: number; interrupt_buffer_pts: number; qa_buffer_pts: number; uncertainty_buffer_pts: number; carryforward_estimate_pts: number } }) {
+function CapacityBar({
+  used,
+  usable,
+  usedPct,
+  sprint,
+}: {
+  used: number;
+  usable: number;
+  usedPct: number;
+  sprint: {
+    gross_capacity_pts: number;
+    leave_deduction_pts: number;
+    interrupt_buffer_pts: number;
+    qa_buffer_pts: number;
+    uncertainty_buffer_pts: number;
+    carryforward_estimate_pts: number;
+  };
+}) {
   return (
     <div className="mt-4 rounded-md border border-border bg-surface-2 p-3">
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <span>Gross {sprint.gross_capacity_pts}</span><span>- Leave {sprint.leave_deduction_pts}</span><span>- Interrupts {sprint.interrupt_buffer_pts}</span><span>- QA {sprint.qa_buffer_pts}</span><span>- Uncertainty {sprint.uncertainty_buffer_pts}</span><span>- Carryforward {sprint.carryforward_estimate_pts}</span><span>= Usable {usable}</span>
+        <span>Gross {sprint.gross_capacity_pts}</span>
+        <span>- Leave {sprint.leave_deduction_pts}</span>
+        <span>- Interrupts {sprint.interrupt_buffer_pts}</span>
+        <span>- QA {sprint.qa_buffer_pts}</span>
+        <span>- Uncertainty {sprint.uncertainty_buffer_pts}</span>
+        <span>- Carryforward {sprint.carryforward_estimate_pts}</span>
+        <span>= Usable {usable}</span>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className={cn("h-full", usedPct >= 100 ? "bg-destructive" : usedPct >= 80 ? "bg-[var(--color-status-hold)]" : "bg-primary")} style={{ width: `${Math.min(100, usedPct)}%` }} /></div>
-      <p className="mt-2 text-xs text-muted-foreground">{used} / {usable} pts committed</p>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            "h-full",
+            usedPct >= 100
+              ? "bg-destructive"
+              : usedPct >= 80
+                ? "bg-[var(--color-status-hold)]"
+                : "bg-primary",
+          )}
+          style={{ width: `${Math.min(100, usedPct)}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {used} / {usable} pts committed
+      </p>
     </div>
   );
 }
 
-function SprintBoard({ rows, users, expandedCriteria, setExpandedCriteria, onViewBrief, onLogBlocker }: { rows: Row[]; users: User[]; expandedCriteria: Record<string, boolean>; setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>; onViewBrief: (row: Row) => void; onLogBlocker: (row: Row) => void }) {
+function SprintBoard({
+  rows,
+  users,
+  expandedCriteria,
+  setExpandedCriteria,
+  onViewBrief,
+  onLogBlocker,
+}: {
+  rows: Row[];
+  users: User[];
+  expandedCriteria: Record<string, boolean>;
+  setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>;
+  onViewBrief: (row: Row) => void;
+  onLogBlocker: (row: Row) => void;
+}) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
   return (
     <div className="space-y-5">
@@ -318,41 +488,227 @@ function SprintBoard({ rows, users, expandedCriteria, setExpandedCriteria, onVie
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_COLUMNS.map((status) => {
           const columnRows = rows.filter((row) => row.sh.delivery_status === status);
-          return <section key={status} className="rounded-md border border-border bg-muted/20 p-3"><div className="mb-3 flex justify-between text-sm font-medium"><span>{status}</span><span className="text-muted-foreground">{columnRows.length}</span></div><div className="space-y-3">{columnRows.map((row) => <BoardCard key={row.sh.id} row={row} users={users} expanded={!!expandedCriteria[row.sh.id]} onToggleMore={() => setExpandedCriteria((current) => ({ ...current, [row.sh.id]: !current[row.sh.id] }))} onViewBrief={() => onViewBrief(row)} />)}</div></section>;
+          return (
+            <section key={status} className="rounded-md border border-border bg-muted/20 p-3">
+              <div className="mb-3 flex justify-between text-sm font-medium">
+                <span>{status}</span>
+                <span className="text-muted-foreground">{columnRows.length}</span>
+              </div>
+              <div className="space-y-3">
+                {columnRows.map((row) => (
+                  <BoardCard
+                    key={row.sh.id}
+                    row={row}
+                    users={users}
+                    expanded={!!expandedCriteria[row.sh.id]}
+                    onToggleMore={() =>
+                      setExpandedCriteria((current) => ({
+                        ...current,
+                        [row.sh.id]: !current[row.sh.id],
+                      }))
+                    }
+                    onViewBrief={() => onViewBrief(row)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
         })}
       </div>
     </div>
   );
 }
 
-function BoardCard({ row, users, expanded, onToggleMore, onViewBrief }: { row: Row; users: User[]; expanded: boolean; onToggleMore: () => void; onViewBrief: () => void }) {
+function BoardCard({
+  row,
+  users,
+  expanded,
+  onToggleMore,
+  onViewBrief,
+}: {
+  row: Row;
+  users: User[];
+  expanded: boolean;
+  onToggleMore: () => void;
+  onViewBrief: () => void;
+}) {
   const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
   const staleDays = daysSince(row.sh.updated_at);
   return (
     <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground"><span className="font-mono">{row.sh.jira_key}</span><span>{row.sh.tech_estimate_pts ?? "—"} pts</span></div>
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span className="font-mono">{row.sh.jira_key}</span>
+        <span>{row.sh.tech_estimate_pts ?? "—"} pts</span>
+      </div>
       <h3 className="mt-1 line-clamp-2 font-medium leading-snug">{row.sig.title}</h3>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">{initials(assignee?.name)}</span><span>{row.sh.delivery_status}</span><span>{staleDays}d in status</span>{staleDays >= 2 && <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">{staleDays}d stale</span>}</div>
-      <div className="mt-3 rounded-md bg-surface-2 p-2 text-xs text-muted-foreground"><p className={expanded ? "" : "line-clamp-2"}>{row.sh.solution_criteria || "No success criteria recorded."}</p>{row.sh.solution_criteria.length > 90 && <button onClick={onToggleMore} className="mt-1 text-primary hover:underline">{expanded ? "less" : "more"}</button>}</div>
-      <button onClick={onViewBrief} className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"><Eye className="h-3.5 w-3.5" /> View brief</button>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">
+          {initials(assignee?.name)}
+        </span>
+        <span>{row.sh.delivery_status}</span>
+        <span>{staleDays}d in status</span>
+        {staleDays >= 2 && (
+          <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
+            {staleDays}d stale
+          </span>
+        )}
+      </div>
+      <div className="mt-3 rounded-md bg-surface-2 p-2 text-xs text-muted-foreground">
+        <p className={expanded ? "" : "line-clamp-2"}>
+          {row.sh.solution_criteria || "No success criteria recorded."}
+        </p>
+        {row.sh.solution_criteria.length > 90 && (
+          <button onClick={onToggleMore} className="mt-1 text-primary hover:underline">
+            {expanded ? "less" : "more"}
+          </button>
+        )}
+      </div>
+      <button
+        onClick={onViewBrief}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
+      >
+        <Eye className="h-3.5 w-3.5" /> View brief
+      </button>
     </article>
   );
 }
 
 function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: Row) => void }) {
-  return <section className="rounded-md border border-destructive/30 bg-destructive/5 p-3"><div className="mb-3 flex items-center gap-2 text-sm font-medium text-destructive"><AlertTriangle className="h-4 w-4" /> Blocked rail ({rows.length})</div><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{rows.map((row) => { const days = row.sh.blocked_since ? daysSince(row.sh.blocked_since) : 0; return <div key={row.sh.id} className="rounded-md border border-border bg-surface p-3 text-sm"><div className="flex justify-between text-[11px] text-muted-foreground"><span className="font-mono">{row.sh.jira_key}</span><span>{days}d blocked</span></div><p className="mt-1 font-medium">{row.sig.title}</p><p className="mt-1 text-xs text-muted-foreground">{row.sh.blocker_description || "No blocker description logged."}</p>{days >= 2 && <span className="mt-2 inline-flex rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">Escalated to Leadership</span>}<button onClick={() => onLogBlocker(row)} className="mt-3 block rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">Log product blocker</button></div>; })}{rows.length === 0 && <p className="text-sm text-muted-foreground">No blocked items.</p>}</div></section>;
+  return (
+    <section className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-destructive">
+        <AlertTriangle className="h-4 w-4" /> Blocked rail ({rows.length})
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => {
+          const days = row.sh.blocked_since ? daysSince(row.sh.blocked_since) : 0;
+          return (
+            <div key={row.sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span className="font-mono">{row.sh.jira_key}</span>
+                <span>{days}d blocked</span>
+              </div>
+              <p className="mt-1 font-medium">{row.sig.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {row.sh.blocker_description || "No blocker description logged."}
+              </p>
+              {days >= 2 && (
+                <span className="mt-2 inline-flex rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
+                  Escalated to Leadership
+                </span>
+              )}
+              <button
+                onClick={() => onLogBlocker(row)}
+                className="mt-3 block rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
+              >
+                Log product blocker
+              </button>
+            </div>
+          );
+        })}
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">No blocked items.</p>}
+      </div>
+    </section>
+  );
 }
 
 function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
   const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
-  return <div className="fixed inset-0 z-50 bg-background/50" onClick={onClose}><aside onClick={(e) => e.stopPropagation()} className="ml-auto h-full w-full max-w-xl overflow-y-auto border-l border-border bg-surface p-6 shadow-xl"><button onClick={onClose} className="float-right rounded-md p-1 hover:bg-accent/40"><X className="h-4 w-4" /></button><p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping brief</p><h2 className="mt-1 font-display text-2xl">{row.sig.title}</h2><dl className="mt-6 space-y-4">{briefField("Problem", row.sh.problem_what)}{briefField("Why now", row.sh.problem_why)}{briefField("Who is affected", row.sh.problem_who)}{briefField("Success criteria", row.sh.solution_criteria)}{briefField("Proposed approach", row.sh.solution_approach)}{briefField("Open questions", row.sh.solution_questions || "—")}{briefField("Out of scope", row.sh.problem_out_of_scope || "—")}<div className="border-t border-border pt-4">{briefField("Reviewer", reviewer?.name ?? "—")}{briefField("Estimate", `${row.sh.tech_estimate_pts ?? "—"} pts`)}{briefField("Review notes", row.sh.tech_review_notes || "—")}{briefField("Concerns", row.sh.tech_concerns || "—")}</div></dl></aside></div>;
+  return (
+    <div className="fixed inset-0 z-50 bg-background/50" onClick={onClose}>
+      <aside
+        onClick={(e) => e.stopPropagation()}
+        className="ml-auto h-full w-full max-w-xl overflow-y-auto border-l border-border bg-surface p-6 shadow-xl"
+      >
+        <button onClick={onClose} className="float-right rounded-md p-1 hover:bg-accent/40">
+          <X className="h-4 w-4" />
+        </button>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          Shaping brief
+        </p>
+        <h2 className="mt-1 font-display text-2xl">{row.sig.title}</h2>
+        <dl className="mt-6 space-y-4">
+          {briefField("Problem", row.sh.problem_what)}
+          {briefField("Why now", row.sh.problem_why)}
+          {briefField("Who is affected", row.sh.problem_who)}
+          {briefField("Success criteria", row.sh.solution_criteria)}
+          {briefField("Proposed approach", row.sh.solution_approach)}
+          {briefField("Open questions", row.sh.solution_questions || "—")}
+          {briefField("Out of scope", row.sh.problem_out_of_scope || "—")}
+          <div className="border-t border-border pt-4">
+            {briefField("Reviewer", reviewer?.name ?? "—")}
+            {briefField("Estimate", `${row.sh.tech_estimate_pts ?? "—"} pts`)}
+            {briefField("Review notes", row.sh.tech_review_notes || "—")}
+            {briefField("Concerns", row.sh.tech_concerns || "—")}
+          </div>
+        </dl>
+      </aside>
+    </div>
+  );
 }
 
-function BlockerModal({ row, users, onCancel, onSave }: { row: Row; users: User[]; onCancel: () => void; onSave: (data: { description: string; ownerId: string; expectedDate: string }) => void }) {
+function BlockerModal({
+  row,
+  users,
+  onCancel,
+  onSave,
+}: {
+  row: Row;
+  users: User[];
+  onCancel: () => void;
+  onSave: (data: { description: string; ownerId: string; expectedDate: string }) => void;
+}) {
   const [description, setDescription] = useState(row.sh.blocker_description);
   const [ownerId, setOwnerId] = useState(row.sh.delivery_assignee_id ?? users[0]?.id ?? "");
   const [expectedDate, setExpectedDate] = useState("");
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4"><div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl"><h2 className="font-display text-lg">Log product blocker</h2><label className="mt-4 block text-sm font-medium">Blocker description</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" /><label className="mt-3 block text-sm font-medium">Owner</label><select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm">{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select><label className="mt-3 block text-sm font-medium">Expected resolution date</label><input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" /><div className="mt-5 flex justify-end gap-2"><button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button><button disabled={description.trim().length === 0} onClick={() => onSave({ description, ownerId, expectedDate })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Save</button></div></div></div>;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Log product blocker</h2>
+        <label className="mt-4 block text-sm font-medium">Blocker description</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
+        />
+        <label className="mt-3 block text-sm font-medium">Owner</label>
+        <select
+          value={ownerId}
+          onChange={(e) => setOwnerId(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
+        >
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <label className="mt-3 block text-sm font-medium">Expected resolution date</label>
+        <input
+          type="date"
+          value={expectedDate}
+          onChange={(e) => setExpectedDate(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={description.trim().length === 0}
+            onClick={() => onSave({ description, ownerId, expectedDate })}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function commitmentType(sig: Signal): CommitmentType {
@@ -363,9 +719,20 @@ function commitmentType(sig: Signal): CommitmentType {
 }
 
 function initials(name?: string) {
-  return name?.split(" ").map((part) => part[0]).join("").slice(0, 2) ?? "—";
+  return (
+    name
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2) ?? "—"
+  );
 }
 
 function briefField(label: string, value: string) {
-  return <div><dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt><dd className="mt-1 whitespace-pre-wrap text-sm">{value}</dd></div>;
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="mt-1 whitespace-pre-wrap text-sm">{value}</dd>
+    </div>
+  );
 }
