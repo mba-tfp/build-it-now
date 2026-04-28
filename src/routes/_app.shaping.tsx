@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   completenessScore,
   daysSince,
+  solutionComplete,
   usableCapacity,
   USERS,
   useTfpStore,
@@ -15,7 +16,7 @@ import type {
 } from "@/lib/tfp/types";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Check, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
@@ -29,7 +30,6 @@ export const Route = createFileRoute("/_app/shaping")({
 const STEPS = ["Define", "Tech Review"] as const;
 
 function displayStep(step: number): 1 | 2 {
-  if (step >= 4) return 2;
   if (step >= 4) return 2;
   if (step >= 2) return 2;
   return 1;
