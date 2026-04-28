@@ -190,9 +190,8 @@ export function DeliveryPage() {
   }
 
   function handleSync() {
-    const n = syncFromJira();
-    if (n === 0) toast.info("No changes from Jira.");
-    else toast.success(`Pulled ${n} status update${n === 1 ? "" : "s"}.`);
+    syncFromJira();
+    toast.info("Synced — no changes from Jira.");
   }
 
   return (
