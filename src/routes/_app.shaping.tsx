@@ -527,7 +527,7 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
             </button>
             <button
               disabled={!ready}
-              onClick={() => setAssignOpen(true)}
+              onClick={() => save(true)}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             >
               Save + send to Tech Review
@@ -535,24 +535,6 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
           </div>
         </div>
       </div>
-      {assignOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
-            <h3 className="font-display text-lg">Assign a Tech Lead for this review</h3>
-            <select
-              value={selectedTechLead}
-              onChange={(e) => setSelectedTechLead(e.target.value)}
-              className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{techLeadName(lead)}</option>)}
-            </select>
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
-              <button onClick={() => { save(true, selectedTechLead); setAssignOpen(false); }} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <RoleHint required="PM" current={me.role} />
     </div>
