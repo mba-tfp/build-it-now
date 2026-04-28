@@ -310,7 +310,7 @@ function CapacityBar({ used, usable, usedPct, sprint }: { used: number; usable: 
   );
 }
 
-function SprintBoard({ rows, users, expandedCriteria, setExpandedCriteria, onViewBrief, onLogBlocker }: { rows: Row[]; users: User[]; expandedCriteria: Record<string, boolean>; setExpandedCriteria: React.Dispatch<React.SetStateAction<Record<string, boolean>>>; onViewBrief: (row: Row) => void; onLogBlocker: (row: Row) => void }) {
+function SprintBoard({ rows, users, expandedCriteria, setExpandedCriteria, onViewBrief, onLogBlocker }: { rows: Row[]; users: User[]; expandedCriteria: Record<string, boolean>; setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>; onViewBrief: (row: Row) => void; onLogBlocker: (row: Row) => void }) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
   return (
     <div className="space-y-5">
