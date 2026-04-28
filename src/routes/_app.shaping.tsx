@@ -427,7 +427,6 @@ const DEP_SYSTEMS: Array<"Accuro" | "Phelix AI" | "Olive EngagedMD" | "Tia Healt
 function DependencyFastTrack({ item }: { item: ShapingItem }) {
   const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
   const updateShaping = useTfpStore((s) => s.updateShaping);
-  const pushNotification = useTfpStore((s) => s.pushNotification);
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === item.signal_id))!;
 
   const [whatChanged, setWhatChanged] = useState(item.dependency_what_changed);
@@ -435,9 +434,6 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
   const [impact, setImpact] = useState(item.dependency_impact);
   const [deadline, setDeadline] = useState(item.dependency_deadline ?? "");
   const [system, setSystem] = useState<ShapingItem["dependency_system"]>(item.dependency_system);
-  const techLeads = USERS.filter((u) => u.role === "Tech Lead");
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? techLeads[0]?.id ?? "");
 
   const ready =
     whatChanged.trim().length >= 30 &&
@@ -445,25 +441,15 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
     impact.trim().length > 0 &&
     !!system;
 
-  function save(advance: boolean, reviewerId?: string) {
+  function save(advance: boolean) {
     updateShaping(item.id, {
       dependency_what_changed: whatChanged,
       dependency_integrations_affected: integrations,
       dependency_impact: impact,
       dependency_deadline: deadline || null,
       dependency_system: system,
-      ...(advance ? { current_step: 2 as const, shaping_status: "In Tech Review" as const, tech_reviewer_id: reviewerId ?? selectedTechLead } : {}),
+      ...(advance ? { current_step: 4 as const, shaping_status: "In Tech Review" as const } : {}),
     });
-    if (advance) {
-      pushNotification({
-        trigger: "tech_review_ready",
-        title: "Tech review assigned",
-        body: "A shaping item is waiting for your review.",
-        link_to: "/shaping",
-        for_user_id: reviewerId ?? selectedTechLead,
-        entity_id: item.id,
-      });
-    }
   }
 
   return (
