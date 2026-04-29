@@ -2111,9 +2111,24 @@ export const useTfpStore = create<State>()(
         const nowDone = next === "Done";
         const reviews = get().reviews;
         const alreadyHasReview = reviews.some((r) => r.shaping_id === id);
-        const newReviews =
-          nowDone && !wasDone && !alreadyHasReview
-            ? [
+        const newReviews = nowDone && !wasDone
+          ? alreadyHasReview && demoMode
+            ? reviews.map((review) =>
+                review.shaping_id === id
+                  ? {
+                      ...review,
+                      status: "Completed" as const,
+                      completed_at: now,
+                      outcome_rating: "Met" as const,
+                      what_worked: review.what_worked || "Auto-completed in demo mode.",
+                      what_didnt: review.what_didnt || "Auto-completed in demo mode.",
+                      notes: review.notes || "Auto-completed in demo mode.",
+                      updated_at: now,
+                    }
+                  : review,
+              )
+            : !alreadyHasReview
+              ? [
                 {
                   id: "rv-" + uid(),
                   shaping_id: id,
@@ -2135,7 +2150,8 @@ export const useTfpStore = create<State>()(
                 },
                 ...reviews,
               ]
-            : reviews;
+              : reviews
+          : reviews;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
