@@ -1378,7 +1378,7 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
-  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind) => boolean;
+  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind, displacedShapingIds?: string[]) => boolean;
   removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
@@ -1823,12 +1823,11 @@ export const useTfpStore = create<State>()(
 
       pushToJira: (id) => {
         const item = get().shaping.find((s) => s.id === id);
-        // B10: cannot push without Tech Review sign-off.
         if (!item) return "";
-        if (item.shaping_status !== "Ready for Sprint" && item.shaping_status !== "Approved") {
+        if (item.shaping_status !== "Ready for Sprint") {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
-              toast.error(`Cannot push to Jira: shaping is "${item.shaping_status}". Get tech sign-off first.`);
+              toast.error(`Cannot create Jira ticket: shaping is "${item.shaping_status}". Get tech sign-off first.`);
             });
           }
           return item.jira_key ?? "";
@@ -1847,21 +1846,16 @@ export const useTfpStore = create<State>()(
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
+              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", updated_at: new Date().toISOString() }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira backlog as ${key}` });
-        if (typeof window !== "undefined") {
-          import("sonner").then(({ toast }) => {
-            toast.success(`Pushed to Jira as ${key} — sitting in Backlog. Use "Add to Sprint" on the Delivery board.`);
-          });
-        }
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Jira ticket created as ${key}` });
         return key;
       },
 
-      addToSprint: (id, overrideReason, overrideKind) => {
+      addToSprint: (id, overrideReason, overrideKind, displacedShapingIds = []) => {
         const item = get().shaping.find((s) => s.id === id);
         if (!item || !item.jira_key) return false;
         if (item.in_sprint) return true;
@@ -1887,19 +1881,28 @@ export const useTfpStore = create<State>()(
         const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, in_sprint: true, updated_at: new Date().toISOString() } : s,
+            s.id === id ? { ...s, in_sprint: true, delivery_status: "To Do", updated_at: new Date().toISOString() } : s,
           ),
           sprint: { ...sp, allocated_pts: newAlloc },
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
         if (overrideReason) {
-          get().logOverride({
+          const override = get().logOverride({
             kind: overrideKind ?? "Scope added mid-sprint",
             reason: overrideReason,
             signal_id: item.signal_id,
             shaping_id: item.id,
-            displaced_pts: Math.max(0, newAlloc - usable),
+            displaced_shaping_ids: displacedShapingIds,
+            displaced_pts: displacedShapingIds.reduce((sum, displacedId) => sum + (get().shaping.find((s) => s.id === displacedId)?.tech_estimate_pts ?? 0), Math.max(0, newAlloc - usable)),
             shahid_visible: true,
+          });
+          get().pushNotification({
+            trigger: "override_logged",
+            title: "Scope added mid-sprint",
+            body: overrideReason,
+            link_to: "/leadership",
+            for_user_id: "u-shahid",
+            entity_id: override.id,
           });
         }
         if (newAlloc / Math.max(1, usable) >= 0.9) {
@@ -2600,10 +2603,15 @@ export const useTfpStore = create<State>()(
 
       // ============ Wave 5: stubs (full implementations pending follow-up) ============
       approveFastTrack: (id, approverId) => {
-        get().approveShaping(id, approverId, "Fast-track approved");
-        get().pushToJira(id);
-        // Fast-track skips backlog by design — auto-add to active sprint (subject to lock).
-        get().addToSprint(id);
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? { ...s, approver_id: approverId, approval_decision: "Approved", approval_notes: "Fast-track approved", approved_at: now, shaping_status: "Ready for Sprint", updated_at: now }
+              : s,
+          ),
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Fast-track approved for sprint planning" });
       },
       offboardClinic: (clinicId, reason) => {
         const me = get().currentUserId;

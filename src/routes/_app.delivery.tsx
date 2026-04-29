@@ -39,7 +39,6 @@ function DeliveryPage() {
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
-  const removeFromSprint = useTfpStore((s) => s.removeFromSprint);
   const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const pushNotification = useTfpStore((s) => s.pushNotification);
@@ -51,15 +50,16 @@ function DeliveryPage() {
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
   const [sprintGoal, setSprintGoal] = useState(sprint.notes ?? "");
-  const [confirmed, setConfirmed] = useState(false);
+  const [committedKeys, setCommittedKeys] = useState<string[]>([]);
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
   const readyRows = useMemo<Row[]>(() => {
     return shaping
-      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint)
+      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint && !sh.jira_key)
       .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
       .filter((row): row is Row => !!row.sig);
   }, [shaping, signals]);
@@ -107,20 +107,35 @@ function DeliveryPage() {
     setOrderedIds(next);
   }
 
-  function addPlanning(id: string) {
-    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
-    navigate({ search: { tab: "planning" } });
-  }
-
-  function confirmSprint() {
+  function commitSprint(override?: { reason: string; displacedIds: string[] }) {
+    const createdKeys: string[] = [];
     planningRows.forEach(({ sh }) => {
       const key = pushToJira(sh.id);
-      addToSprint(sh.id);
-      toast.success(`${key || sh.jira_key || "TFP ticket"} created in Jira`);
+      if (key) createdKeys.push(key);
+      addToSprint(sh.id, override?.reason, override ? "Scope added mid-sprint" : undefined, override?.displacedIds);
     });
     updateSprintGoal(sprintGoal);
     if (!sprint.scope_locked_at) toggleSprintLock();
-    setConfirmed(true);
+    setCommittedKeys(createdKeys);
+    setPlanningIds([]);
+    pushNotification({
+      trigger: "scope_change",
+      title: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
+      body: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
+      link_to: "/delivery?tab=board",
+      for_user_id: "u-karim",
+      entity_id: sprint.id,
+    });
+    toast.success("Sprint committed", { description: `${createdKeys.length} Jira tickets created.` });
+    navigate({ search: { tab: "board" } });
+  }
+
+  function confirmSprint() {
+    if (sprint.scope_locked_at) {
+      setOverrideOpen(true);
+      return;
+    }
+    commitSprint();
   }
 
   function updateSprintGoal(goal: string) {
@@ -205,7 +220,7 @@ function DeliveryPage() {
       </div>
 
       {tab === "backlog" && (
-        <BacklogTab rows={orderedBacklog} onMove={movePriority} onAdd={addPlanning} />
+        <BacklogTab rows={orderedBacklog} onMove={movePriority} />
       )}
       {tab === "planning" && (
         <PlanningTab
@@ -218,7 +233,7 @@ function DeliveryPage() {
           onPick={(id) => setPlanningIds((current) => [...current, id])}
           onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
           onConfirm={confirmSprint}
-          confirmed={confirmed}
+          committedKeys={committedKeys}
           sprint={sprint}
         />
       )}
@@ -227,6 +242,7 @@ function DeliveryPage() {
           rows={sprintRows}
           reviews={reviews}
           sprintName={sprint.name}
+          committedKeys={committedKeys}
           closeBlocker={closeBlocker}
           users={users}
           expandedCriteria={expandedCriteria}
@@ -264,6 +280,16 @@ function DeliveryPage() {
           }}
         />
       )}
+      {overrideOpen && (
+        <ScopeOverrideModal
+          rows={sprintRows}
+          onCancel={() => setOverrideOpen(false)}
+          onConfirm={(data: { reason: string; displacedIds: string[] }) => {
+            commitSprint(data);
+            setOverrideOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -271,26 +297,17 @@ function DeliveryPage() {
 function BacklogTab({
   rows,
   onMove,
-  onAdd,
 }: {
   rows: Row[];
   onMove: (dragId: string, targetId: string) => void;
-  onAdd: (id: string) => void;
 }) {
   return (
     <section className="rounded-md border border-border bg-surface/50">
       <BacklogTable
         rows={rows}
         onMove={onMove}
-        action={(row) => (
-          <button
-            onClick={() => onAdd(row.sh.id)}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Add to Sprint Planning
-          </button>
-        )}
       />
+      <div className="border-t border-border p-3 text-xs text-muted-foreground">Use Sprint Planning to select and commit backlog items.</div>
     </section>
   );
 }
@@ -372,7 +389,7 @@ function PlanningTab(props: {
   onPick: (id: string) => void;
   onRemove: (id: string) => void;
   onConfirm: () => void;
-  confirmed: boolean;
+  committedKeys: string[];
   sprint: {
     name: string;
     gross_capacity_pts: number;
@@ -385,12 +402,13 @@ function PlanningTab(props: {
 }) {
   const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
   const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
-  if (props.confirmed) {
+  if (props.committedKeys.length > 0) {
     return (
       <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
         <CheckCircle2 className="mb-3 h-8 w-8" />
         <h2 className="font-display text-2xl">Sprint confirmed and pushed to Jira</h2>
         <p className="mt-2 text-sm">Committed items are now visible on the Sprint Board.</p>
+        <div className="mt-4 flex flex-wrap gap-2">{props.committedKeys.map((key) => <span key={key} className="rounded-md border border-border bg-surface px-2 py-1 font-mono text-xs">{key}</span>)}</div>
       </div>
     );
   }
@@ -406,7 +424,7 @@ function PlanningTab(props: {
           action={undefined}
         />
         <div className="border-t border-border p-3 text-xs text-muted-foreground">
-          Click a row to move it into sprint planning.
+          Click a row to move it into sprint planning. Jira tickets are created only when the sprint is confirmed.
         </div>
       </section>
 
@@ -479,16 +497,19 @@ function CapacityBar({
     carryforward_estimate_pts: number;
   };
 }) {
+  const remaining = usable - used;
   return (
     <div className="mt-4 rounded-md border border-border bg-surface-2 p-3">
-      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <span>Gross {sprint.gross_capacity_pts}</span>
-        <span>- Leave {sprint.leave_deduction_pts}</span>
-        <span>- Interrupts {sprint.interrupt_buffer_pts}</span>
-        <span>- QA {sprint.qa_buffer_pts}</span>
-        <span>- Uncertainty {sprint.uncertainty_buffer_pts}</span>
-        <span>- Carryforward {sprint.carryforward_estimate_pts}</span>
-        <span>= Usable {usable}</span>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p>Gross capacity: {sprint.gross_capacity_pts} pts</p>
+        <p>- Leave: -{sprint.leave_deduction_pts} pts</p>
+        <p>- Interrupts: -{sprint.interrupt_buffer_pts} pts</p>
+        <p>- QA buffer: -{sprint.qa_buffer_pts} pts</p>
+        <p>- Uncertainty: -{sprint.uncertainty_buffer_pts} pts</p>
+        <p>- Carryforward: -{sprint.carryforward_estimate_pts} pts</p>
+        <p className="font-medium text-foreground">= Usable: {usable} pts</p>
+        <p>Committed: {used} pts</p>
+        <p>Remaining: {remaining} pts</p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -503,9 +524,7 @@ function CapacityBar({
           style={{ width: `${Math.min(100, usedPct)}%` }}
         />
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        {used} / {usable} pts committed
-      </p>
+      {usedPct >= 100 && <p className="mt-2 text-xs font-medium text-destructive">Over capacity — remove items or record override.</p>}
     </div>
   );
 }
@@ -514,6 +533,7 @@ function SprintBoard({
   rows,
   reviews,
   sprintName,
+  committedKeys,
   closeBlocker,
   users,
   expandedCriteria,
@@ -529,6 +549,7 @@ function SprintBoard({
   rows: Row[];
   reviews: Review[];
   sprintName: string;
+  committedKeys: string[];
   closeBlocker: string;
   users: User[];
   expandedCriteria: Record<string, boolean>;
@@ -548,6 +569,7 @@ function SprintBoard({
         <div>
           <h2 className="font-display text-lg">{sprintName}</h2>
           <p className="text-xs text-muted-foreground">Close is gated by resolved work and completed outcome reviews.</p>
+          {committedKeys.length > 0 && <p className="mt-1 text-xs text-[var(--color-status-proceed)]">Created Jira keys: {committedKeys.join(", ")}</p>}
         </div>
         <button
           disabled={!!closeBlocker}
@@ -756,6 +778,36 @@ function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: str
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
           <button disabled={!ready} onClick={() => onConfirm({ summary: summary.trim(), what_worked: worked.trim(), what_didnt: didnt.trim(), one_change: change.trim(), primary_theme: theme })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScopeOverrideModal({ rows, onCancel, onConfirm }: { rows: Row[]; onCancel: () => void; onConfirm: (data: { reason: string; displacedIds: string[] }) => void }) {
+  const [reason, setReason] = useState("");
+  const [displacedIds, setDisplacedIds] = useState<string[]>([]);
+  const ready = reason.trim().length > 0 && displacedIds.length > 0;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Scope added mid-sprint</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Locked sprint scope requires an override and displaced item selection.</p>
+        <label className="mt-4 block text-sm font-medium">Reason</label>
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <label className="mt-4 block text-sm font-medium">Displaced items</label>
+        <div className="mt-2 max-h-48 space-y-2 overflow-auto rounded-md border border-border p-2">
+          {rows.map((row) => (
+            <label key={row.sh.id} className="flex gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/30">
+              <input type="checkbox" checked={displacedIds.includes(row.sh.id)} onChange={(e) => setDisplacedIds((current) => e.target.checked ? [...current, row.sh.id] : current.filter((id) => id !== row.sh.id))} />
+              <span>{row.sh.jira_key ?? "—"} · {row.sig.title}</span>
+            </label>
+          ))}
+          {rows.length === 0 && <p className="p-3 text-sm text-muted-foreground">No current sprint items to displace.</p>}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+          <button disabled={!ready} onClick={() => onConfirm({ reason: reason.trim(), displacedIds })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm override</button>
         </div>
       </div>
     </div>
