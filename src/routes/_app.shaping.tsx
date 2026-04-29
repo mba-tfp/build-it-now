@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   completenessScore,
   daysSince,
@@ -50,6 +50,10 @@ function ShapingPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const [openId, setOpenId] = useState<string | null>(item ?? null);
+
+  useEffect(() => {
+    if (item) setOpenId(item);
+  }, [item]);
 
   type SortKey = "started" | "completeness" | "priority";
   const { sort, setSort } = useSortMenu<SortKey>("shaping");
