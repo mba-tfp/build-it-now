@@ -1523,6 +1523,7 @@ type State = {
   upsertWorkflow: (workflow: Omit<Workflow, "id" | "created_at" | "updated_at"> & { id?: string }) => Workflow;
   removeWorkflow: (id: string) => void;
   toggleWorkflowActive: (id: string) => void;
+  resetDemoData: () => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -1531,6 +1532,33 @@ let _jiraCounter = 1050;
 function nextJiraKey() {
   _jiraCounter += 1;
   return `TFP-${_jiraCounter}`;
+}
+
+function latestDemoState(currentUserId = "u-bazil"): Partial<State> {
+  return {
+    currentUserId,
+    users: USERS,
+    sprint: seedSprint,
+    sprints: [seedSprint],
+    signals: seedSignals,
+    shaping: seedShaping,
+    jiraEvents: seedJiraEvents,
+    reviews: seedReviews,
+    audit: seedAudit,
+    overrides: seedOverrides,
+    goLives: seedGoLive,
+    comms: seedComms,
+    decisions: seedDecisions,
+    retros: seedRetros,
+    notifications: seedNotifications,
+    clinics: seedClinics,
+    monitoringAlerts: seedMonitoring,
+    techDebtReviews: seedTechDebtReviews,
+    clinicFeedbackLog: [],
+    flags: DEFAULT_FLAGS,
+    helpArticles: SEED_HELP,
+    workflows: [],
+  };
 }
 
 export const useTfpStore = create<State>()(
