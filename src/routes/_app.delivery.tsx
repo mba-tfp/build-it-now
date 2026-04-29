@@ -502,16 +502,19 @@ function CapacityBar({
     carryforward_estimate_pts: number;
   };
 }) {
+  const remaining = usable - used;
   return (
     <div className="mt-4 rounded-md border border-border bg-surface-2 p-3">
-      <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-        <span>Gross {sprint.gross_capacity_pts}</span>
-        <span>- Leave {sprint.leave_deduction_pts}</span>
-        <span>- Interrupts {sprint.interrupt_buffer_pts}</span>
-        <span>- QA {sprint.qa_buffer_pts}</span>
-        <span>- Uncertainty {sprint.uncertainty_buffer_pts}</span>
-        <span>- Carryforward {sprint.carryforward_estimate_pts}</span>
-        <span>= Usable {usable}</span>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p>Gross capacity: {sprint.gross_capacity_pts} pts</p>
+        <p>- Leave: -{sprint.leave_deduction_pts} pts</p>
+        <p>- Interrupts: -{sprint.interrupt_buffer_pts} pts</p>
+        <p>- QA buffer: -{sprint.qa_buffer_pts} pts</p>
+        <p>- Uncertainty: -{sprint.uncertainty_buffer_pts} pts</p>
+        <p>- Carryforward: -{sprint.carryforward_estimate_pts} pts</p>
+        <p className="font-medium text-foreground">= Usable: {usable} pts</p>
+        <p>Committed: {used} pts</p>
+        <p>Remaining: {remaining} pts</p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -526,9 +529,7 @@ function CapacityBar({
           style={{ width: `${Math.min(100, usedPct)}%` }}
         />
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        {used} / {usable} pts committed
-      </p>
+      {usedPct >= 100 && <p className="mt-2 text-xs font-medium text-destructive">Over capacity — remove items or record override.</p>}
     </div>
   );
 }
