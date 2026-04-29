@@ -367,7 +367,7 @@ function TriagePanel({
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Signal>>({});
-  const [commitmentType, setCommitmentType] = useState<CommitmentType | "">(suggestion.issue_type === "Incident" ? "Incident" : "");
+  const [commitmentType, setCommitmentType] = useState<CommitmentType | "">(suggestion.origin === "Incident" ? "Incident" : "");
   const [labelsText, setLabelsText] = useState(sig.labels.join(", "));
 
   const openMode = (next: typeof mode) => {

@@ -102,7 +102,7 @@ export function SignalIntakePage() {
             {sig && <StatusBadge status={sig.status} />}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Type will be confirmed during triage.
+            Origin will be confirmed during triage.
           </p>
           <div className="mt-6 flex justify-center gap-2">
             <button
@@ -139,7 +139,7 @@ export function SignalIntakePage() {
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Inbox</p>
         <h1 className="mt-1 font-display text-3xl">New Signal</h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          The single entry point for all work. Capture the request now; type and priority can be refined during review.
+          The single entry point for all work. Capture the request now; origin and priority can be refined during review.
         </p>
       </header>
 
