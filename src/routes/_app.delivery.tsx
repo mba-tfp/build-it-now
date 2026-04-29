@@ -289,7 +289,7 @@ function DeliveryPage() {
         <ScopeOverrideModal
           rows={sprintRows}
           onCancel={() => setOverrideOpen(false)}
-          onConfirm={(data) => {
+          onConfirm={(data: { reason: string; displacedIds: string[] }) => {
             commitSprint(data);
             setOverrideOpen(false);
           }}
