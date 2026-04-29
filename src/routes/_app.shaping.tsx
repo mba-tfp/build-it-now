@@ -7,7 +7,6 @@ import {
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
-  CommitmentType,
   DecisionType,
   ShapingItem,
 } from "@/lib/tfp/types";
