@@ -1358,6 +1358,7 @@ type State = {
     decision: "Proceed" | "Hold" | "Reject",
     reason?: string,
     holdUntil?: string,
+    commitmentType?: import("./types").CommitmentType | null,
   ) => void;
   updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
   setSignalAttachments: (signalId: string, next: Attachment[]) => void;
@@ -1554,7 +1555,7 @@ export const useTfpStore = create<State>()(
         return sig;
       },
 
-      triageDecision: (signalId, decision, reason, holdUntil) => {
+      triageDecision: (signalId, decision, reason, holdUntil, commitmentType) => {
         const me = get().currentUserId;
         const signals = get().signals.map((s) => {
           if (s.id !== signalId) return s;
@@ -1562,6 +1563,7 @@ export const useTfpStore = create<State>()(
             const isFastTrack = s.issue_type === "Incident" || s.tier === "P1";
             const ownerId = isFastTrack ? "u-waseem" : me;
             const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
+            sh.commitment_type = commitmentType ?? (s.issue_type === "Incident" ? "Incident" : null);
             // B1: Leadership signals always have shaping started with a context note prefilled
             // and `current_step` set so the queue treats them as actively shaped.
             sh.shaping_status = "In Shaping";
