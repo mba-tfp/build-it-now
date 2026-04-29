@@ -270,8 +270,7 @@ const TESTS: TestStep[] = [
     description: "Verifies a Pending review exists for the Done item.",
     run: (ctx) => {
       expect(ctx.shapingId, "Missing shaping id");
-      const existing = useTfpStore.getState().reviews.find((review) => review.shaping_id === ctx.shapingId);
-      const review = existing ?? useTfpStore.getState().startReview(ctx.shapingId);
+      const review = useTfpStore.getState().reviews.find((item) => item.shaping_id === ctx.shapingId);
       expect(review?.status === "Pending", "Pending outcome review was not created");
       ctx.reviewId = review.id;
     },
