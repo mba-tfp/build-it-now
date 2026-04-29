@@ -167,7 +167,7 @@ export function AppShell() {
       .forEach((item) => fireOnce(item.id, "shaping_stuck", {
         trigger: "shaping_stuck",
         title: "Shaping stuck",
-        body: "This shaping item has not moved in 5+ days.",
+        body: "This shaping item has not moved past its priority threshold.",
         link_to: "/shaping",
         for_user_id: item.pm_owner_id,
         entity_id: item.id,
