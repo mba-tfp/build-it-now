@@ -394,7 +394,7 @@ function PlanningTab(props: {
   onPick: (id: string) => void;
   onRemove: (id: string) => void;
   onConfirm: () => void;
-  confirmed: boolean;
+  committedKeys: string[];
   sprint: {
     name: string;
     gross_capacity_pts: number;
@@ -407,12 +407,13 @@ function PlanningTab(props: {
 }) {
   const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
   const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
-  if (props.confirmed) {
+  if (props.committedKeys.length > 0) {
     return (
       <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
         <CheckCircle2 className="mb-3 h-8 w-8" />
         <h2 className="font-display text-2xl">Sprint confirmed and pushed to Jira</h2>
         <p className="mt-2 text-sm">Committed items are now visible on the Sprint Board.</p>
+        <div className="mt-4 flex flex-wrap gap-2">{props.committedKeys.map((key) => <span key={key} className="rounded-md border border-border bg-surface px-2 py-1 font-mono text-xs">{key}</span>)}</div>
       </div>
     );
   }
