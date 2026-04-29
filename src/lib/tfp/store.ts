@@ -3390,6 +3390,16 @@ export const useTfpStore = create<State>()(
         });
       },
 
+      addCustomLabel: (label) => {
+        const clean = label.trim();
+        if (!clean) return;
+        if (get().customLabels.some((existing) => existing.toLowerCase() === clean.toLowerCase())) return;
+        set({ customLabels: [...get().customLabels, clean] });
+      },
+      removeCustomLabel: (label) => {
+        set({ customLabels: get().customLabels.filter((existing) => existing !== label) });
+      },
+
       setFlag: (key, value) => {
         set({ flags: { ...get().flags, [key]: value } });
       },
