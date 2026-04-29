@@ -6,7 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
+import type { CommitmentType, DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
@@ -20,7 +20,6 @@ export const Route = createFileRoute("/_app/delivery")({
 
 type DeliveryTab = "backlog" | "planning" | "board";
 type Row = { sh: ShapingItem; sig: Signal };
-type CommitmentType = "Feature" | "Fix" | "Research" | "Dependency";
 
 const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
   "To Do",
@@ -307,7 +306,7 @@ function BacklogTable({
                 </td>
                 <td className="max-w-md px-3 py-3 font-medium">{row.sig.title}</td>
                 <td className="px-3 py-3 text-muted-foreground">{row.sig.product}</td>
-                <td className="px-3 py-3">{commitmentType(row.sig)}</td>
+                <td className="px-3 py-3">{row.sh.commitment_type ?? "—"}</td>
                 <td className="px-3 py-3 font-mono">{row.sh.tech_estimate_pts ?? "—"} pts</td>
                 <td className="px-3 py-3">{reviewer?.name ?? "—"}</td>
                 <td className="px-3 py-3">{daysSince(row.sh.updated_at)}d</td>
@@ -719,13 +718,6 @@ function BlockerModal({
       </div>
     </div>
   );
-}
-
-function commitmentType(sig: Signal): CommitmentType {
-  if (sig.issue_type === "Bug" || sig.issue_type === "Incident") return "Fix";
-  if (sig.issue_type === "Dependency Change") return "Dependency";
-  if (sig.issue_type === "Support") return "Research";
-  return "Feature";
 }
 
 function initials(name?: string) {
