@@ -7,6 +7,7 @@ import {
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
+  CommitmentType,
   DecisionType,
   ShapingItem,
 } from "@/lib/tfp/types";
@@ -17,6 +18,7 @@ import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
 import type { Attachment } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/shaping")({
@@ -24,6 +26,10 @@ export const Route = createFileRoute("/_app/shaping")({
 });
 
 const STEPS = ["Define", "Tech Review"] as const;
+
+function isFix(item: ShapingItem): boolean {
+  return item.commitment_type === "Fix" || item.commitment_type === "Incident";
+}
 
 function displayStep(step: number): 1 | 2 {
   if (step >= 4) return 2;
