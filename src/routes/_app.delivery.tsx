@@ -226,7 +226,7 @@ function DeliveryPage() {
       </div>
 
       {tab === "backlog" && (
-        <BacklogTab rows={orderedBacklog} onMove={movePriority} onAdd={addPlanning} />
+        <BacklogTab rows={orderedBacklog} onMove={movePriority} />
       )}
       {tab === "planning" && (
         <PlanningTab
@@ -239,7 +239,7 @@ function DeliveryPage() {
           onPick={(id) => setPlanningIds((current) => [...current, id])}
           onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
           onConfirm={confirmSprint}
-          confirmed={confirmed}
+          committedKeys={committedKeys}
           sprint={sprint}
         />
       )}
@@ -282,6 +282,16 @@ function DeliveryPage() {
             closeSprint(data);
             setCloseOpen(false);
             toast.success("Sprint closed");
+          }}
+        />
+      )}
+      {overrideOpen && (
+        <ScopeOverrideModal
+          rows={sprintRows}
+          onCancel={() => setOverrideOpen(false)}
+          onConfirm={(data) => {
+            commitSprint(data);
+            setOverrideOpen(false);
           }}
         />
       )}
