@@ -100,9 +100,6 @@ export function SignalIntakePage() {
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {sig && <TierBadge tier={sig.tier} />}
             {sig && <StatusBadge status={sig.status} />}
-            {sig?.priority && (
-              <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-xs">{sig.priority}</span>
-            )}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Type will be confirmed during triage.
