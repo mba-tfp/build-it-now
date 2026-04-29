@@ -128,6 +128,16 @@ const SEED_HELP: HelpArticle[] = [
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
+  {
+    id: "h-notifications",
+    slug: "notifications",
+    title: "Notifications and staleness",
+    section: "Workflow",
+    body_markdown:
+      "# Notifications and staleness\n\nNotifications fire faster for higher-priority items. P0 items get nudged at half the rate of P3 items. Unowned signals and shaping stalls use fractions of each signal's SLA, while sprint blockers escalate by priority and outcome reviews remain due after five days.",
+    updated_at: "2026-04-29T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
 ];
 
 let _uidCounter = 0;
@@ -2420,7 +2430,7 @@ export const useTfpStore = create<State>()(
             get().pushNotification({
               trigger: "blocker_signoff",
               title: `${item.jira_key} marked Blocked`,
-              body: "Investigate and clear blocker; auto-escalates after 24h.",
+              body: "Investigate and clear blocker; auto-escalates by priority tier.",
               link_to: "/delivery",
               for_user_id: userId,
               entity_id: id,
@@ -3477,7 +3487,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 12,
+      version: 13,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;

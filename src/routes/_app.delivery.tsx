@@ -28,6 +28,9 @@ const DEFAULT_SECTION_STATE: Record<DeliverySectionKey, boolean> = {
   planning: true,
   backlog: false,
 };
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
+const sprintStaleHoursForTier = (tier: Signal["tier"]) => tier === "P0" || tier === "P1" ? 48 : 96;
+const blockedEscalationHoursForTier = (tier: Signal["tier"]) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
 function readSectionState(): Record<DeliverySectionKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_SECTION_STATE;
@@ -717,6 +720,7 @@ function BoardCard({
 }) {
   const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
   const staleDays = daysSince(row.sh.updated_at);
+  const isStale = hoursSince(row.sh.updated_at) >= sprintStaleHoursForTier(row.sig.tier);
   const [reviewOpen, setReviewOpen] = useState(false);
   return (
     <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
@@ -731,7 +735,7 @@ function BoardCard({
         </span>
         <span>{row.sh.delivery_status}</span>
         <span>{staleDays}d in status</span>
-        {staleDays >= 2 && (
+        {isStale && (
           <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
             {staleDays}d stale
           </span>
@@ -775,6 +779,7 @@ function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((row) => {
           const days = row.sh.blocked_since ? daysSince(row.sh.blocked_since) : 0;
+          const escalated = row.sh.blocked_since ? hoursSince(row.sh.blocked_since) >= blockedEscalationHoursForTier(row.sig.tier) : false;
           return (
             <div key={row.sh.id} className="rounded-md border border-border bg-surface p-3 text-sm">
               <div className="flex justify-between text-[11px] text-muted-foreground">
@@ -785,7 +790,7 @@ function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: 
               <p className="mt-1 text-xs text-muted-foreground">
                 {row.sh.blocker_description || "No blocker description logged."}
               </p>
-              {days >= 2 && (
+              {escalated && (
                 <span className="mt-2 inline-flex rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--color-status-hold)]">
                   Escalated to Leadership
                 </span>

@@ -1,4 +1,5 @@
 import type { IssueType, Source, Tier } from "./types";
+import { slaHoursForTier } from "./notify";
 
 const INCIDENT_KEYWORDS = [
   "patient cannot",
@@ -44,18 +45,6 @@ export function classifySignal(input: { source: Source | "Monitoring"; descripti
 
 export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
   const d = new Date(from);
-  switch (tier) {
-    case "P0":
-      d.setHours(d.getHours() + 48);
-      return d;
-    case "P1":
-      d.setHours(d.getHours() + 168);
-      return d;
-    case "P2":
-      d.setHours(d.getHours() + 336);
-      return d;
-    case "P3":
-      d.setHours(d.getHours() + 720);
-      return d;
-  }
+  d.setHours(d.getHours() + slaHoursForTier(tier));
+  return d;
 }

@@ -1,10 +1,10 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import { PRIORITY_TONE } from "@/lib/tfp/notify";
+import { PRIORITY_TONE, slaHoursForTier } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import type { NotificationTrigger } from "@/lib/tfp/types";
+import type { NotificationTrigger, Tier } from "@/lib/tfp/types";
 import {
   Activity,
   Bell,
@@ -45,6 +45,8 @@ const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType
 
 const firedSessionNotifications = new Set<string>();
 const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
+const sprintStaleHoursForTier = (tier: Tier) => tier === "P0" || tier === "P1" ? 48 : 96;
+const blockedEscalationHoursForTier = (tier: Tier) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
 function AppSidebar() {
   const location = useLocation();
@@ -146,9 +148,11 @@ export function AppShell() {
       firedSessionNotifications.add(key);
       pushNotification(notification);
     };
+    const signalForShaping = (signalId: string) => signals.find((signal) => signal.id === signalId);
+    const tierForShaping = (signalId: string): Tier => signalForShaping(signalId)?.tier ?? "P2";
 
     signals
-      .filter((signal) => (signal.status === "New" || signal.status === "In Review") && !signal.owner_id && hoursSince(signal.created_at) > 4)
+      .filter((signal) => (signal.status === "New" || signal.status === "In Review") && !signal.owner_id && hoursSince(signal.created_at) > slaHoursForTier(signal.tier) * 0.25)
       .forEach((signal) => fireOnce(signal.id, "shaping_stuck", {
         trigger: "shaping_stuck",
         title: "Signal unowned",
@@ -159,23 +163,23 @@ export function AppShell() {
       }));
 
     shaping
-      .filter((item) => item.shaping_status === "In Shaping" && hoursSince(item.updated_at) > 120)
+      .filter((item) => item.shaping_status === "In Shaping" && hoursSince(item.updated_at) > slaHoursForTier(tierForShaping(item.signal_id)) * 0.5)
       .forEach((item) => fireOnce(item.id, "shaping_stuck", {
         trigger: "shaping_stuck",
         title: "Shaping stuck",
-        body: "This shaping item has not moved in 5+ days.",
+        body: "This shaping item has not moved past its priority threshold.",
         link_to: "/shaping",
         for_user_id: item.pm_owner_id,
         entity_id: item.id,
       }));
 
     shaping
-      .filter((item) => item.in_sprint && item.delivery_status && item.delivery_status !== "Done" && item.delivery_status !== "Blocked" && hoursSince(item.updated_at) > 48)
+      .filter((item) => item.in_sprint && item.delivery_status && item.delivery_status !== "Done" && item.delivery_status !== "Blocked" && hoursSince(item.updated_at) > sprintStaleHoursForTier(tierForShaping(item.signal_id)))
       .forEach((item) => {
         [item.delivery_assignee_id, "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
           title: "Item stale",
-          body: `${item.jira_key ?? "Sprint item"} has not moved in 2+ days.`,
+          body: `${item.jira_key ?? "Sprint item"} has not moved recently.`,
           link_to: "/delivery",
           for_user_id: userId,
           entity_id: item.id,
@@ -185,12 +189,12 @@ export function AppShell() {
     const inSprint = shaping.filter((item) => item.in_sprint && item.delivery_status);
 
     shaping
-      .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > 48)
+      .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > blockedEscalationHoursForTier(tierForShaping(item.signal_id)))
       .forEach((item) => {
         [item.delivery_assignee_id, "u-shahid", "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
           title: "Blocker escalated",
-          body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked for 48+ hours.`,
+          body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked past its escalation threshold.`,
           link_to: "/delivery",
           for_user_id: userId,
           entity_id: item.id,
