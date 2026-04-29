@@ -1520,6 +1520,7 @@ type State = {
   resetOnboarding: (userId: string) => void;
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
+  setDemoMode: (enabled: boolean) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
   upsertHelpArticle: (article: Omit<HelpArticle, "id" | "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
@@ -2914,6 +2915,9 @@ export const useTfpStore = create<State>()(
 
       setFlag: (key, value) => {
         set({ flags: { ...get().flags, [key]: value } });
+      },
+      setDemoMode: (enabled) => {
+        set({ flags: { ...get().flags, demoModeEnabled: enabled } });
       },
       upsertUser: (user) => {
         const exists = get().users.find((u) => u.id === user.id);
