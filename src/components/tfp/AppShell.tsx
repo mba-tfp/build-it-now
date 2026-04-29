@@ -265,7 +265,7 @@ export function AppShell() {
           trigger: "review_overdue",
           title: "Review overdue",
           body: `${item.jira_key ?? "Done item"} needs an outcome review.`,
-          link_to: "/review",
+          link_to: "/delivery?tab=board",
           for_user_id: userId,
           entity_id: item.id,
         }));
