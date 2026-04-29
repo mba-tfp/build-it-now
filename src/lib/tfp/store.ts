@@ -1580,6 +1580,7 @@ export const useTfpStore = create<State>()(
                 title: `Fast-track: ${s.title}`,
                 body: `${s.tier} incident/fix — root cause required.`,
                 link_to: "/shaping",
+                for_user_id: ownerId,
                 entity_id: sh.id,
               });
             }
@@ -1662,6 +1663,7 @@ export const useTfpStore = create<State>()(
               title: `SLA already breached after priority change`,
               body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
               link_to: "/inbox",
+              for_user_id: get().currentUserId,
               entity_id: signalId,
             });
           }
@@ -1935,6 +1937,7 @@ export const useTfpStore = create<State>()(
               title: "Dev-complete gate not signed off",
               body: `${item.jira_key} cannot move to Done until tests, docs and QA are checked.`,
               link_to: "/delivery",
+              for_user_id: "u-karim",
               entity_id: id,
             });
             return;
