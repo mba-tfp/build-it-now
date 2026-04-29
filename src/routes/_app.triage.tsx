@@ -361,6 +361,8 @@ function TriagePanel({
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Signal>>({});
+  const [commitmentType, setCommitmentType] = useState<CommitmentType | "">(suggestion.issue_type === "Incident" ? "Incident" : "");
+  const [labelsText, setLabelsText] = useState(sig.labels.join(", "));
 
   const startEdit = () => {
     setDraft({
@@ -483,6 +485,35 @@ function TriagePanel({
                       )}
                     >
                       {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-surface-2 p-3">
+                <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Labels</p>
+                <input
+                  value={labelsText}
+                  onChange={(e) => {
+                    setLabelsText(e.target.value);
+                    tryUpdateInPanel({ labels: parseLabels(e.target.value) });
+                  }}
+                  placeholder="e.g. PHIPA, patient-facing"
+                  className="w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm"
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {SUGGESTED_LABELS.map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => {
+                        const next = parseLabels(labelsText).includes(label) ? parseLabels(labelsText) : [...parseLabels(labelsText), label];
+                        setLabelsText(next.join(", "));
+                        tryUpdateInPanel({ labels: next });
+                      }}
+                      className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/40"
+                    >
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -618,10 +649,26 @@ function TriagePanel({
                 Review decision
               </p>
 
+              <label className="mb-3 block text-xs text-muted-foreground">
+                Commitment type
+                <select
+                  value={commitmentType}
+                  onChange={(e) => {
+                    const next = e.target.value as CommitmentType | "";
+                    setCommitmentType(next);
+                    if (next === "Incident") tryUpdateInPanel({ tier: "P1" });
+                  }}
+                  className="mt-1 w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm text-foreground"
+                >
+                  <option value="">— Select commitment type —</option>
+                  {COMMITMENT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+
               {mode === "none" && (
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={onProceed}
+                    onClick={() => onProceed(commitmentType || null)}
                     className="rounded-md bg-[var(--color-status-proceed)] px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                   >
                     Proceed → Shaping
