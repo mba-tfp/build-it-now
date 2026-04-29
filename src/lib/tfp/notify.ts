@@ -1,10 +1,20 @@
-import type { Notification, NotificationPriority, NotificationTrigger } from "./types";
+import type { Notification, NotificationPriority, NotificationTrigger, Tier } from "./types";
 
 let _nidCounter = 0;
 const nid = () => {
   _nidCounter += 1;
   return "n-" + _nidCounter.toString(36).padStart(4, "0");
 };
+
+export function slaHoursForTier(tier: Tier): number {
+  const hours: Record<Tier, number> = {
+    P0: 48,
+    P1: 168,
+    P2: 336,
+    P3: 720,
+  };
+  return hours[tier];
+}
 
 const PRIORITY_BY_TRIGGER: Record<NotificationTrigger, NotificationPriority> = {
   leadership_signal: "P2",
