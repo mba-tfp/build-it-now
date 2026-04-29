@@ -387,6 +387,7 @@ const seedSignals: Signal[] = [
 
 const shapingDone: ShapingItem = {
   ...blankShaping(sigDone.id, "u-bazil"),
+  commitment_type: "Fix",
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what:
@@ -429,6 +430,7 @@ sigDone.shaping_item_id = shapingDone.id;
 
 const shapingInDelivery: ShapingItem = {
   ...blankShaping(sigInDelivery.id, "u-alizar"),
+  commitment_type: "Feature",
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what: "Clinic admin accounts have no second factor. A stolen password gives full admin access.",
@@ -463,6 +465,7 @@ sigInDelivery.shaping_item_id = shapingInDelivery.id;
 
 const shapingInQA: ShapingItem = {
   ...blankShaping(sigInQA.id, "u-bazil"),
+  commitment_type: "Fix",
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what:
@@ -498,6 +501,7 @@ sigInQA.shaping_item_id = shapingInQA.id;
 
 const shapingBlocked: ShapingItem = {
   ...blankShaping(sigBlocked.id, "u-bazil"),
+  commitment_type: "Fix",
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what: "Phelix AI webhook delivery is taking over 30 seconds for notes sync events causing visible lag in OttoNotes.",
@@ -535,6 +539,7 @@ sigBlocked.shaping_item_id = shapingBlocked.id;
 
 const shapingForApproval: ShapingItem = {
   ...blankShaping(sigForApproval.id, "u-bazil"),
+  commitment_type: "Fix",
   shaping_status: "In Delivery",
   current_step: 5,
   problem_what:
@@ -570,6 +575,7 @@ sigForApproval.shaping_item_id = shapingForApproval.id;
 
 const shapingInTechReview: ShapingItem = {
   ...blankShaping(sigForTechReview.id, "u-bazil"),
+  commitment_type: "Feature",
   shaping_status: "In Tech Review",
   current_step: 4,
   problem_what:
@@ -596,6 +602,7 @@ sigForTechReview.shaping_item_id = shapingInTechReview.id;
 
 const shapingInProgress: ShapingItem = {
   ...blankShaping(sigUniquePatientId.id, "u-bazil"),
+  commitment_type: "Research",
   shaping_status: "In Shaping",
   current_step: 2,
   problem_what:
@@ -1343,6 +1350,7 @@ type State = {
     displacement_flag: boolean;
     displacement_note: string | null;
     priority?: import("./types").IntakePriority;
+    labels?: string[];
     attachments?: Attachment[];
   }) => Signal;
   triageDecision: (
@@ -1534,7 +1542,7 @@ export const useTfpStore = create<State>()(
           created_at: created.toISOString(),
           created_by: get().currentUserId,
           shaping_item_id: null,
-          labels: c.labels,
+          labels: data.labels ?? [],
           displacement_flag: data.displacement_flag,
           displacement_note: data.displacement_note,
           priority: data.priority ?? tier,
@@ -1551,7 +1559,7 @@ export const useTfpStore = create<State>()(
         const signals = get().signals.map((s) => {
           if (s.id !== signalId) return s;
           if (decision === "Proceed") {
-            const isFastTrack = s.issue_type === "Bug" && s.tier === "P1";
+            const isFastTrack = s.issue_type === "Incident" || s.tier === "P1";
             const ownerId = isFastTrack ? "u-waseem" : me;
             const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
             // B1: Leadership signals always have shaping started with a context note prefilled
@@ -1568,7 +1576,7 @@ export const useTfpStore = create<State>()(
               get().pushNotification({
                 trigger: "fast_track_review",
                 title: `Fast-track: ${s.title}`,
-                body: `${s.tier} ${s.issue_type} — root cause required.`,
+                body: `${s.tier} incident/fix — root cause required.`,
                 link_to: "/shaping",
                 entity_id: sh.id,
               });
@@ -1616,7 +1624,7 @@ export const useTfpStore = create<State>()(
         // B2: status → Proceed should create the ShapingItem (mirror triageDecision)
         if (patch.status === "Proceed" && prev.status !== "Proceed" && !prev.shaping_item_id) {
           const me = get().currentUserId;
-          const isFastTrack = next.issue_type === "Bug" && next.tier === "P1";
+          const isFastTrack = next.issue_type === "Incident" || next.tier === "P1";
           const ownerId = isFastTrack ? "u-waseem" : me;
           const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
           set({
