@@ -115,8 +115,13 @@ export function useSortMenu<K extends string>(
   initial: SortState<K> = { key: null, dir: null },
 ) {
   const [sort, setSort] = useState<SortState<K>>(() => {
+    if (typeof window === "undefined") return initial;
     const persisted = readSort<K>(tableId);
     return persisted.key ? persisted : initial;
   });
+  useEffect(() => {
+    const persisted = readSort<K>(tableId);
+    if (persisted.key) setSort(persisted);
+  }, [tableId]);
   return { sort, setSort };
 }
