@@ -213,6 +213,8 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     approved_at: null,
     jira_key: null,
     delivery_status: null,
+    carry_forwarded_at: null,
+    carry_forwarded_by: null,
     blocked_since: null,
     blocker_description: "",
     delivery_assignee_id: null,
@@ -1394,6 +1396,7 @@ type State = {
     reviewId: string,
     data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
   ) => Signal;
+  closeSprint: (data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => void;
   toggleDevCompleteGate: (id: string, key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", value: boolean) => void;
   signOffDevComplete: (id: string) => void;
   toggleSprintLock: () => void;
