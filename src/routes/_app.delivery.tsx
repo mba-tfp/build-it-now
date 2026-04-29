@@ -225,11 +225,22 @@ function DeliveryPage() {
       {tab === "board" && (
         <SprintBoard
           rows={sprintRows}
+          reviews={reviews}
+          sprintName={sprint.name}
+          closeBlocker={closeBlocker}
           users={users}
           expandedCriteria={expandedCriteria}
           setExpandedCriteria={setExpandedCriteria}
           onViewBrief={setBriefFor}
           onLogBlocker={setBlockerFor}
+          onEnsureReview={ensureReview}
+          onCompleteReview={completeReview}
+          onLogFollowOn={logFollowOn}
+          onCarryForward={(row) => {
+            updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
+            toast.success("Marked carry-forward");
+          }}
+          onCloseSprint={() => setCloseOpen(true)}
         />
       )}
 
@@ -240,6 +251,17 @@ function DeliveryPage() {
           users={users}
           onCancel={() => setBlockerFor(null)}
           onSave={logProductBlocker}
+        />
+      )}
+      {closeOpen && (
+        <SprintCloseModal
+          sprintName={sprint.name}
+          onCancel={() => setCloseOpen(false)}
+          onConfirm={(data) => {
+            closeSprint(data);
+            setCloseOpen(false);
+            toast.success("Sprint closed");
+          }}
         />
       )}
     </div>
