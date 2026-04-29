@@ -342,7 +342,6 @@ function NotificationsBell() {
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const notifications = useTfpStore((s) => s.notifications);
   const markRead = useTfpStore((s) => s.markNotificationRead);
-  const markAll = useTfpStore((s) => s.markAllNotificationsRead);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
@@ -399,7 +398,7 @@ function NotificationsBell() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Notifications · {unread} unread
             </span>
-            <button onClick={markAll} className="text-[11px] text-primary hover:underline">
+            <button onClick={() => visibleNotifications.forEach((n) => markRead(n.id))} className="text-[11px] text-primary hover:underline">
               Mark all read
             </button>
           </div>
