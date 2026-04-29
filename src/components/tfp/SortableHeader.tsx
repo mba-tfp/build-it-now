@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 export type SortDir = "asc" | "desc" | null;
@@ -29,9 +29,14 @@ export function writeSort<K extends string>(tableId: string, state: SortState<K>
 
 export function useTableSort<K extends string>(tableId: string, initial: SortState<K> = { key: null, dir: null }) {
   const [sort, setSort] = useState<SortState<K>>(() => {
+    if (typeof window === "undefined") return initial;
     const persisted = readSort<K>(tableId);
     return persisted.key ? persisted : initial;
   });
+  useEffect(() => {
+    const persisted = readSort<K>(tableId);
+    if (persisted.key) setSort(persisted);
+  }, [tableId]);
   const cycle = useCallback(
     (key: K) => {
       setSort((prev) => {

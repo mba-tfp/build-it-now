@@ -116,11 +116,16 @@ export function AppShell() {
   const meLive = users.find((u) => u.id === currentUserId);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const showOnboarding = !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
+  const [storeHydrated, setStoreHydrated] = useState(false);
+  const showOnboarding = storeHydrated && !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
 
   useEffect(() => {
-    setMounted(true);
+    const rehydrated = useTfpStore.persist.rehydrate();
+    if (rehydrated instanceof Promise) {
+      rehydrated.finally(() => setStoreHydrated(true));
+    } else {
+      setStoreHydrated(true);
+    }
   }, []);
 
   // Reset dismiss when user switches
@@ -129,6 +134,8 @@ export function AppShell() {
   }, [currentUserId]);
 
   useEffect(() => {
+    if (!storeHydrated) return;
+
     const fireOnce = (entityId: string, trigger: NotificationTrigger, notification: Parameters<typeof pushNotification>[0]) => {
       const key = `${entityId}:${trigger}:${notification.for_user_id ?? "system"}`;
       if (firedSessionNotifications.has(key)) return;
@@ -273,7 +280,7 @@ export function AppShell() {
           entity_id: item.id,
         }));
       });
-  }, [currentUserId, goLives, pushNotification, retros, reviews, shaping, signals, sprint]);
+  }, [currentUserId, goLives, pushNotification, retros, reviews, shaping, signals, sprint, storeHydrated]);
 
   // Global Cmd+K / Ctrl+K shortcut to open search
   useEffect(() => {
@@ -286,8 +293,6 @@ export function AppShell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  if (!mounted) return <div className="min-h-screen bg-background" />;
 
   return (
     <SidebarProvider defaultOpen={false}>

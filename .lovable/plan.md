@@ -1,151 +1,37 @@
-I’ll create a downloadable Markdown technical audit package that Claude can ingest to understand what has been built, how it works, and where the risks/gaps are.
+The features are likely not working consistently because the app has accumulated several demo-flow changes quickly, and there are two stability issues underneath them:
 
-## Output
-- File: `/mnt/documents/tfp-workflow-technical-audit-handoff.md`
-- Format: Markdown, optimized for Claude upload/paste.
-- Purpose: A self-contained handoff document explaining the TFP Workflow app architecture, workflow logic, state model, UI routes, business rules, and audit findings.
+1. The preview has a React hydration/runtime error (`Minified React error #418`). This usually means the HTML rendered on the server does not match what React renders in the browser. When that happens, clicks, state, and UI sections can behave unpredictably.
+2. The TFP workflow state is stored in persisted browser state (`tfp-os-v6`). As seed data and workflow shapes changed across recent edits, older saved local state can conflict with the newer code. That can make expected seed items, statuses, Jira keys, review state, or onboarding state appear missing or stale.
 
-## Document structure
+I also noticed the dev server log has a Tailwind config generation warning, but the Vite server still starts. That is probably less important than the hydration/state mismatch, but it is worth cleaning up if visual styles are inconsistent.
 
-1. **Claude briefing header**
-   - Short instruction block telling Claude how to use the document.
-   - Project name, current app purpose, and implementation status.
-   - Plain-language summary: this is a client-side operational workflow prototype for The Fertility Partners.
+Plan to fix this properly:
 
-2. **Executive technical summary**
-   - What the app does end to end.
-   - Current implementation model: TanStack Start + React + Zustand persisted local state.
-   - Important caveat: backend/database/auth/Jira integrations are mocked or not yet wired.
+1. Fix the hydration mismatch first
+   - Remove the broad `mounted` gate around the entire app shell if it is causing server/client output differences.
+   - Make only the browser-dependent pieces client-safe: sidebar state, notifications, search shortcut, and any localStorage-based sorting.
+   - Add `suppressHydrationWarning` at the document/body level only if needed for unavoidable dynamic browser attributes.
 
-3. **Technology stack**
-   - TanStack Start / TanStack Router route structure.
-   - React 19, Vite, Tailwind CSS v4, shadcn/Radix components.
-   - Zustand persistence under local storage key `tfp-os-v6` version `7`.
-   - Supporting libraries: lucide-react, sonner, zod, date-fns, @xyflow/react, Recharts, marked/DOMPurify.
+2. Make persisted TFP demo state safe after schema changes
+   - Bump the Zustand persisted store version.
+   - Strengthen migration so missing/new fields are backfilled from the latest seed data instead of leaving partially old objects.
+   - Add a lightweight “Reset demo data” admin/helper action if needed, so the demo can be restored without manually clearing local storage.
 
-4. **Application architecture**
-   - Root shell and app shell responsibilities.
-   - Sidebar navigation groups:
-     - Pipeline: Home, Inbox, Shaping, Delivery, Roadmap
-     - Leadership: Leadership
-     - Support: Comms & Lookback
-     - System: Help Center, Workflows, Admin
-   - Route layout pattern using `_app` protected-style layout even though real auth is not implemented.
-   - Key reusable components: search, onboarding, attachments, timeline drawer, sorting/table helpers, notifications.
+3. Audit the main demo paths for regressions
+   - Inbox → Proceed → Shaping deep-link.
+   - Shaping → Tech Review → Ready for Sprint.
+   - Delivery Backlog → Sprint Planning → Commit/Jira creation.
+   - Sprint Board lookback/review badges.
+   - Leadership dashboard attention counts and overdue reviews.
+   - Clinics phase/checklist flow.
 
-5. **Core data model**
-   I’ll document the main entities and their relationships:
-   - `User`, `Role`
-   - `Signal`
-   - `ShapingItem`
-   - `Sprint`
-   - `JiraEvent`
-   - `Review`
-   - `Override`
-   - `GoLiveChecklist`
-   - `CommsItem`
-   - `Decision`
-   - `SprintRetro`
-   - `Notification`
-   - `Clinic`, `MonitoringAlert`, `TechDebtReview`, `ClinicFeedbackRecord`
-   - `FeatureFlags`, `HelpArticle`, `Workflow`
+4. Fix obvious UX breakpoints discovered during the audit
+   - Make sure links that should navigate do not get swallowed by card click handlers.
+   - Make sure completed/Ready for Sprint items appear in exactly one contextual place.
+   - Ensure status labels match the new terminology everywhere.
 
-6. **End-to-end workflow map**
-   Include an ASCII flow diagram:
+5. Clean up preview warnings
+   - Address the missing Tailwind config generation warning if it is affecting Lovable’s style tooling.
+   - Re-check recent runtime errors after the stability fixes.
 
-   ```text
-   Intake / Clinic Feedback / Monitoring
-     -> Signal created
-     -> Inbox triage: New / In Review / Hold / Rejected / Proceed
-     -> Shaping: Define -> Tech Review -> Approval
-     -> Push to Jira backlog
-     -> Add to Sprint
-     -> Delivery: To Do -> In Progress -> In QA -> Done, or Blocked
-     -> Dev Complete gate
-     -> Outcome Review
-     -> Go-Live readiness
-     -> Comms, Lookback, Retros, Leadership reporting
-   ```
-
-7. **Business rules and state transitions**
-   - Signal status transition rules and bypass behavior.
-   - Auto-classification rules for issue type and priority.
-   - SLA calculations: P1 24h, P2 7d, P3 30d.
-   - Proceed creates shaping.
-   - P1 bugs become fast-track and are assigned to Tech Lead.
-   - Leadership signals prefill evidence context.
-   - Shaping gates: completeness, solution, tech review, approval.
-   - Push to Jira blocked unless shaping status is `Approved`.
-   - Jira push creates simulated `TFP-####` key and moves item into delivery backlog.
-   - Add to Sprint changes `in_sprint` and updates allocated capacity.
-   - Locked sprint requires override for new scope.
-   - Done requires Dev Complete sign-off.
-   - Done auto-creates pending outcome review.
-   - Comms self-approval is blocked.
-   - Clinic feedback has duplicate/rate-limit protection.
-
-8. **Route-by-route technical guide**
-   I’ll summarize each major route’s responsibility, state used, important actions, and risks:
-   - `/` Home
-   - `/inbox`, `/intake`, `/triage`
-   - `/shaping`
-   - `/delivery?tab=sprint|golive`
-   - `/roadmap`
-   - `/leadership`
-   - `/governance?tab=comms|lookback`
-   - `/comms`, `/review`, `/retros`, `/decisions`, `/overrides`, `/health` where relevant
-   - `/help`, `/help/$slug`
-   - `/admin`
-   - `/workflows`
-   - `/clinic-feedback`
-
-9. **Store action reference**
-   Document major `useTfpStore` actions grouped by domain:
-   - Intake and triage
-   - Shaping
-   - Jira/delivery
-   - Reviews/lookback
-   - Governance/comms/decisions/retros
-   - Go-live
-   - Overrides/audit/notifications
-   - Admin/help/workflows/users/feature flags
-   - Clinics/monitoring/feedback
-
-10. **Known implementation status and limitations**
-   - State is persisted in browser local storage, not a shared backend.
-   - User switching is a UI dropdown, not secure authentication.
-   - Roles are stored directly on local mock users; this is acceptable for prototype only, not production.
-   - Jira integration is simulated.
-   - Attachments are local/link-style references, not durable object storage.
-   - Notifications are local and capped at 200.
-   - Audit log is local and not tamper-proof.
-   - Backend, database, RLS, real auth, and external integrations are future work.
-
-11. **Audit findings**
-   I’ll write this as a practical engineering audit:
-   - Architecture risks
-   - Security risks
-   - Data integrity risks
-   - Workflow/business-rule risks
-   - UX risks
-   - Production-readiness gaps
-   - Suggested remediation priority: Critical / High / Medium / Low
-
-12. **Recommended next implementation roadmap**
-   - Phase 1: Stabilize prototype and tests.
-   - Phase 2: Add real backend persistence.
-   - Phase 3: Add authentication and secure server-side roles.
-   - Phase 4: Wire Jira/API integrations.
-   - Phase 5: Add production audit, reporting, and observability.
-
-13. **Claude prompt appendix**
-   - Include a ready-to-copy prompt the user can paste into Claude, such as:
-     “You are reviewing the TFP Workflow technical handoff below. First summarize the architecture, then identify production risks, then propose an implementation plan...”
-
-## Technical steps after approval
-1. Inspect any remaining route files needed to complete route-by-route accuracy.
-2. Generate the Markdown document in `/mnt/documents/tfp-workflow-technical-audit-handoff.md`.
-3. Validate the document content for completeness, consistent headings, and accurate route/action references.
-4. Return the downloadable Markdown artifact link and summarize what is included.
-
-Because this is Markdown, no visual PDF/page QA is needed; I’ll instead do a content completeness pass before delivering it.
+After this pass, the app should feel less brittle: the sidebar can stay collapsed by default, but the first priority is eliminating the hydration/runtime error and stale persisted workflow state, because those are the main reasons multiple unrelated features can seem broken at once.

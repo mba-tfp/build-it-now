@@ -48,7 +48,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -58,7 +58,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
