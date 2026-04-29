@@ -24,6 +24,7 @@ type TestContext = {
   reviewId?: string;
   secondSignalId?: string;
   notificationBaseline: number;
+  originalDemoMode?: boolean;
 };
 type RowState = { status: TestStatus; error?: string };
 
@@ -49,7 +50,11 @@ function SelfTestPage() {
     if (running) return;
     setRunning(true);
     resetRows();
-    const ctx: TestContext = { notificationBaseline: useTfpStore.getState().notifications.length };
+    const ctx: TestContext = {
+      notificationBaseline: useTfpStore.getState().notifications.length,
+      originalDemoMode: useTfpStore.getState().flags.demoModeEnabled,
+    };
+    useTfpStore.getState().setDemoMode(false);
     for (const step of TESTS) {
       setRows((current) => ({ ...current, [step.id]: { status: "running" } }));
       try {
@@ -59,6 +64,7 @@ function SelfTestPage() {
         setRows((current) => ({ ...current, [step.id]: { status: "failed", error: error instanceof Error ? error.message : String(error) } }));
       }
     }
+    useTfpStore.getState().setDemoMode(Boolean(ctx.originalDemoMode));
     setRunning(false);
   }
 
