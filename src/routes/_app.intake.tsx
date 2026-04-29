@@ -24,6 +24,8 @@ const PRODUCTS: readonly Product[] = [
   "Platform",
 ];
 const PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
+const SUGGESTED_LABELS = ["French-required", "PHIPA", "patient-facing", "integration", "tech-debt", "Procrea-QC", "compliance", "board"];
+const parseLabels = (value: string) => value.split(",").map((label) => label.trim()).filter(Boolean);
 
 function defaultSourceForRole(role: string): Source {
   if (role === "Leadership") return "Leadership";
@@ -45,6 +47,7 @@ export function SignalIntakePage() {
   const [sources, setSources] = useState<Source[]>([defaultSourceForRole(me.role)]);
   const [products, setProducts] = useState<Product[]>([]);
   const [priority, setPriority] = useState<IntakePriority>("P2");
+  const [labelsText, setLabelsText] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
@@ -67,6 +70,7 @@ export function SignalIntakePage() {
       displacement_flag: false,
       displacement_note: null,
       priority,
+      labels: parseLabels(labelsText),
     });
     const additional_sources = sources.slice(1);
     const additional_products = products.slice(1);
@@ -96,13 +100,9 @@ export function SignalIntakePage() {
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {sig && <TierBadge tier={sig.tier} />}
             {sig && <StatusBadge status={sig.status} />}
-            <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{sig?.issue_type}</span>
-            {sig?.priority && (
-              <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-xs">{sig.priority}</span>
-            )}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Type and P1/P2/P3 priority will be confirmed in Inbox.
+            Type will be confirmed during triage.
           </p>
           <div className="mt-6 flex justify-center gap-2">
             <button
@@ -113,6 +113,7 @@ export function SignalIntakePage() {
                 setTitle("");
                 setProducts([]);
                 setPriority("P2");
+                setLabelsText("");
                 setPendingAttachments([]);
               }}
               className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
@@ -220,6 +221,27 @@ export function SignalIntakePage() {
                 )}
               >
                 {p}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Labels" hint="Optional, comma-separated.">
+          <input
+            value={labelsText}
+            onChange={(e) => setLabelsText(e.target.value)}
+            placeholder="e.g. PHIPA, patient-facing"
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {SUGGESTED_LABELS.map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setLabelsText((current) => parseLabels(current).includes(label) ? current : [...parseLabels(current), label].join(", "))}
+                className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/40"
+              >
+                {label}
               </button>
             ))}
           </div>

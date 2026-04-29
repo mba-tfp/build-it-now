@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { SignalStatus, Tier } from "@/lib/tfp/types";
+import type { CommitmentType, SignalStatus, Tier } from "@/lib/tfp/types";
 
 export function TierBadge({ tier }: { tier: Tier }) {
   const map: Record<Tier, { label: string; cls: string }> = {
@@ -28,6 +28,23 @@ export function StatusBadge({ status }: { status: SignalStatus }) {
       {status}
     </span>
   );
+}
+
+export function CommitmentBadge({ type }: { type: CommitmentType | null }) {
+  if (!type) return <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Unassigned</span>;
+  const map: Record<CommitmentType, string> = {
+    Feature: "bg-primary/10 text-primary ring-primary/25",
+    Fix: "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)] ring-[var(--color-status-hold)]/25",
+    Research: "bg-[var(--color-tier-p1)]/10 text-[var(--color-tier-p1)] ring-[var(--color-tier-p1)]/20",
+    Dependency: "bg-[var(--color-tier-p2)]/10 text-[var(--color-tier-p2)] ring-[var(--color-tier-p2)]/25",
+    Incident: "bg-destructive/10 text-destructive ring-destructive/25",
+  };
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset", map[type])}>{type}</span>;
+}
+
+export function LabelsList({ labels }: { labels?: string[] }) {
+  if (!labels?.length) return null;
+  return <span className="flex flex-wrap gap-1">{labels.map((label) => <span key={label} className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted-foreground">{label}</span>)}</span>;
 }
 
 export function Pill({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {

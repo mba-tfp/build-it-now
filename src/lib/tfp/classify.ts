@@ -1,29 +1,14 @@
 import type { IssueType, Source, Tier } from "./types";
 
-const BUG_KEYWORDS = ["broken", "not working", "error", "fails", "cannot", "doesn't work", "reset"];
-const ENHANCE_KEYWORDS = ["request", "would like", "can we", "add ", "new ", "feature"];
 const INCIDENT_KEYWORDS = [
   "patient cannot",
-  "data loss",
   "system down",
+  "data loss",
   "cannot access",
-  "blocked",
-  "urgent",
-  "critical",
+  "cannot treat",
+  "production down",
+  "urgent patient",
 ];
-const TECH_DEBT_KEYWORDS = ["debt", "refactor", "slow", "performance", "cleanup"];
-const DEPENDENCY_KEYWORDS = [
-  "api change",
-  "deprecat",
-  "breaking change",
-  "endpoint removed",
-  "version upgrade",
-  "api version",
-  "sunset",
-  "migration required",
-];
-const P1_KEYWORDS = ["patient", "data integrity", "cannot treat", "system down"];
-const LEADERSHIP_URGENT = ["urgent", "board", "presentation", "today", "tomorrow"];
 
 const matches = (text: string, words: string[]) => {
   const lc = text.toLowerCase();
@@ -37,59 +22,21 @@ export type Classification = {
   reason: string;
 };
 
-export function classifySignal(input: { source: Source; description: string }): Classification {
-  const { source, description } = input;
-  const text = description || "";
-  const labels: string[] = [];
-
-  // Issue type
-  let issue_type: IssueType;
-  let reason = "";
-
-  if (matches(text, INCIDENT_KEYWORDS)) {
-    issue_type = "Incident";
-    reason = "Incident keyword detected — overrides other type rules.";
-  } else if (source === "Leadership") {
-    issue_type = "Leadership Input";
-    reason = "Source is Leadership.";
-  } else if ((source === "Clinic" || source === "Internal") && matches(text, BUG_KEYWORDS)) {
-    issue_type = "Bug";
-    reason = "Clinic/Internal report with bug language.";
-  } else if ((source === "Clinic" || source === "Internal") && matches(text, ENHANCE_KEYWORDS)) {
-    issue_type = "Enhancement";
-    reason = "Clinic/Internal request language.";
-  } else if (
-    (source === "Internal" || source === "Dev Team") &&
-    matches(text, DEPENDENCY_KEYWORDS)
-  ) {
-    issue_type = "Dependency Change";
-    reason = "Dependency change keywords detected.";
-  } else if (source === "Dev Team" && matches(text, TECH_DEBT_KEYWORDS)) {
-    issue_type = "Enhancement";
-    labels.push("Tech-Debt");
-    reason = "Dev Team raised tech-debt themed item.";
-  } else {
-    issue_type = "Enhancement";
-    reason = "Fallback — defaulted to Enhancement.";
+export function classifySignal(input: { source: Source | "Monitoring"; description: string }): Classification {
+  if (matches(input.description || "", INCIDENT_KEYWORDS)) {
+    return { issue_type: "Incident", tier: "P1", labels: [], reason: "Incident language detected." };
   }
 
-  // Tier
-  let tier: Tier;
-  if (issue_type === "Incident" || matches(text, P1_KEYWORDS)) {
-    tier = "P1";
-  } else if (issue_type === "Bug") {
-    tier = "P1";
-  } else if (issue_type === "Dependency Change") {
-    tier = "P1";
-  } else if (source === "Leadership" && matches(text, LEADERSHIP_URGENT)) {
-    tier = "P1";
-  } else if (source === "Dev Team" || labels.includes("Tech-Debt")) {
-    tier = "P3";
-  } else {
-    tier = "P2";
+  if (input.source === "Leadership") {
+    return { issue_type: "Leadership Input", tier: "P1", labels: [], reason: "Leadership origin uses P1 SLA." };
   }
-
-  return { issue_type, tier, labels, reason };
+  if (input.source === "Clinic") {
+    return { issue_type: "Enhancement", tier: "P2", labels: [], reason: "Clinic origin uses P2 SLA." };
+  }
+  if (input.source === "Monitoring") {
+    return { issue_type: "Incident", tier: "P1", labels: [], reason: "Monitoring origin uses P1 SLA." };
+  }
+  return { issue_type: "Enhancement", tier: "P3", labels: [], reason: `${input.source} origin uses P3 SLA.` };
 }
 
 export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
