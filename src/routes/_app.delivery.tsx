@@ -51,15 +51,16 @@ function DeliveryPage() {
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
   const [sprintGoal, setSprintGoal] = useState(sprint.notes ?? "");
-  const [confirmed, setConfirmed] = useState(false);
+  const [committedKeys, setCommittedKeys] = useState<string[]>([]);
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
   const readyRows = useMemo<Row[]>(() => {
     return shaping
-      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint)
+      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint && !sh.jira_key)
       .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
       .filter((row): row is Row => !!row.sig);
   }, [shaping, signals]);
@@ -112,15 +113,35 @@ function DeliveryPage() {
     navigate({ search: { tab: "planning" } });
   }
 
-  function confirmSprint() {
+  function commitSprint(override?: { reason: string; displacedIds: string[] }) {
+    const createdKeys: string[] = [];
     planningRows.forEach(({ sh }) => {
       const key = pushToJira(sh.id);
-      addToSprint(sh.id);
-      toast.success(`${key || sh.jira_key || "TFP ticket"} created in Jira`);
+      if (key) createdKeys.push(key);
+      addToSprint(sh.id, override?.reason, override ? "Scope added mid-sprint" : undefined, override?.displacedIds);
     });
     updateSprintGoal(sprintGoal);
     if (!sprint.scope_locked_at) toggleSprintLock();
-    setConfirmed(true);
+    setCommittedKeys(createdKeys);
+    setPlanningIds([]);
+    pushNotification({
+      trigger: "scope_change",
+      title: "Active Sprint is locked",
+      body: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
+      link_to: "/delivery?tab=board",
+      for_user_id: "u-karim",
+      entity_id: sprint.id,
+    });
+    toast.success("Sprint committed", { description: `${createdKeys.length} Jira tickets created.` });
+    navigate({ search: { tab: "board" } });
+  }
+
+  function confirmSprint() {
+    if (sprint.scope_locked_at) {
+      setOverrideOpen(true);
+      return;
+    }
+    commitSprint();
   }
 
   function updateSprintGoal(goal: string) {
