@@ -147,11 +147,11 @@ function ShapingPage() {
                       ? "border-[var(--color-status-hold)]/50"
                       : "border-border";
               return (
-                <button
+                <article
                   key={sh.id}
                   onClick={() => setOpenId(sh.id)}
                   className={cn(
-                    "tfp-card text-left transition hover:-translate-y-0.5 hover:shadow-lg",
+                    "tfp-card cursor-pointer text-left transition hover:-translate-y-0.5 hover:shadow-lg",
                     "border",
                     borderCls,
                   )}
@@ -214,7 +214,7 @@ function ShapingPage() {
                       </Link>
                     )}
                   </div>
-                </button>
+                </article>
               );
             })}
           </div>
