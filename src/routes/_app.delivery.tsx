@@ -129,22 +129,14 @@ function DeliveryPage() {
     });
     const blockedDays = blockerFor.sh.blocked_since ? daysSince(blockerFor.sh.blocked_since) : 0;
     if (blockedDays >= 2) {
-      pushNotification({
-        trigger: "blocked_over_1d",
-        title: `${blockerFor.sh.jira_key} escalated to Leadership`,
-        body: text,
-        link_to: "/delivery",
-        for_user_id: blockerFor.sh.pm_owner_id,
-        entity_id: blockerFor.sh.id,
-      });
-      pushNotification({
-        trigger: "blocked_over_1d",
-        title: `${blockerFor.sh.jira_key} escalated to Leadership`,
-        body: text,
-        link_to: "/delivery",
-        for_user_id: "u-shahid",
-        entity_id: blockerFor.sh.id,
-      });
+      [blockerFor.sh.pm_owner_id, "u-shahid", "u-karim"].forEach((userId) => pushNotification({
+          trigger: "blocked_over_1d",
+          title: `${blockerFor.sh.jira_key} escalated to Leadership`,
+          body: text,
+          link_to: "/delivery",
+          for_user_id: userId,
+          entity_id: blockerFor.sh.id,
+        }));
     }
     toast.success("Product blocker logged");
     setBlockerFor(null);

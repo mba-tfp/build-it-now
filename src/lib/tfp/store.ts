@@ -1278,6 +1278,7 @@ const seedNotifications: Notification[] = [
     title: "TFP-1047 blocked > 1 day",
     body: "Phelix AI webhook latency is waiting on updated vendor documentation.",
     link_to: "/delivery",
+    for_user_id: "u-shahid",
     entity_id: shapingBlocked.id,
     ts: new Date(SEED_EPOCH - 7200000).toISOString(),
   }),
@@ -1286,6 +1287,7 @@ const seedNotifications: Notification[] = [
     title: "OVR-002 awaiting Shahid acknowledgement",
     body: "Scope added mid-sprint for eIVF duplicate records at Generation Fertility.",
     link_to: "/delivery",
+    for_user_id: "u-shahid",
     entity_id: "OVR-002",
     ts: new Date(SEED_EPOCH - 86400000).toISOString(),
   }),
@@ -1294,6 +1296,7 @@ const seedNotifications: Notification[] = [
     title: "Heartland configuration ready for tech review",
     body: "Heartland pre-production setup needs Waseem's estimate before UAT can begin.",
     link_to: "/shaping",
+    for_user_id: "u-waseem",
     entity_id: shapingInTechReview.id,
     ts: new Date(SEED_EPOCH - 1800000).toISOString(),
   }),
@@ -1302,6 +1305,7 @@ const seedNotifications: Notification[] = [
     title: "SLA breach: eIVF duplicate patient records",
     body: "P1 signal needs close delivery tracking. Owner: Bazil.",
     link_to: "/delivery",
+    for_user_id: shapingForApproval.pm_owner_id,
     entity_id: sigForApproval.id,
     ts: new Date(SEED_EPOCH - 3600000).toISOString(),
   }),
@@ -1310,6 +1314,7 @@ const seedNotifications: Notification[] = [
     title: "Research needed: TFP-wide patient identifier",
     body: "Unique patient ID strategy is in shaping with open architecture questions.",
     link_to: "/shaping",
+    for_user_id: shapingInProgress.pm_owner_id,
     entity_id: shapingInProgress.id,
     ts: new Date(SEED_EPOCH - 14400000).toISOString(),
   }),
@@ -1580,6 +1585,7 @@ export const useTfpStore = create<State>()(
                 title: `Fast-track: ${s.title}`,
                 body: `${s.tier} incident/fix — root cause required.`,
                 link_to: "/shaping",
+                for_user_id: ownerId,
                 entity_id: sh.id,
               });
             }
@@ -1662,6 +1668,7 @@ export const useTfpStore = create<State>()(
               title: `SLA already breached after priority change`,
               body: `${prev.title.slice(0, 80)} — new SLA in the past.`,
               link_to: "/inbox",
+              for_user_id: get().currentUserId,
               entity_id: signalId,
             });
           }
@@ -1892,6 +1899,26 @@ export const useTfpStore = create<State>()(
             shahid_visible: true,
           });
         }
+        if (newAlloc / Math.max(1, usable) >= 0.9) {
+          get().pushNotification({
+            trigger: "scope_change",
+            title: "Sprint capacity over 90%",
+            body: `${newAlloc}/${usable} pts allocated after adding ${item.jira_key}.`,
+            link_to: "/delivery",
+            for_user_id: get().currentUserId,
+            entity_id: sp.id,
+          });
+        }
+        if (newAlloc > usable) {
+          get().pushNotification({
+            trigger: "scope_change",
+            title: "Sprint goal at risk",
+            body: `${newAlloc}/${usable} pts allocated after adding ${item.jira_key}.`,
+            link_to: "/leadership",
+            for_user_id: "u-shahid",
+            entity_id: sp.id,
+          });
+        }
         if (typeof window !== "undefined") {
           import("sonner").then(({ toast }) => {
             toast.success(`${item.jira_key} added to ${sp.name}`);
@@ -1935,6 +1962,7 @@ export const useTfpStore = create<State>()(
               title: "Dev-complete gate not signed off",
               body: `${item.jira_key} cannot move to Done until tests, docs and QA are checked.`,
               link_to: "/delivery",
+              for_user_id: "u-karim",
               entity_id: id,
             });
             return;
@@ -2000,11 +2028,22 @@ export const useTfpStore = create<State>()(
           after: next,
         });
         if (next === "Blocked") {
+          [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+              trigger: "blocker_signoff",
+              title: `${item.jira_key} marked Blocked`,
+              body: "Investigate and clear blocker; auto-escalates after 24h.",
+              link_to: "/delivery",
+              for_user_id: userId,
+              entity_id: id,
+            }));
+        }
+        if (nowDone && !wasDone && !alreadyHasReview) {
           get().pushNotification({
-            trigger: "blocker_signoff",
-            title: `${item.jira_key} marked Blocked`,
-            body: "Investigate and clear blocker; auto-escalates after 24h.",
-            link_to: "/delivery",
+            trigger: "review_overdue",
+            title: "Outcome review pending",
+            body: `${item.jira_key} moved to Done and needs an outcome review.`,
+            link_to: "/review",
+            for_user_id: item.pm_owner_id,
             entity_id: id,
           });
         }
@@ -2033,13 +2072,14 @@ export const useTfpStore = create<State>()(
           action: "Marked Blocked",
           after: description.slice(0, 80),
         });
-        get().pushNotification({
-          trigger: "blocker_signoff",
-          title: `${item.jira_key} marked Blocked`,
-          body: description.slice(0, 120),
-          link_to: "/delivery",
-          entity_id: id,
-        });
+        [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+            trigger: "blocker_signoff",
+            title: `${item.jira_key} marked Blocked`,
+            body: description.slice(0, 120),
+            link_to: "/delivery",
+            for_user_id: userId,
+            entity_id: id,
+          }));
       },
 
       unblock: (id, next) => {
@@ -2271,6 +2311,7 @@ export const useTfpStore = create<State>()(
           title: `${ovr.id} awaiting acknowledgement`,
           body: ovr.reason.slice(0, 100),
           link_to: "/delivery",
+          for_user_id: "u-shahid",
           entity_id: ovr.id,
         });
         return ovr;
@@ -2419,6 +2460,7 @@ export const useTfpStore = create<State>()(
           title: "Comms awaiting PM approval",
           body: get().comms.find((c) => c.id === id)?.subject ?? "",
           link_to: "/governance",
+          for_user_id: get().currentUserId,
           entity_id: id,
         });
       },
@@ -2499,6 +2541,7 @@ export const useTfpStore = create<State>()(
             title: `${data.primary_theme} theme escalated (3 sprints)`,
             body: data.one_change,
             link_to: "/governance",
+            for_user_id: "u-shahid",
             entity_id: retro.id,
           });
         }

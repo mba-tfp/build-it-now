@@ -1,9 +1,10 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
+import type { NotificationTrigger } from "@/lib/tfp/types";
 import {
   Activity,
   Bell,
@@ -41,6 +42,9 @@ const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType
   { to: "/clinics", label: "Clinics", icon: Building2 },
   { to: "/leadership", label: "Leadership", icon: Crown },
 ];
+
+const firedSessionNotifications = new Set<string>();
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
 
 function AppSidebar() {
   const location = useLocation();
@@ -102,6 +106,13 @@ export function AppShell() {
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const setCurrentUser = useTfpStore((s) => s.setCurrentUser);
   const users = useTfpStore((s) => s.users);
+  const signals = useTfpStore((s) => s.signals);
+  const shaping = useTfpStore((s) => s.shaping);
+  const reviews = useTfpStore((s) => s.reviews);
+  const goLives = useTfpStore((s) => s.goLives);
+  const sprint = useTfpStore((s) => s.sprint);
+  const retros = useTfpStore((s) => s.retros);
+  const pushNotification = useTfpStore((s) => s.pushNotification);
   const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
   const meLive = users.find((u) => u.id === currentUserId);
@@ -113,6 +124,142 @@ export function AppShell() {
   useEffect(() => {
     setOnboardingDismissed(false);
   }, [currentUserId]);
+
+  useEffect(() => {
+    const fireOnce = (entityId: string, trigger: NotificationTrigger, notification: Parameters<typeof pushNotification>[0]) => {
+      const key = `${entityId}:${trigger}:${notification.for_user_id ?? "system"}`;
+      if (firedSessionNotifications.has(key)) return;
+      firedSessionNotifications.add(key);
+      pushNotification(notification);
+    };
+
+    signals
+      .filter((signal) => (signal.status === "New" || signal.status === "In Review") && !signal.owner_id && hoursSince(signal.created_at) > 4)
+      .forEach((signal) => fireOnce(signal.id, "shaping_stuck", {
+        trigger: "shaping_stuck",
+        title: "Signal unowned",
+        body: signal.title,
+        link_to: "/inbox",
+        for_user_id: currentUserId,
+        entity_id: signal.id,
+      }));
+
+    shaping
+      .filter((item) => item.shaping_status === "In Shaping" && hoursSince(item.updated_at) > 120)
+      .forEach((item) => fireOnce(item.id, "shaping_stuck", {
+        trigger: "shaping_stuck",
+        title: "Shaping stuck",
+        body: "This shaping item has not moved in 5+ days.",
+        link_to: "/shaping",
+        for_user_id: item.pm_owner_id,
+        entity_id: item.id,
+      }));
+
+    shaping
+      .filter((item) => item.in_sprint && item.delivery_status && item.delivery_status !== "Done" && item.delivery_status !== "Blocked" && hoursSince(item.updated_at) > 48)
+      .forEach((item) => {
+        [item.delivery_assignee_id, "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
+          trigger: "blocked_over_1d",
+          title: "Item stale",
+          body: `${item.jira_key ?? "Sprint item"} has not moved in 2+ days.`,
+          link_to: "/delivery",
+          for_user_id: userId,
+          entity_id: item.id,
+        }));
+      });
+
+    const inSprint = shaping.filter((item) => item.in_sprint && item.delivery_status);
+
+    shaping
+      .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > 48)
+      .forEach((item) => {
+        [item.delivery_assignee_id, "u-shahid", "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
+          trigger: "blocked_over_1d",
+          title: "Blocker escalated",
+          body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked for 48+ hours.`,
+          link_to: "/delivery",
+          for_user_id: userId,
+          entity_id: item.id,
+        }));
+      });
+
+    if (sprint.allocated_pts > 0) {
+      const usable = Math.max(1, sprint.gross_capacity_pts - sprint.leave_deduction_pts - sprint.interrupt_buffer_pts - sprint.qa_buffer_pts - sprint.uncertainty_buffer_pts - sprint.carryforward_estimate_pts - sprint.golive_deduction_pts);
+      const blockedCount = inSprint.filter((item) => item.delivery_status === "Blocked").length;
+      if (sprint.allocated_pts > usable || blockedCount >= 2) {
+        fireOnce(sprint.id, "scope_change", {
+          trigger: "scope_change",
+          title: "Sprint goal at risk",
+          body: `${sprint.allocated_pts}/${usable} pts allocated · ${blockedCount} blocked.`,
+          link_to: "/leadership",
+          for_user_id: "u-shahid",
+          entity_id: sprint.id,
+        });
+      }
+      if (sprint.allocated_pts / usable >= 0.9) {
+        fireOnce(`${sprint.id}-capacity`, "scope_change", {
+          trigger: "scope_change",
+          title: "Sprint capacity over 90%",
+          body: `${sprint.allocated_pts}/${usable} pts allocated.`,
+          link_to: "/delivery",
+          for_user_id: currentUserId,
+          entity_id: sprint.id,
+        });
+      }
+    }
+
+    const sprintEndsInHours = (new Date(sprint.end_date).getTime() - Date.now()) / 3600000;
+    if (sprintEndsInHours <= 24 && sprintEndsInHours >= 0 && !retros.some((retro) => retro.sprint_id === sprint.id)) {
+      fireOnce(`${sprint.id}-retro`, "retro_escalation", {
+        trigger: "retro_escalation",
+        title: "Retro due within 24h",
+        body: `${sprint.name} ends soon and needs a retro scheduled.`,
+        link_to: "/retros",
+        for_user_id: "u-karim",
+        entity_id: sprint.id,
+      });
+    }
+    if (sprintEndsInHours < 0 && inSprint.some((item) => item.delivery_status !== "Done")) {
+      fireOnce(`${sprint.id}-close`, "blocker_signoff", {
+        trigger: "blocker_signoff",
+        title: "Sprint close checklist incomplete",
+        body: `${sprint.name} has open delivery items after sprint end.`,
+        link_to: "/delivery",
+        for_user_id: "u-karim",
+        entity_id: sprint.id,
+      });
+    }
+
+    goLives.forEach((clinic) => {
+      const entries = Object.entries(clinic.criteria);
+      const firstOpenIndex = entries.findIndex(([, state]) => !state.done);
+      if (clinic.status === "Live" || firstOpenIndex < 0) return;
+      const previousCompleted = entries.slice(0, firstOpenIndex).map(([, state]) => state.checked_at).filter((date): date is string => Boolean(date)).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+      if (hoursSince(previousCompleted ?? clinic.created_at) > 72) {
+        fireOnce(clinic.id, "golive_unconfirmed", {
+          trigger: "golive_unconfirmed",
+          title: "Clinic onboarding phase overdue",
+          body: `${clinic.release_name} has an onboarding phase open for 3+ days.`,
+          link_to: "/clinics",
+          for_user_id: "u-shahid",
+          entity_id: clinic.id,
+        });
+      }
+    });
+
+    shaping
+      .filter((item) => item.delivery_status === "Done" && hoursSince(item.updated_at) > 120 && !reviews.some((review) => review.shaping_id === item.id && review.status === "Completed"))
+      .forEach((item) => {
+        [item.pm_owner_id, "u-shahid"].forEach((userId) => fireOnce(item.id, "review_overdue", {
+          trigger: "review_overdue",
+          title: "Review overdue",
+          body: `${item.jira_key ?? "Done item"} needs an outcome review.`,
+          link_to: "/review",
+          for_user_id: userId,
+          entity_id: item.id,
+        }));
+      });
+  }, [currentUserId, goLives, pushNotification, retros, reviews, shaping, signals, sprint]);
 
   // Global Cmd+K / Ctrl+K shortcut to open search
   useEffect(() => {
@@ -192,19 +339,23 @@ export function AppShell() {
 
 
 function NotificationsBell() {
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const notifications = useTfpStore((s) => s.notifications);
   const markRead = useTfpStore((s) => s.markNotificationRead);
-  const markAll = useTfpStore((s) => s.markAllNotificationsRead);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const visibleNotifications = useMemo(
+    () => notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId),
+    [currentUserId, notifications],
+  );
+  const unread = visibleNotifications.filter((n) => !n.read).length;
 
   // Toast on new notifications (fired during session, not on initial mount)
   useEffect(() => {
-    if (notifications.length === 0) return;
-    const newest = notifications[0];
+    if (visibleNotifications.length === 0) return;
+    const newest = visibleNotifications[0];
     if (lastSeenIdRef.current === null) {
       lastSeenIdRef.current = newest.id;
       return;
@@ -214,7 +365,7 @@ function NotificationsBell() {
       const fn = newest.priority === "P1" ? toast.error : newest.priority === "P2" ? toast.warning : toast;
       fn(newest.title, { description: newest.body });
     }
-  }, [notifications]);
+  }, [visibleNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -247,15 +398,15 @@ function NotificationsBell() {
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Notifications · {unread} unread
             </span>
-            <button onClick={markAll} className="text-[11px] text-primary hover:underline">
+            <button onClick={() => visibleNotifications.forEach((n) => markRead(n.id))} className="text-[11px] text-primary hover:underline">
               Mark all read
             </button>
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
-            {notifications.length === 0 && (
+            {visibleNotifications.length === 0 && (
               <p className="p-6 text-center text-sm text-muted-foreground">No notifications.</p>
             )}
-            {notifications.slice(0, 30).map((n) => (
+            {visibleNotifications.slice(0, 30).map((n) => (
               <Link
                 key={n.id}
                 to={n.link_to ?? "/intake"}
