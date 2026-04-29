@@ -225,13 +225,11 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
       </button>
 
       <header className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          {sig.product}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <h1 className="font-display text-3xl leading-tight">{sig.title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{sig.product}</p>
           <CommitmentBadge type={sh.commitment_type} />
         </div>
+        <h1 className="mt-1 font-display text-3xl leading-tight">{sig.title}</h1>
       </header>
 
       {showTimebox48 && (
