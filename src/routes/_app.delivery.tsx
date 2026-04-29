@@ -1,9 +1,9 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { useMemo, useState } from "react";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
@@ -11,7 +11,7 @@ import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Si
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
-  tab: fallback(z.enum(["backlog", "planning", "board", "golive", "clinics"]), "backlog").default("backlog"),
+  tab: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_app/delivery")({
@@ -19,8 +19,25 @@ export const Route = createFileRoute("/_app/delivery")({
   component: DeliveryPage,
 });
 
-type DeliveryTab = "backlog" | "planning" | "board";
 type Row = { sh: ShapingItem; sig: Signal };
+type DeliverySectionKey = "board" | "planning" | "backlog";
+
+const DELIVERY_SECTIONS_STORAGE_KEY = "tfp-delivery-sections-v1";
+const DEFAULT_SECTION_STATE: Record<DeliverySectionKey, boolean> = {
+  board: true,
+  planning: true,
+  backlog: false,
+};
+
+function readSectionState(): Record<DeliverySectionKey, boolean> {
+  if (typeof window === "undefined") return DEFAULT_SECTION_STATE;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DELIVERY_SECTIONS_STORAGE_KEY) ?? "{}");
+    return { ...DEFAULT_SECTION_STATE, ...parsed };
+  } catch {
+    return DEFAULT_SECTION_STATE;
+  }
+}
 
 const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
   "To Do",
@@ -31,7 +48,6 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
 
 function DeliveryPage() {
   const { tab } = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
@@ -57,6 +73,11 @@ function DeliveryPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
+
+  useEffect(() => {
+    window.localStorage.setItem(DELIVERY_SECTIONS_STORAGE_KEY, JSON.stringify(openSections));
+  }, [openSections]);
 
   const readyRows = useMemo<Row[]>(() => {
     return shaping
@@ -89,7 +110,11 @@ function DeliveryPage() {
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
-  if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
+  if (tab) return <Navigate to="/delivery" search={{}} replace />;
+
+  function toggleSection(section: DeliverySectionKey) {
+    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  }
 
   function handleSync() {
     syncFromJira();
@@ -123,12 +148,11 @@ function DeliveryPage() {
       trigger: "scope_change",
       title: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
       body: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
-      link_to: "/delivery?tab=board",
+      link_to: "/delivery",
       for_user_id: "u-karim",
       entity_id: sprint.id,
     });
     toast.success("Sprint committed", { description: `${createdKeys.length} Jira tickets created.` });
-    navigate({ search: { tab: "board" } });
   }
 
   function confirmSprint() {
@@ -197,69 +221,69 @@ function DeliveryPage() {
         </button>
       </header>
 
-      <div className="mb-5 flex flex-wrap gap-2 border-b border-border">
-        {(
-          [
-            ["backlog", "Backlog"],
-            ["planning", "Sprint Planning"],
-            ["board", "Sprint Board"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => navigate({ search: { tab: value } })}
-            className={cn(
-              "border-b-2 px-3 py-2 text-sm font-medium transition",
-              tab === value
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <div className="space-y-4">
+        <DeliverySection
+          title="SPRINT BOARD"
+          countLabel={`${sprintRows.length} ${sprintRows.length === 1 ? "item" : "items"}`}
+          open={openSections.board}
+          onToggle={() => toggleSection("board")}
+        >
+          <SprintBoard
+            rows={sprintRows}
+            reviews={reviews}
+            sprintName={sprint.name}
+            committedKeys={committedKeys}
+            closeBlocker={closeBlocker}
+            users={users}
+            expandedCriteria={expandedCriteria}
+            setExpandedCriteria={setExpandedCriteria}
+            onViewBrief={setBriefFor}
+            onLogBlocker={setBlockerFor}
+            onEnsureReview={ensureReview}
+            onCompleteReview={completeReview}
+            onLogFollowOn={logFollowOn}
+            onCarryForward={(row) => {
+              updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
+              toast.success("Marked carry-forward");
+            }}
+            onCloseSprint={() => setCloseOpen(true)}
+          />
+        </DeliverySection>
 
-      {tab === "backlog" && (
-        <BacklogTab rows={orderedBacklog} onMove={movePriority} />
-      )}
-      {tab === "planning" && (
-        <PlanningTab
-          backlogRows={planningBacklog}
-          planningRows={planningRows}
-          sprintGoal={sprintGoal}
-          setSprintGoal={setSprintGoal}
-          usedPoints={usedPoints}
-          usable={usable}
-          onPick={(id) => setPlanningIds((current) => [...current, id])}
-          onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
-          onConfirm={confirmSprint}
-          committedKeys={committedKeys}
-          sprint={sprint}
-        />
-      )}
-      {tab === "board" && (
-        <SprintBoard
-          rows={sprintRows}
-          reviews={reviews}
-          sprintName={sprint.name}
-          committedKeys={committedKeys}
-          closeBlocker={closeBlocker}
-          users={users}
-          expandedCriteria={expandedCriteria}
-          setExpandedCriteria={setExpandedCriteria}
-          onViewBrief={setBriefFor}
-          onLogBlocker={setBlockerFor}
-          onEnsureReview={ensureReview}
-          onCompleteReview={completeReview}
-          onLogFollowOn={logFollowOn}
-          onCarryForward={(row) => {
-            updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
-            toast.success("Marked carry-forward");
-          }}
-          onCloseSprint={() => setCloseOpen(true)}
-        />
-      )}
+        <DeliverySection
+          title="SPRINT PLANNING"
+          countLabel={`${planningRows.length} selected`}
+          open={openSections.planning}
+          onToggle={() => toggleSection("planning")}
+        >
+          <PlanningTab
+            backlogRows={planningBacklog}
+            planningRows={planningRows}
+            sprintGoal={sprintGoal}
+            setSprintGoal={setSprintGoal}
+            usedPoints={usedPoints}
+            usable={usable}
+            onPick={(id) => setPlanningIds((current) => [...current, id])}
+            onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
+            onConfirm={confirmSprint}
+            committedKeys={committedKeys}
+            sprint={sprint}
+          />
+        </DeliverySection>
+
+        <DeliverySection
+          title="BACKLOG"
+          countLabel={`${planningBacklog.length} ready`}
+          open={openSections.backlog}
+          onToggle={() => toggleSection("backlog")}
+        >
+          <BacklogTab
+            rows={planningBacklog}
+            onMove={movePriority}
+            onAddToPlanning={(id) => setPlanningIds((current) => current.includes(id) ? current : [...current, id])}
+          />
+        </DeliverySection>
+      </div>
 
       {briefFor && <BriefSlideover row={briefFor} onClose={() => setBriefFor(null)} />}
       {blockerFor && (
@@ -298,17 +322,64 @@ function DeliveryPage() {
 function BacklogTab({
   rows,
   onMove,
+  onAddToPlanning,
 }: {
   rows: Row[];
   onMove: (dragId: string, targetId: string) => void;
+  onAddToPlanning?: (id: string) => void;
 }) {
   return (
     <section className="rounded-md border border-border bg-surface/50">
       <BacklogTable
         rows={rows}
         onMove={onMove}
+        action={onAddToPlanning ? (row) => (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddToPlanning(row.sh.id);
+            }}
+            className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/40"
+          >
+            Add to Sprint Planning
+          </button>
+        ) : undefined}
       />
       <div className="border-t border-border p-3 text-xs text-muted-foreground">Use Sprint Planning to select and commit backlog items.</div>
+    </section>
+  );
+}
+
+function DeliverySection({
+  title,
+  countLabel,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  countLabel: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-md border border-border bg-surface/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-accent/20"
+        aria-expanded={open}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+          <span className="truncate font-display text-lg">{title}</span>
+          <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground">
+            {countLabel}
+          </span>
+        </span>
+      </button>
+      {open && <div className="border-t border-border p-4">{children}</div>}
     </section>
   );
 }
