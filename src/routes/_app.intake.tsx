@@ -47,6 +47,7 @@ export function SignalIntakePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [priority, setPriority] = useState<IntakePriority>("P2");
   const [labelsText, setLabelsText] = useState("");
+  const [p0Confirm, setP0Confirm] = useState<IntakePriority | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
@@ -211,12 +212,14 @@ export function SignalIntakePage() {
               <button
                 key={p}
                 type="button"
-                onClick={() => setPriority(p)}
+                onClick={() => p === "P0" && priority !== "P0" ? setP0Confirm(priority) : setPriority(p)}
                 className={cn(
                   "rounded-full border px-4 py-1.5 text-sm transition",
-                  priority === p
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
+                  priority === p && p === "P0" && "border-destructive bg-destructive text-destructive-foreground",
+                  priority === p && p === "P1" && "border-[var(--color-status-hold)] bg-[var(--color-status-hold)] text-primary-foreground",
+                  priority === p && p === "P2" && "border-primary bg-primary text-primary-foreground",
+                  priority === p && p === "P3" && "border-muted bg-muted text-foreground",
+                  priority !== p && "border-border bg-surface hover:border-primary/40 hover:bg-accent/40",
                 )}
               >
                 {p}
@@ -232,18 +235,7 @@ export function SignalIntakePage() {
             placeholder="e.g. PHIPA, patient-facing"
             className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {SUGGESTED_LABELS.map((label) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setLabelsText((current) => parseLabels(current).includes(label) ? current : [...parseLabels(current), label].join(", "))}
-                className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/40"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <LabelSuggestions selected={parseLabels(labelsText)} onAdd={(label) => setLabelsText((current) => parseLabels(current).includes(label) ? current : [...parseLabels(current), label].join(", "))} />
         </Field>
 
         {flags.attachmentsEnabled && (
@@ -270,6 +262,18 @@ export function SignalIntakePage() {
           </button>
         </div>
       </form>
+      {p0Confirm && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-md border border-border bg-surface p-5 shadow-xl">
+            <h2 className="font-display text-lg">Confirm P0 priority</h2>
+            <p className="mt-2 text-sm text-muted-foreground">P0 means patient harm in progress or production down. Are you sure?</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => { setPriority(p0Confirm); setP0Confirm(null); }} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent/40">Cancel</button>
+              <button type="button" onClick={() => { setPriority("P0"); setP0Confirm(null); }} className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:opacity-90">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
