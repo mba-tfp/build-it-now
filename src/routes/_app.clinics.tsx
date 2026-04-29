@@ -42,7 +42,7 @@ const PHASES: Phase[] = [
   },
   {
     id: 3,
-    title: "Go-Live Preparation",
+    title: "Clinic Launch Preparation",
     items: [
       "14. Decide on go-live date (confirmed with clinic)",
       "15. Prepare production environment",
@@ -54,7 +54,7 @@ const PHASES: Phase[] = [
   },
   {
     id: 4,
-    title: "Go-Live Execution",
+    title: "Clinic Launch Execution",
     items: [
       "17. Final testing in production",
       "18. Define go-live plan (roles, timing, rollback criteria)",

@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { useEffect, useMemo, useState } from "react";
 import {
   completenessScore,
   daysSince,
@@ -21,6 +23,7 @@ import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
 import type { Attachment } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/shaping")({
+  validateSearch: zodValidator(z.object({ item: fallback(z.string().optional(), undefined).default(undefined) })),
   component: ShapingPage,
 });
 
@@ -42,15 +45,23 @@ function techLeadName(user?: { name: string } | null): string {
 }
 
 function ShapingPage() {
+  const { item } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(item ?? null);
+
+  useEffect(() => {
+    if (item) setOpenId(item);
+  }, [item]);
 
   type SortKey = "started" | "completeness" | "priority";
   const { sort, setSort } = useSortMenu<SortKey>("shaping");
 
   const cards = useMemo(
-    () => shaping.map((sh) => ({ sh, sig: signals.find((s) => s.id === sh.signal_id) })),
+    () => shaping
+      .filter((sh) => sh.shaping_status !== "Ready for Sprint" || daysSince(sh.updated_at) < 1)
+      .map((sh) => ({ sh, sig: signals.find((s) => s.id === sh.signal_id) })),
     [shaping, signals],
   );
 
@@ -78,7 +89,7 @@ function ShapingPage() {
   const open = cards.find((c) => c.sh.id === openId);
 
   if (open?.sig) {
-    return <ShapingWorkspace itemId={open.sh.id} onBack={() => setOpenId(null)} />;
+    return <ShapingWorkspace itemId={open.sh.id} onBack={() => { setOpenId(null); navigate({ search: {} }); }} />;
   }
 
   return (
@@ -127,7 +138,10 @@ function ShapingPage() {
               const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
               const score = completenessScore(sh);
               const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
-              const borderCls = overdue
+              const readyForSprint = sh.shaping_status === "Ready for Sprint";
+              const borderCls = readyForSprint
+                ? "border-l-4 border-l-[var(--color-status-proceed)] border-[var(--color-status-proceed)]/40"
+                : overdue
                 ? "border-destructive/60 ring-1 ring-destructive/30"
                 : sh.fast_track
                   ? "border-[var(--color-status-hold)]/60"
@@ -137,11 +151,11 @@ function ShapingPage() {
                       ? "border-[var(--color-status-hold)]/50"
                       : "border-border";
               return (
-                <button
+                <article
                   key={sh.id}
                   onClick={() => setOpenId(sh.id)}
                   className={cn(
-                    "tfp-card text-left transition hover:-translate-y-0.5 hover:shadow-lg",
+                    "tfp-card cursor-pointer text-left transition hover:-translate-y-0.5 hover:shadow-lg",
                     "border",
                     borderCls,
                   )}
@@ -161,11 +175,12 @@ function ShapingPage() {
                             Overdue
                           </span>
                         )}
-                        <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
-                        {sh.shaping_status === "Ready for Sprint" && (
+                        {readyForSprint ? (
                           <span className="rounded-full bg-[var(--color-status-proceed)]/15 px-2 py-0.5 font-medium text-[var(--color-status-proceed)]">
-                            Ready
+                            Ready for Sprint
                           </span>
+                        ) : (
+                          <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
                         )}
                         </span>
                         {sh.shaping_status === "In Tech Review" && (
@@ -192,8 +207,18 @@ function ShapingPage() {
                         />
                       </div>
                     </div>
+                    {readyForSprint && (
+                      <Link
+                        to="/delivery"
+                        search={{ tab: "backlog" }}
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-4 inline-flex text-xs font-medium text-[var(--color-status-proceed)] hover:underline"
+                      >
+                        Move to Backlog →
+                      </Link>
+                    )}
                   </div>
-                </button>
+                </article>
               );
             })}
           </div>

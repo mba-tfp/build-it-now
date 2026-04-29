@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -116,10 +116,16 @@ function LeadershipPage() {
       </Panel>
 
       <Panel title="This sprint">
+        {sprint.notes ? (
+          <p className="mb-4 font-display text-2xl leading-snug">{sprint.notes}</p>
+        ) : (
+          <p className="mb-4 text-sm text-muted-foreground">
+            No sprint goal set — <Link to="/delivery" search={{ tab: "planning" }} className="text-primary hover:underline">add one in Sprint Planning</Link>
+          </p>
+        )}
         {sprintAtRisk && <div className="mb-4 rounded-md border border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/10 px-3 py-2 text-sm text-[var(--color-status-hold)]"><AlertTriangle className="mr-2 inline h-4 w-4" />Sprint at risk</div>}
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div>
-            <p className="text-sm font-medium">{sprint.notes || "Sprint goal not set."}</p>
             <p className="mt-1 text-xs text-muted-foreground">{sprint.name} · {fmtDate(sprint.start_date)} → {fmtDate(sprint.end_date)}</p>
             <div className="mt-4">
               <div className="mb-1 flex justify-between text-xs"><span className="text-muted-foreground">Capacity</span><span className="font-mono">{sprint.allocated_pts}/{usable} pts</span></div>

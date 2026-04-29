@@ -65,7 +65,7 @@ const STAGE_ROUTES = [
   { value: "/shaping", label: "Shaping" },
   { value: "/delivery", label: "Delivery" },
   { value: "/governance", label: "Lookback" },
-  { value: "/golive", label: "Go-Live" },
+  { value: "/clinics", label: "Clinics" },
 ] as const;
 
 const KIND_DESCRIPTIONS: Record<WorkflowNodeKind, string> = {
