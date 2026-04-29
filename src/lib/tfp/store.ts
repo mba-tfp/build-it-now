@@ -128,6 +128,16 @@ const SEED_HELP: HelpArticle[] = [
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
+  {
+    id: "h-notifications",
+    slug: "notifications",
+    title: "Notifications and staleness",
+    section: "Workflow",
+    body_markdown:
+      "# Notifications and staleness\n\nNotifications fire faster for higher-priority items. P0 items get nudged at half the rate of P3 items. Unowned signals and shaping stalls use fractions of each signal's SLA, while sprint blockers escalate by priority and outcome reviews remain due after five days.",
+    updated_at: "2026-04-29T00:00:00.000Z",
+    updated_by: "u-bazil",
+  },
 ];
 
 let _uidCounter = 0;
