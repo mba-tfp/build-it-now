@@ -302,26 +302,17 @@ function DeliveryPage() {
 function BacklogTab({
   rows,
   onMove,
-  onAdd,
 }: {
   rows: Row[];
   onMove: (dragId: string, targetId: string) => void;
-  onAdd: (id: string) => void;
 }) {
   return (
     <section className="rounded-md border border-border bg-surface/50">
       <BacklogTable
         rows={rows}
         onMove={onMove}
-        action={(row) => (
-          <button
-            onClick={() => onAdd(row.sh.id)}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Add to Sprint Planning
-          </button>
-        )}
       />
+      <div className="border-t border-border p-3 text-xs text-muted-foreground">Use Sprint Planning to select and commit backlog items.</div>
     </section>
   );
 }
