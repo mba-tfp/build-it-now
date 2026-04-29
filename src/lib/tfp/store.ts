@@ -1418,6 +1418,8 @@ type State = {
     description: string;
     source: Signal["source"];
     product: Signal["product"];
+    origin_override?: Signal["origin"];
+    /** @deprecated Use origin_override instead. */
     issue_type_override?: Signal["issue_type"];
     tier_override?: Signal["tier"];
     displacement_flag: boolean;
@@ -1627,7 +1629,7 @@ export const useTfpStore = create<State>()(
 
       createSignal: (data) => {
         const c = classifySignal({ source: data.source, description: data.description });
-        const origin = data.issue_type_override ?? c.origin;
+        const origin = data.origin_override ?? data.issue_type_override ?? c.origin;
         const tier = data.tier_override ?? c.tier;
         const created = new Date();
         const sig: Signal = {
@@ -1664,10 +1666,10 @@ export const useTfpStore = create<State>()(
         const signals = get().signals.map((s) => {
           if (s.id !== signalId) return s;
           if (decision === "Proceed") {
-            const isFastTrack = s.issue_type === "Incident" || s.tier === "P1";
+            const isFastTrack = s.origin === "Incident" || s.tier === "P1";
             const ownerId = isFastTrack ? "u-waseem" : me;
             const sh = blankShaping(s.id, ownerId, { fastTrack: isFastTrack });
-            sh.commitment_type = commitmentType ?? (s.issue_type === "Incident" ? "Incident" : null);
+            sh.commitment_type = commitmentType ?? (s.origin === "Incident" ? "Incident" : null);
             // B1: Leadership signals always have shaping started with a context note prefilled
             // and `current_step` set so the queue treats them as actively shaped.
             sh.shaping_status = "In Shaping";
