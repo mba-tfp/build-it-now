@@ -3,7 +3,8 @@ import type { CommitmentType, SignalStatus, Tier } from "@/lib/tfp/types";
 
 export function TierBadge({ tier }: { tier: Tier }) {
   const map: Record<Tier, { label: string; cls: string }> = {
-    P1: { label: "P1 · Urgent", cls: "bg-[var(--color-tier-p1)]/10 text-[var(--color-tier-p1)] ring-[var(--color-tier-p1)]/20" },
+    P0: { label: "P0 · Critical", cls: "bg-destructive/10 text-destructive ring-destructive/25" },
+    P1: { label: "P1 · Urgent", cls: "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)] ring-[var(--color-status-hold)]/20" },
     P2: { label: "P2 · Important", cls: "bg-[var(--color-tier-p2)]/10 text-[var(--color-tier-p2)] ring-[var(--color-tier-p2)]/20" },
     P3: { label: "P3 · Standard", cls: "bg-[var(--color-tier-p3)]/10 text-[var(--color-tier-p3)] ring-[var(--color-tier-p3)]/25" },
   };
