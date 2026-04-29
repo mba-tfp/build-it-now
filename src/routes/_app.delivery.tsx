@@ -6,6 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
+import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
@@ -820,33 +821,45 @@ function completedReview(reviews: Review[], shapingId: string) {
 
 function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
   const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
+  const loggedBy = USERS.find((u) => u.id === row.sig.created_by);
   return (
     <div className="fixed inset-0 z-50 bg-background/50" onClick={onClose}>
       <aside
         onClick={(e) => e.stopPropagation()}
         className="ml-auto h-full w-full max-w-xl overflow-y-auto border-l border-border bg-surface p-6 shadow-xl"
       >
-        <button onClick={onClose} className="float-right rounded-md p-1 hover:bg-accent/40">
-          <X className="h-4 w-4" />
+        <button onClick={onClose} className="mb-5 inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent/40">
+          ← Back
         </button>
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           Shaping brief
         </p>
         <h2 className="mt-1 font-display text-2xl">{row.sig.title}</h2>
-        <dl className="mt-6 space-y-4">
-          {briefField("Problem", row.sh.problem_what)}
-          {briefField("Why now", row.sh.problem_why)}
-          {briefField("Who is affected", row.sh.problem_who)}
-          {briefField("Success criteria", row.sh.solution_criteria)}
-          {briefField("Proposed approach", row.sh.solution_approach)}
-          {briefField("Open questions", row.sh.solution_questions || "—")}
-          {briefField("Out of scope", row.sh.problem_out_of_scope || "—")}
-          <div className="border-t border-border pt-4">
+        <dl className="mt-6 space-y-6">
+          <BriefSection title="Signal details">
+            {briefField("Title", row.sig.title)}
+            {briefField("Source", row.sig.source)}
+            {briefField("Origin", row.sig.source)}
+            {briefField("Commitment type", row.sh.commitment_type ?? "—")}
+            {briefField("Logged by", loggedBy?.name ?? "—")}
+            {briefField("Logged date", fmtDateTime(row.sig.created_at))}
+          </BriefSection>
+          <BriefSection title="Define">
+            {briefField("Problem", row.sh.problem_what)}
+            {briefField("Why now", row.sh.problem_why)}
+            {briefField("Who is affected", row.sh.problem_who)}
+            {briefField("Success criteria", row.sh.solution_criteria)}
+            {briefField("Proposed approach", row.sh.solution_approach)}
+            {briefField("Open questions", row.sh.solution_questions || "—")}
+            {briefField("Out of scope", row.sh.problem_out_of_scope || "—")}
+          </BriefSection>
+          <BriefSection title="Tech Review">
             {briefField("Reviewer", reviewer?.name ?? "—")}
             {briefField("Estimate", `${row.sh.tech_estimate_pts ?? "—"} pts`)}
-            {briefField("Review notes", row.sh.tech_review_notes || "—")}
+            {briefField("Notes", row.sh.tech_review_notes || "—")}
             {briefField("Concerns", row.sh.tech_concerns || "—")}
-          </div>
+            {briefField("Signed off date", row.sh.tech_signed_off_at ? fmtDateTime(row.sh.tech_signed_off_at) : "—")}
+          </BriefSection>
         </dl>
       </aside>
     </div>
