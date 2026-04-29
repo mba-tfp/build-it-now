@@ -1,10 +1,10 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import { PRIORITY_TONE } from "@/lib/tfp/notify";
+import { PRIORITY_TONE, slaHoursForTier } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
-import type { NotificationTrigger } from "@/lib/tfp/types";
+import type { NotificationTrigger, Tier } from "@/lib/tfp/types";
 import {
   Activity,
   Bell,
@@ -45,6 +45,8 @@ const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType
 
 const firedSessionNotifications = new Set<string>();
 const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
+const sprintStaleHoursForTier = (tier: Tier) => tier === "P0" || tier === "P1" ? 48 : 96;
+const blockedEscalationHoursForTier = (tier: Tier) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
 function AppSidebar() {
   const location = useLocation();
