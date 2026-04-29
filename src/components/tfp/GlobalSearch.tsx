@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 type Hit = {
   id: string;
-  type: "Signal" | "Shaping" | "Decision" | "Override" | "Comms" | "Go-Live" | "Lookback";
+  type: "Signal" | "Shaping" | "Decision" | "Override" | "Comms" | "Clinics" | "Lookback";
   title: string;
   excerpt: string;
   product?: string;
@@ -75,7 +75,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
       Decision: [],
       Override: [],
       Comms: [],
-      "Go-Live": [],
+      Clinics: [],
       Lookback: [],
     };
     if (!lc) return hits;
@@ -144,13 +144,13 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     });
     goLives.forEach((g) => {
       if (m(g.release_name)) {
-        hits["Go-Live"].push({
+        hits.Clinics.push({
           id: g.id,
-          type: "Go-Live",
+          type: "Clinics",
           title: g.release_name,
           excerpt: `Scheduled ${g.scheduled_for.slice(0, 10)} · ${g.status}`,
           product: g.product,
-          to: "/delivery",
+          to: "/clinics",
         });
       }
     });
@@ -208,7 +208,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 Start typing to search across the workspace.
               </div>
             )}
-            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Go-Live", "Lookback"] as const).map((type) => {
+            {(["Signal", "Shaping", "Decision", "Override", "Comms", "Clinics", "Lookback"] as const).map((type) => {
               const list = results[type];
               if (list.length === 0) return null;
               const visible = list.slice(0, 5);
@@ -251,7 +251,7 @@ function typeBadgeTone(type: Hit["type"]): string {
       return "bg-destructive/15 text-destructive";
     case "Comms":
       return "bg-[var(--color-status-hold)]/15 text-[var(--color-status-hold)]";
-    case "Go-Live":
+    case "Clinics":
       return "bg-accent text-accent-foreground";
     case "Lookback":
       return "bg-muted text-muted-foreground";
