@@ -21,7 +21,7 @@ export function signalsToCsv(
     "title",
     "source",
     "product",
-    "issue_type",
+    "origin",
     "tier",
     "status",
     "owner",
@@ -40,7 +40,7 @@ export function signalsToCsv(
       s.title,
       s.source,
       s.product,
-      s.issue_type,
+      s.origin,
       s.tier,
       s.status,
       owner,
@@ -209,7 +209,7 @@ export function buildQuarterlySummary(args: {
   });
   const golivesQ = goLives.filter((g) => g.status === "Live" && inQ(g.scheduled_for));
   const ovrQ = overrides.filter((o) => inQ(o.raised_at));
-  const incidents = signals.filter((s) => s.issue_type === "Incident" && inQ(s.created_at));
+  const incidents = signals.filter((s) => s.origin === "Incident" && inQ(s.created_at));
   const upcoming = shaping.filter((s) => (s.roadmap_bucket === "Committed" || s.roadmap_bucket === "Backlog") && (s.shaping_status === "Ready for Sprint" || s.shaping_status === "Approved"));
   const upcomingByProduct = new Map<string, ShapingItem[]>();
   upcoming.forEach((s) => {

@@ -67,6 +67,8 @@ export type Signal = {
   product: Product;
   /** Optional secondary products (multi-select). Primary `product` remains the routing key. */
   additional_products?: Product[];
+  origin: IssueType;
+  /** @deprecated Use origin instead. Kept for persisted local storage compatibility. */
   issue_type: IssueType;
   tier: Tier;
   status: SignalStatus;

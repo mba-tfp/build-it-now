@@ -872,7 +872,7 @@ function IntegrationsTab() {
     const has24h = lastAge < day;
     const isRedAlert = has24h && last && (last.severity === "P0" || last.severity === "P1");
     const openIncident = signals.find(
-      (s) => s.issue_type === "Incident" && s.status !== "Rejected" && s.title.toLowerCase().includes(sys.toLowerCase()),
+      (s) => s.origin === "Incident" && s.status !== "Rejected" && s.title.toLowerCase().includes(sys.toLowerCase()),
     );
     let tone: "ok" | "warn" | "danger" = "ok";
     if (isRedAlert || openIncident) tone = "danger";
