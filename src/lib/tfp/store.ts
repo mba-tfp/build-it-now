@@ -213,6 +213,8 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     approved_at: null,
     jira_key: null,
     delivery_status: null,
+    carry_forwarded_at: null,
+    carry_forwarded_by: null,
     blocked_since: null,
     blocker_description: "",
     delivery_assignee_id: null,
@@ -1394,6 +1396,7 @@ type State = {
     reviewId: string,
     data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
   ) => Signal;
+  closeSprint: (data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => void;
   toggleDevCompleteGate: (id: string, key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", value: boolean) => void;
   signOffDevComplete: (id: string) => void;
   toggleSprintLock: () => void;
@@ -2042,7 +2045,7 @@ export const useTfpStore = create<State>()(
             trigger: "review_overdue",
             title: "Outcome review pending",
             body: `${item.jira_key} moved to Done and needs an outcome review.`,
-            link_to: "/review",
+            link_to: "/delivery?tab=board",
             for_user_id: item.pm_owner_id,
             entity_id: id,
           });
@@ -2179,7 +2182,7 @@ export const useTfpStore = create<State>()(
         if (review) {
           set({
             signals: get().signals.map((s) =>
-              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id } : s,
+              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id, shaping_item_id: review.shaping_id } : s,
             ),
           });
           get().audit_log({
@@ -2202,6 +2205,53 @@ export const useTfpStore = create<State>()(
           ),
         });
         return sig;
+      },
+
+      closeSprint: (data) => {
+        const current = get().sprint;
+        const now = new Date();
+        const retro = get().createRetro({
+          sprint_id: current.id,
+          what_worked: data.what_worked,
+          what_didnt: data.what_didnt,
+          one_change: data.one_change,
+          primary_theme: data.primary_theme,
+        });
+        const nextStart = new Date(now.getTime() + 86400000);
+        const nextEnd = new Date(nextStart.getTime() + 14 * 86400000);
+        const nextSprint: Sprint = {
+          id: "s-" + uid(),
+          name: "Active Sprint",
+          start_date: nextStart.toISOString(),
+          end_date: nextEnd.toISOString(),
+          status: "Active",
+          scope_locked_at: null,
+          scope_locked_by: null,
+          gross_capacity_pts: current.gross_capacity_pts,
+          leave_deduction_pts: 0,
+          interrupt_buffer_pts: 0,
+          qa_buffer_pts: 0,
+          uncertainty_buffer_pts: 0,
+          golive_deduction_pts: 0,
+          carryforward_estimate_pts: 0,
+          allocated_pts: 0,
+          notes: "",
+        };
+        const completedSprint = { ...current, status: "Completed" as const, close_summary: data.summary, closed_at: now.toISOString() };
+        set({
+          sprint: nextSprint,
+          sprints: [...get().sprints.map((sp) => (sp.id === current.id ? completedSprint : sp)), nextSprint],
+          shaping: get().shaping.map((item) => item.in_sprint ? { ...item, in_sprint: false, updated_at: now.toISOString() } : item),
+        });
+        get().audit_log({ entity_type: "sprint", entity_id: current.id, action: `Sprint closed: ${data.summary}` });
+        USERS.forEach((user) => get().pushNotification({
+          trigger: "retro_escalation",
+          title: `${current.name} closed`,
+          body: `${data.summary} Retro logged: ${retro.primary_theme}.`,
+          link_to: "/delivery?tab=board",
+          for_user_id: user.id,
+          entity_id: current.id,
+        }));
       },
 
       // ============ Wave 4 actions ============

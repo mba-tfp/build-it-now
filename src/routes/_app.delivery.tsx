@@ -6,7 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
+import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
@@ -34,6 +34,7 @@ function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
+  const reviews = useTfpStore((s) => s.reviews);
   const users = useTfpStore((s) => s.users);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
@@ -42,6 +43,10 @@ function DeliveryPage() {
   const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const pushNotification = useTfpStore((s) => s.pushNotification);
+  const startReview = useTfpStore((s) => s.startReview);
+  const completeReview = useTfpStore((s) => s.completeReview);
+  const logFollowOnSignal = useTfpStore((s) => s.logFollowOnSignal);
+  const closeSprint = useTfpStore((s) => s.closeSprint);
 
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
@@ -49,6 +54,7 @@ function DeliveryPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
   const readyRows = useMemo<Row[]>(() => {
@@ -77,6 +83,10 @@ function DeliveryPage() {
     .filter((row): row is Row => !!row.sig);
   const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
   const usable = usableCapacity(sprint);
+  const sprintEnded = new Date(sprint.end_date).getTime() < Date.now();
+  const unresolvedCount = sprintRows.filter(({ sh }) => sh.delivery_status !== "Done" && !sh.carry_forwarded_at).length;
+  const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
+  const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
   if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
 
@@ -142,6 +152,17 @@ function DeliveryPage() {
     setBlockerFor(null);
   }
 
+  function ensureReview(shapingId: string) {
+    return reviews.find((review) => review.shaping_id === shapingId) ?? startReview(shapingId);
+  }
+
+  function logFollowOn(row: Row, text: string) {
+    const review = ensureReview(row.sh.id);
+    if (!review) return;
+    logFollowOnSignal(review.id, { title: text, description: text, source: "Internal", product: row.sig.product });
+    toast.success("Follow-on signal logged in Inbox");
+  }
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -204,11 +225,22 @@ function DeliveryPage() {
       {tab === "board" && (
         <SprintBoard
           rows={sprintRows}
+          reviews={reviews}
+          sprintName={sprint.name}
+          closeBlocker={closeBlocker}
           users={users}
           expandedCriteria={expandedCriteria}
           setExpandedCriteria={setExpandedCriteria}
           onViewBrief={setBriefFor}
           onLogBlocker={setBlockerFor}
+          onEnsureReview={ensureReview}
+          onCompleteReview={completeReview}
+          onLogFollowOn={logFollowOn}
+          onCarryForward={(row) => {
+            updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
+            toast.success("Marked carry-forward");
+          }}
+          onCloseSprint={() => setCloseOpen(true)}
         />
       )}
 
@@ -219,6 +251,17 @@ function DeliveryPage() {
           users={users}
           onCancel={() => setBlockerFor(null)}
           onSave={logProductBlocker}
+        />
+      )}
+      {closeOpen && (
+        <SprintCloseModal
+          sprintName={sprint.name}
+          onCancel={() => setCloseOpen(false)}
+          onConfirm={(data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => {
+            closeSprint(data);
+            setCloseOpen(false);
+            toast.success("Sprint closed");
+          }}
         />
       )}
     </div>
@@ -469,22 +512,52 @@ function CapacityBar({
 
 function SprintBoard({
   rows,
+  reviews,
+  sprintName,
+  closeBlocker,
   users,
   expandedCriteria,
   setExpandedCriteria,
   onViewBrief,
   onLogBlocker,
+  onEnsureReview,
+  onCompleteReview,
+  onLogFollowOn,
+  onCarryForward,
+  onCloseSprint,
 }: {
   rows: Row[];
+  reviews: Review[];
+  sprintName: string;
+  closeBlocker: string;
   users: User[];
   expandedCriteria: Record<string, boolean>;
   setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>;
   onViewBrief: (row: Row) => void;
   onLogBlocker: (row: Row) => void;
+  onEnsureReview: (shapingId: string) => Review | null;
+  onCompleteReview: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void;
+  onLogFollowOn: (row: Row, text: string) => void;
+  onCarryForward: (row: Row) => void;
+  onCloseSprint: () => void;
 }) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
+        <div>
+          <h2 className="font-display text-lg">{sprintName}</h2>
+          <p className="text-xs text-muted-foreground">Close is gated by resolved work and completed outcome reviews.</p>
+        </div>
+        <button
+          disabled={!!closeBlocker}
+          title={closeBlocker || "Ready to close sprint"}
+          onClick={onCloseSprint}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Close sprint
+        </button>
+      </div>
       <BlockedRail rows={blocked} onLogBlocker={onLogBlocker} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_COLUMNS.map((status) => {
@@ -500,6 +573,7 @@ function SprintBoard({
                   <BoardCard
                     key={row.sh.id}
                     row={row}
+                    review={completedReview(reviews, row.sh.id)}
                     users={users}
                     expanded={!!expandedCriteria[row.sh.id]}
                     onToggleMore={() =>
@@ -509,6 +583,10 @@ function SprintBoard({
                       }))
                     }
                     onViewBrief={() => onViewBrief(row)}
+                    onEnsureReview={() => onEnsureReview(row.sh.id)}
+                    onCompleteReview={onCompleteReview}
+                    onLogFollowOn={(text) => onLogFollowOn(row, text)}
+                    onCarryForward={() => onCarryForward(row)}
                   />
                 ))}
               </div>
@@ -522,19 +600,30 @@ function SprintBoard({
 
 function BoardCard({
   row,
+  review,
   users,
   expanded,
   onToggleMore,
   onViewBrief,
+  onEnsureReview,
+  onCompleteReview,
+  onLogFollowOn,
+  onCarryForward,
 }: {
   row: Row;
+  review: Review | null;
   users: User[];
   expanded: boolean;
   onToggleMore: () => void;
   onViewBrief: () => void;
+  onEnsureReview: () => Review | null;
+  onCompleteReview: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void;
+  onLogFollowOn: (text: string) => void;
+  onCarryForward: () => void;
 }) {
   const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
   const staleDays = daysSince(row.sh.updated_at);
+  const [reviewOpen, setReviewOpen] = useState(false);
   return (
     <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -553,6 +642,7 @@ function BoardCard({
             {staleDays}d stale
           </span>
         )}
+        {row.sh.carry_forwarded_at && <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">Carry-forwarded</span>}
       </div>
       <div className="mt-3 rounded-md bg-surface-2 p-2 text-xs text-muted-foreground">
         <p className={expanded ? "" : "line-clamp-2"}>
@@ -564,12 +654,20 @@ function BoardCard({
           </button>
         )}
       </div>
-      <button
-        onClick={onViewBrief}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
-      >
-        <Eye className="h-3.5 w-3.5" /> View brief
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={onViewBrief} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">
+          <Eye className="h-3.5 w-3.5" /> View brief
+        </button>
+        {row.sh.delivery_status !== "Done" && !row.sh.carry_forwarded_at && (
+          <button onClick={onCarryForward} className="rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">Carry forward</button>
+        )}
+        {row.sh.delivery_status === "Done" && (review ? (
+          <span className="rounded-full border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 px-2 py-1 text-xs font-medium text-[var(--color-status-proceed)]">Review complete</span>
+        ) : (
+          <button onClick={() => { onEnsureReview(); setReviewOpen((open) => !open); }} className="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Review pending</button>
+        ))}
+      </div>
+      {reviewOpen && row.sh.delivery_status === "Done" && !review && <OutcomeReviewPanel review={onEnsureReview()} onComplete={onCompleteReview} onLogFollowOn={onLogFollowOn} />}
     </article>
   );
 }
@@ -611,6 +709,61 @@ function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: 
       </div>
     </section>
   );
+}
+
+function OutcomeReviewPanel({ review, onComplete, onLogFollowOn }: { review: Review | null; onComplete: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void; onLogFollowOn: (text: string) => void }) {
+  const [rating, setRating] = useState<OutcomeRating | null>(null);
+  const [worked, setWorked] = useState("");
+  const [didnt, setDidnt] = useState("");
+  const [followOn, setFollowOn] = useState("");
+  const ready = !!review && !!rating && worked.trim().length > 0 && didnt.trim().length > 0;
+  return (
+    <div className="mt-3 rounded-md border border-border bg-surface-2 p-3">
+      <div className="flex flex-wrap gap-2">
+        {(["Met", "Partially Met", "Missed"] as OutcomeRating[]).map((option) => (
+          <button key={option} onClick={() => setRating(option)} className={cn("rounded-md border px-2 py-1 text-xs font-medium", rating === option ? option === "Met" ? "border-[var(--color-status-proceed)] bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]" : option === "Partially Met" ? "border-[var(--color-status-hold)] bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]" : "border-destructive bg-destructive/10 text-destructive" : "border-input hover:bg-accent/40")}>{option}</button>
+        ))}
+      </div>
+      <input value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+      <input value={didnt} onChange={(e) => setDidnt(e.target.value)} placeholder="What did not work" className="mt-2 w-full rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+      <div className="mt-2 flex gap-2">
+        <input value={followOn} onChange={(e) => setFollowOn(e.target.value)} placeholder="Follow-on signal" className="min-w-0 flex-1 rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+        <button disabled={!followOn.trim()} onClick={() => { onLogFollowOn(followOn.trim()); setFollowOn(""); }} className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40">Log as new signal</button>
+      </div>
+      <button disabled={!ready} onClick={() => review && rating && onComplete(review.id, { outcome_rating: rating, what_worked: worked.trim(), what_didnt: didnt.trim(), notes: `${worked.trim()} ${didnt.trim()}` })} className="mt-3 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-40">Submit</button>
+    </div>
+  );
+}
+
+function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: string; onCancel: () => void; onConfirm: (data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => void }) {
+  const [summary, setSummary] = useState("");
+  const [worked, setWorked] = useState("");
+  const [didnt, setDidnt] = useState("");
+  const [change, setChange] = useState("");
+  const [theme, setTheme] = useState<RetroTheme>("Process");
+  const ready = [summary, worked, didnt, change].every((value) => value.trim().length > 0);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Close {sprintName}</h2>
+        <input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Sprint summary" className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={didnt} onChange={(e) => setDidnt(e.target.value)} placeholder="What did not work" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={change} onChange={(e) => setChange(e.target.value)} placeholder="One change next sprint" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <select value={theme} onChange={(e) => setTheme(e.target.value as RetroTheme)} className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm">
+          {(["Process", "Tools", "Communication", "Quality", "Capacity", "Other"] as RetroTheme[]).map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+          <button disabled={!ready} onClick={() => onConfirm({ summary: summary.trim(), what_worked: worked.trim(), what_didnt: didnt.trim(), one_change: change.trim(), primary_theme: theme })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function completedReview(reviews: Review[], shapingId: string) {
+  return reviews.find((review) => review.shaping_id === shapingId && review.status === "Completed") ?? null;
 }
 
 function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {

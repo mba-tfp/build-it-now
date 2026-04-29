@@ -144,6 +144,8 @@ export type ShapingItem = {
   /** True once explicitly added to the active sprint. False = sits in Backlog after Push to Jira. */
   in_sprint?: boolean;
   delivery_status: DeliveryStatus | null;
+  carry_forwarded_at?: string | null;
+  carry_forwarded_by?: string | null;
   blocked_since: string | null;
   blocker_description: string;
   delivery_assignee_id: string | null;
@@ -220,6 +222,8 @@ export type Sprint = {
   carryforward_estimate_pts: number;
   allocated_pts: number;
   notes?: string;
+  close_summary?: string;
+  closed_at?: string | null;
 };
 
 // ============ Wave 4 additions ============

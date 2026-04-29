@@ -44,13 +44,14 @@ function LeadershipPage() {
     .filter((item) => item.delivery_status === "Done")
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 5);
+  const shippedVisible = [...reviewsMissing, ...shipped.filter((item) => !reviewsMissing.some((missing) => missing.id === item.id))].slice(0, 7);
 
   const briefingMarkdown = useMemo(() => {
     const lines = [
       `# Leadership briefing — ${fmtDate(new Date().toISOString())}`,
       "",
       "## Needs your attention",
-      attentionCount ? `- ${attentionCount} item(s): ${pendingOverrides.length} overrides, ${blocked48.length} 48h blockers, ${slaBreached.length} SLA breaches, ${reviewsMissing.length} overdue reviews${retroOverdue ? ", retro overdue" : ""}.` : "- Nothing needs your attention right now.",
+      attentionCount ? `- ${attentionCount} item(s): ${pendingOverrides.length} overrides, ${blocked48.length} 48h blockers, ${slaBreached.length} SLA breaches, ${reviewsMissing.length} items shipped with no outcome review${retroOverdue ? ", retro overdue" : ""}.` : "- Nothing needs your attention right now.",
       "",
       "## This sprint",
       `- ${sprint.notes || "Sprint goal not set."}`,
@@ -60,10 +61,10 @@ function LeadershipPage() {
       `- ${recentClinicSignals.length} clinic signals in the last 14 days; ${rejectedClinicSignals.length} rejected.`,
       "",
       "## What shipped and did it work",
-      ...(shipped.length ? shipped.map((item) => `- ${signalTitle(signals, item)} — ${reviewLabel(completedReview(reviews, item.id))}`) : ["- Nothing marked Done yet."]),
+      ...(shippedVisible.length ? shippedVisible.map((item) => `- ${signalTitle(signals, item)} — ${reviewLabel(completedReview(reviews, item.id))}`) : ["- Nothing marked Done yet."]),
     ];
     return lines.join("\n");
-  }, [attentionCount, blocked.length, blocked48.length, done.length, inSprint.length, pendingOverrides.length, recentClinicSignals.length, rejectedClinicSignals.length, reviews, reviewsMissing.length, retroOverdue, shipped, signals, slaBreached.length, sprint, usable]);
+  }, [attentionCount, blocked.length, blocked48.length, done.length, inSprint.length, pendingOverrides.length, recentClinicSignals.length, rejectedClinicSignals.length, reviews, reviewsMissing.length, retroOverdue, shippedVisible, signals, slaBreached.length, sprint, usable]);
 
   function copyBriefing() {
     navigator.clipboard?.writeText(briefingMarkdown);
@@ -107,7 +108,7 @@ function LeadershipPage() {
               <AttentionRow key={signal.id} tone="bad" title={signal.title} meta={`${signal.source} · ${daysSince(signal.sla_due_at)}d overdue`} />
             ))}
             {reviewsMissing.map((item) => (
-              <AttentionRow key={item.id} tone="bad" title={signalTitle(signals, item)} meta={`${daysSince(item.updated_at)}d since Done`} />
+              <AttentionRow key={item.id} tone="bad" title="Item shipped with no outcome review" meta={`${signalTitle(signals, item)} · ${daysSince(item.updated_at)}d since Done`} />
             ))}
             {retroOverdue && <AttentionRow tone="bad" title={`${sprint.name} retro overdue`} meta={`${daysSince(sprint.end_date)}d overdue`} />}
           </div>
@@ -181,12 +182,12 @@ function LeadershipPage() {
 
       <Panel title="What shipped and did it work">
         <div className="space-y-3">
-          {shipped.map((item) => {
+          {shippedVisible.map((item) => {
             const signal = signals.find((s) => s.id === item.signal_id);
             const review = completedReview(reviews, item.id);
             const overdue = !review && daysSince(item.updated_at) > 5;
             return (
-              <div key={item.id} className="rounded-md border border-border bg-surface p-3">
+              <div key={item.id} className={cn("rounded-md border bg-surface p-3", overdue ? "border-destructive/50 bg-destructive/5" : "border-border")}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div><p className="font-medium">{signal?.title ?? item.jira_key}</p><p className="mt-1 text-xs text-muted-foreground">{signal?.product ?? "—"} · {item.jira_key ?? "—"} · completed {fmtDate(item.updated_at)}</p></div>
                   <div className="flex flex-wrap gap-2"><OutcomeBadge rating={review?.outcome_rating ?? null} />{overdue && <Badge tone="bad">Review overdue</Badge>}</div>
@@ -195,7 +196,7 @@ function LeadershipPage() {
               </div>
             );
           })}
-          {shipped.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing marked Done yet.</p>}
+          {shippedVisible.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nothing marked Done yet.</p>}
         </div>
       </Panel>
 
