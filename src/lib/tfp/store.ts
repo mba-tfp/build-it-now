@@ -2276,6 +2276,7 @@ export const useTfpStore = create<State>()(
           title: `${ovr.id} awaiting acknowledgement`,
           body: ovr.reason.slice(0, 100),
           link_to: "/delivery",
+          for_user_id: "u-shahid",
           entity_id: ovr.id,
         });
         return ovr;
@@ -2424,6 +2425,7 @@ export const useTfpStore = create<State>()(
           title: "Comms awaiting PM approval",
           body: get().comms.find((c) => c.id === id)?.subject ?? "",
           link_to: "/governance",
+          for_user_id: get().currentUserId,
           entity_id: id,
         });
       },
@@ -2504,6 +2506,7 @@ export const useTfpStore = create<State>()(
             title: `${data.primary_theme} theme escalated (3 sprints)`,
             body: data.one_change,
             link_to: "/governance",
+            for_user_id: "u-shahid",
             entity_id: retro.id,
           });
         }
