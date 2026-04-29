@@ -353,7 +353,7 @@ function FastTrack({ item }: { item: ShapingItem }) {
   const ready = rootCause.trim().length >= 30;
   const hasRootCause = item.fast_track_root_cause.trim().length >= 30;
   const isPM = me.role === "PM" || me.role === "Senior PM";
-  const isApproved = item.shaping_status === "Approved" || item.shaping_status === "In Delivery" || !!item.jira_key;
+  const isApproved = item.shaping_status === "Ready for Sprint" || item.shaping_status === "Approved" || item.shaping_status === "In Delivery" || !!item.jira_key;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -400,14 +400,14 @@ function FastTrack({ item }: { item: ShapingItem }) {
           <div className="tfp-card p-5">
             <p className="text-sm font-medium">PM approval</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Approving will create the Jira ticket and move this to delivery immediately.
+              Approving marks this item Ready for Sprint. Jira is created only during Sprint Planning.
             </p>
             <button
               disabled={!isPM}
               onClick={() => approveFastTrack(item.id, me.id)}
               className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             >
-              <Check className="h-4 w-4" /> Approve & push to Jira
+              <Check className="h-4 w-4" /> Approve for sprint planning
             </button>
             {!isPM && <p className="mt-2 text-xs text-muted-foreground">Switch to a PM to approve.</p>}
           </div>
