@@ -7,6 +7,7 @@ import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { CommitmentType, IntakePriority, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
 import { LabelsList, StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { LabelSuggestions } from "@/components/tfp/LabelSuggestions";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { Pencil, Save, Search, Sparkles, X } from "lucide-react";
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/_app/triage")({
 });
 
 const STATUSES: Array<SignalStatus | "All"> = ["All", "New", "In Review", "Proceed", "Hold", "Rejected"];
-const SOURCES: Array<Source | "All"> = ["All", "Leadership", "Clinic", "Internal", "Dev Team"];
+const SOURCES: Array<Source | "All"> = ["All", "Leadership", "Clinic", "Internal"];
 const PRODUCTS: Array<Product | "All"> = [
   "All",
   "Otto-Onboard",
@@ -27,21 +28,22 @@ const PRODUCTS: Array<Product | "All"> = [
   "StimSmart",
   "Platform",
 ];
-const TIERS: Array<Tier | "All"> = ["All", "P1", "P2", "P3"];
+const TIERS: Array<Tier | "All"> = ["All", "P0", "P1", "P2", "P3"];
 
 const ALL_STATUSES: SignalStatus[] = ["New", "In Review", "Proceed", "Hold", "Rejected"];
-const ALL_SOURCES: Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
+const ALL_SOURCES: Source[] = ["Leadership", "Clinic", "Internal"];
 const ALL_PRODUCTS: Product[] = ["Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"];
-const ALL_TIERS: Tier[] = ["P1", "P2", "P3"];
+const ALL_TIERS: Tier[] = ["P0", "P1", "P2", "P3"];
 const COMMITMENT_TYPES: CommitmentType[] = ["Feature", "Fix", "Research", "Dependency", "Incident"];
-const SUGGESTED_LABELS = ["French-required", "PHIPA", "patient-facing", "integration", "tech-debt", "Procrea-QC", "compliance", "board"];
 const parseLabels = (value: string) => value.split(",").map((label) => label.trim()).filter(Boolean);
-const ALL_PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
+const ALL_PRIORITIES: IntakePriority[] = ["P0", "P1", "P2", "P3"];
 
 function priorityClasses(p: IntakePriority | undefined): string {
   switch (p) {
-    case "P1":
+    case "P0":
       return "bg-destructive/10 text-destructive";
+    case "P1":
+      return "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]";
     case "P2":
       return "bg-primary/10 text-primary";
     case "P3":
