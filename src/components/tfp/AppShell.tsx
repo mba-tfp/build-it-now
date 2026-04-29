@@ -4,6 +4,7 @@ import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
+import type { NotificationTrigger } from "@/lib/tfp/types";
 import {
   Activity,
   Bell,
@@ -41,6 +42,9 @@ const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType
   { to: "/clinics", label: "Clinics", icon: Building2 },
   { to: "/leadership", label: "Leadership", icon: Crown },
 ];
+
+const firedSessionNotifications = new Set<string>();
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
 
 function AppSidebar() {
   const location = useLocation();
