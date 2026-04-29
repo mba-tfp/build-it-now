@@ -347,7 +347,10 @@ function NotificationsBell() {
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
 
-  const visibleNotifications = notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId);
+  const visibleNotifications = useMemo(
+    () => notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId),
+    [currentUserId, notifications],
+  );
   const unread = visibleNotifications.filter((n) => !n.read).length;
 
   // Toast on new notifications (fired during session, not on initial mount)
