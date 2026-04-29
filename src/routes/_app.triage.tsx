@@ -336,6 +336,7 @@ function TriagePanel({
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
   const users = useTfpStore((s) => s.users);
   const updateSignal = useTfpStore((s) => s.updateSignal);
+  const reopenSignal = useTfpStore((s) => s.reopenSignal);
   const setSignalAttachments = useTfpStore((s) => s.setSignalAttachments);
   const currentUserId = useTfpStore((s) => s.currentUserId);
 
@@ -353,16 +354,26 @@ function TriagePanel({
     else toast.error(res.error ?? "Couldn't save");
   }
   const owner = users.find((u) => u.id === sig.created_by);
-  const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
+  const [mode, setMode] = useState<"none" | "hold" | "reject" | "reopen">("none");
   const [reason, setReason] = useState("");
+  const [formError, setFormError] = useState("");
+  const minReviewDate = new Date().toISOString().slice(0, 10);
+  const defaultReviewDate = () => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const [holdDate, setHoldDate] = useState(
-    new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    defaultReviewDate(),
   );
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Signal>>({});
   const [commitmentType, setCommitmentType] = useState<CommitmentType | "">(suggestion.issue_type === "Incident" ? "Incident" : "");
   const [labelsText, setLabelsText] = useState(sig.labels.join(", "));
+
+  const openMode = (next: typeof mode) => {
+    setReason("");
+    setFormError("");
+    setMode(next);
+    if (next === "hold") setHoldDate(defaultReviewDate());
+  };
 
   const startEdit = () => {
     setDraft({
@@ -675,13 +686,13 @@ function TriagePanel({
                     Proceed → Shaping
                   </button>
                   <button
-                    onClick={() => setMode("hold")}
+                    onClick={() => openMode("hold")}
                     className="rounded-md border border-border bg-surface px-3 py-2 text-sm hover:bg-accent/40"
                   >
                     Hold
                   </button>
                   <button
-                    onClick={() => setMode("reject")}
+                    onClick={() => openMode("reject")}
                     className="rounded-md border border-destructive/30 bg-surface px-3 py-2 text-sm text-destructive hover:bg-destructive/5"
                   >
                     Reject
@@ -692,7 +703,7 @@ function TriagePanel({
               {mode === "hold" && (
                 <div className="space-y-3">
                   <label className="block text-xs text-muted-foreground">Review on
-                    <input type="date" value={holdDate} onChange={(e) => setHoldDate(e.target.value)}
+                    <input type="date" value={holdDate} min={minReviewDate} onChange={(e) => setHoldDate(e.target.value)}
                       className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
                   </label>
                   <label className="block text-xs text-muted-foreground">Reason
@@ -700,11 +711,18 @@ function TriagePanel({
                       placeholder="Why are we holding this?"
                       className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
                   </label>
+                  {formError && <p className="text-xs text-destructive">{formError}</p>}
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button onClick={() => openMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
                     <button
                       disabled={!reason.trim()}
-                      onClick={() => onHold(reason, new Date(holdDate).toISOString())}
+                      onClick={() => {
+                        if (!holdDate || holdDate < minReviewDate) {
+                          setFormError("Review date must be in the future");
+                          return;
+                        }
+                        onHold(reason, new Date(holdDate).toISOString());
+                      }}
                       className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-40"
                     >
                       Place on hold
@@ -721,7 +739,7 @@ function TriagePanel({
                       className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm" />
                   </label>
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button onClick={() => openMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
                     <button
                       disabled={!reason.trim()}
                       onClick={() => onReject(reason)}
@@ -735,7 +753,47 @@ function TriagePanel({
             </div>
           ) : !editing ? (
             <div className="rounded-md border border-border bg-surface-2 p-3 text-sm text-muted-foreground">
-              Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>. Use Edit to change details or status.
+              <p>Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>. Use Edit to change details or status.</p>
+              {sig.status === "Rejected" && mode === "none" && (
+                <button
+                  onClick={() => openMode("reopen")}
+                  className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground hover:bg-accent/40"
+                >
+                  Reopen signal
+                </button>
+              )}
+              {sig.status === "Rejected" && mode === "reopen" && (
+                <div className="mt-3 space-y-3">
+                  <label className="block text-xs text-muted-foreground">Reason for reopening
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      rows={3}
+                      placeholder="Explain what changed and why this should be reviewed again."
+                      className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm text-foreground"
+                    />
+                  </label>
+                  {formError && <p className="text-xs text-destructive">{formError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button
+                      disabled={reason.trim().length < 20}
+                      onClick={() => {
+                        const res = reopenSignal(sig.id, reason);
+                        if (res.ok) {
+                          toast.success("Signal reopened and back in review");
+                          openMode("none");
+                        } else {
+                          setFormError(res.error ?? "Couldn't reopen signal");
+                        }
+                      }}
+                      className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-40"
+                    >
+                      Confirm reopen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
         </div>

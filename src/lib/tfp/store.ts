@@ -48,7 +48,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<SignalStatus, SignalStatus[]> = 
   New: ["In Review", "Hold", "Rejected", "Proceed"],
   "In Review": ["Proceed", "Hold", "Rejected"],
   Hold: ["In Review", "Proceed", "Rejected"],
-  Rejected: [],
+  Rejected: ["In Review"],
   Proceed: [],
 };
 
@@ -1368,6 +1368,7 @@ type State = {
     commitmentType?: import("./types").CommitmentType | null,
   ) => void;
   updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
+  reopenSignal: (signalId: string, reason: string) => { ok: boolean; error?: string };
   setSignalAttachments: (signalId: string, next: Attachment[]) => void;
   setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
@@ -1693,6 +1694,24 @@ export const useTfpStore = create<State>()(
           });
         }
 
+        return { ok: true };
+      },
+
+      reopenSignal: (signalId, reason) => {
+        const cleanReason = reason.trim();
+        const prev = get().signals.find((s) => s.id === signalId);
+        if (!prev) return { ok: false, error: "Signal not found" };
+        if (prev.status !== "Rejected") return { ok: false, error: "Only rejected signals can be reopened" };
+        if (cleanReason.length < 20) return { ok: false, error: "Reason must be at least 20 characters" };
+        set({
+          signals: get().signals.map((s) =>
+            s.id === signalId
+              ? { ...s, status: "In Review", triage_reason: null, hold_until: null, owner_id: get().currentUserId }
+              : s,
+          ),
+        });
+        get().audit_log({ entity_type: "signal", entity_id: signalId, action: `Signal reopened: ${cleanReason}` });
+        get().logOverride({ kind: "Other", reason: cleanReason, signal_id: signalId, shahid_visible: true });
         return { ok: true };
       },
 
@@ -2044,11 +2063,12 @@ export const useTfpStore = create<State>()(
             }));
         }
         if (nowDone && !wasDone && !alreadyHasReview) {
+          const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
           get().pushNotification({
             trigger: "review_overdue",
-            title: "Outcome review pending",
-            body: `${item.jira_key} moved to Done and needs an outcome review.`,
-            link_to: "/delivery?tab=board",
+            title: `Outcome review needed: ${signalTitle}`,
+            body: `${item.jira_key} moved to Done. Rate the outcome to close the loop.`,
+            link_to: "/delivery",
             for_user_id: item.pm_owner_id,
             entity_id: id,
           });
@@ -2280,6 +2300,7 @@ export const useTfpStore = create<State>()(
         const g = item.dev_complete;
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         const now = new Date().toISOString();
+        const wasDone = item.delivery_status === "Done";
         // B5: auto-advance to Done when sign-off completes the gate.
         const nextDelivery: DeliveryStatus = "Done";
         set({
@@ -2318,6 +2339,17 @@ export const useTfpStore = create<State>()(
             updated_at: now,
           };
           set({ reviews: [review, ...reviews] });
+          if (!wasDone) {
+            const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
+            get().pushNotification({
+              trigger: "review_overdue",
+              title: `Outcome review needed: ${signalTitle}`,
+              body: `${item.jira_key ?? "Jira item"} moved to Done. Rate the outcome to close the loop.`,
+              link_to: "/delivery",
+              for_user_id: item.pm_owner_id,
+              entity_id: id,
+            });
+          }
         }
       },
 
@@ -2667,6 +2699,13 @@ export const useTfpStore = create<State>()(
         return tdr;
       },
       simulateMonitoringAlert: (data) => {
+        const productBySystem: Record<MonitoringSystem, Product> = {
+          "Phelix AI": "Otto Notes",
+          Accuro: "Otto-Onboard",
+          "Olive EngagedMD": "Otto-Onboard",
+          EngagedMD: "Otto-Onboard",
+          "Tia Health": "Platform",
+        };
         const alert: MonitoringAlert = {
           id: "mon-" + uid(),
           system: data.system,
@@ -2696,7 +2735,7 @@ export const useTfpStore = create<State>()(
             title: `[MONITORING] ${data.system} — ${data.integration}`,
             description: `${data.severity}: ${data.message}`,
             source: "Internal",
-            product: "Platform",
+            product: productBySystem[data.system] ?? "Platform",
             issue_type_override: "Incident",
             tier_override: "P1",
             displacement_flag: false,
