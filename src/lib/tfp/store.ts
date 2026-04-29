@@ -64,6 +64,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   multiSelectIntake: true,
   auditVerbose: false,
   adminPanelEnabled: true,
+  demoModeEnabled: false,
 };
 
 const SEED_HELP: HelpArticle[] = [
@@ -1519,6 +1520,7 @@ type State = {
   resetOnboarding: (userId: string) => void;
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
+  setDemoMode: (enabled: boolean) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
   upsertHelpArticle: (article: Omit<HelpArticle, "id" | "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
@@ -1952,9 +1954,10 @@ export const useTfpStore = create<State>()(
         }
         if (item.jira_key) return item.jira_key;
         const key = nextJiraKey();
+        const now = new Date().toISOString();
         const event: JiraEvent = {
           id: "je-" + uid(),
-          ts: new Date().toISOString(),
+          ts: now,
           direction: "outbound",
           type: "issue.created",
           jira_key: key,
@@ -2092,9 +2095,11 @@ export const useTfpStore = create<State>()(
             return;
           }
         }
+        const now = new Date().toISOString();
+        const demoMode = get().flags.demoModeEnabled;
         const event: JiraEvent = {
           id: "je-" + uid(),
-          ts: new Date().toISOString(),
+          ts: now,
           direction: "outbound",
           type: "issue.transitioned",
           jira_key: item.jira_key,
@@ -2105,39 +2110,55 @@ export const useTfpStore = create<State>()(
         const nowDone = next === "Done";
         const reviews = get().reviews;
         const alreadyHasReview = reviews.some((r) => r.shaping_id === id);
-        const newReviews =
-          nowDone && !wasDone && !alreadyHasReview
-            ? [
+        const newReviews = nowDone && !wasDone
+          ? alreadyHasReview && demoMode
+            ? reviews.map((review) =>
+                review.shaping_id === id
+                  ? {
+                      ...review,
+                      status: "Completed" as const,
+                      completed_at: now,
+                      outcome_rating: "Met" as const,
+                      what_worked: review.what_worked || "Auto-completed in demo mode.",
+                      what_didnt: review.what_didnt || "Auto-completed in demo mode.",
+                      notes: review.notes || "Auto-completed in demo mode.",
+                      updated_at: now,
+                    }
+                  : review,
+              )
+            : !alreadyHasReview
+              ? [
                 {
                   id: "rv-" + uid(),
                   shaping_id: id,
                   signal_id: item.signal_id,
                   size: pickReviewSize(item),
-                  status: "Pending" as const,
+                  status: demoMode ? "Completed" as const : "Pending" as const,
                   pm_owner_id: item.pm_owner_id,
                   scheduled_for: null,
-                  completed_at: null,
-                  outcome_rating: null,
-                  what_worked: "",
-                  what_didnt: "",
+                  completed_at: demoMode ? now : null,
+                  outcome_rating: demoMode ? "Met" as const : null,
+                  what_worked: demoMode ? "Auto-completed in demo mode." : "",
+                  what_didnt: demoMode ? "Auto-completed in demo mode." : "",
                   follow_on_signals_created: [],
-                  notes: "",
+                  notes: demoMode ? "Auto-completed in demo mode." : "",
                   follow_on_draft_title: "",
                   follow_on_draft_description: "",
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
+                  created_at: now,
+                  updated_at: now,
                 },
                 ...reviews,
               ]
-            : reviews;
+              : reviews
+          : reviews;
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
               ? {
                   ...s,
                   delivery_status: next,
-                  blocked_since: next === "Blocked" ? new Date().toISOString() : null,
-                  updated_at: new Date().toISOString(),
+                  blocked_since: next === "Blocked" ? now : null,
+                  updated_at: now,
                 }
               : s,
           ),
@@ -2370,7 +2391,7 @@ export const useTfpStore = create<State>()(
           trigger: "retro_escalation",
           title: `${current.name} closed`,
           body: `${data.summary} Retro logged: ${retro.primary_theme}.`,
-          link_to: "/delivery?tab=board",
+          link_to: "/delivery",
           for_user_id: user.id,
           entity_id: current.id,
         }));
@@ -2400,6 +2421,7 @@ export const useTfpStore = create<State>()(
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         const now = new Date().toISOString();
         const wasDone = item.delivery_status === "Done";
+        const demoMode = get().flags.demoModeEnabled;
         // B5: auto-advance to Done when sign-off completes the gate.
         const nextDelivery: DeliveryStatus = "Done";
         set({
@@ -2415,23 +2437,40 @@ export const useTfpStore = create<State>()(
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
-        // Auto-create a Pending review if none exists yet.
+        // Auto-create a review if none exists yet.
         const reviews = get().reviews;
-        if (!reviews.some((r) => r.shaping_id === id)) {
+        if (demoMode && reviews.some((r) => r.shaping_id === id)) {
+          set({
+            reviews: reviews.map((review) =>
+              review.shaping_id === id
+                ? {
+                    ...review,
+                    status: "Completed",
+                    completed_at: now,
+                    outcome_rating: "Met",
+                    what_worked: review.what_worked || "Auto-completed in demo mode.",
+                    what_didnt: review.what_didnt || "Auto-completed in demo mode.",
+                    notes: review.notes || "Auto-completed in demo mode.",
+                    updated_at: now,
+                  }
+                : review,
+            ),
+          });
+        } else if (!reviews.some((r) => r.shaping_id === id)) {
           const review: Review = {
             id: "rv-" + uid(),
             shaping_id: id,
             signal_id: item.signal_id,
             size: pickReviewSize(item),
-            status: "Pending",
+            status: demoMode ? "Completed" : "Pending",
             pm_owner_id: item.pm_owner_id,
             scheduled_for: null,
-            completed_at: null,
-            outcome_rating: null,
-            what_worked: "",
-            what_didnt: "",
+            completed_at: demoMode ? now : null,
+            outcome_rating: demoMode ? "Met" : null,
+            what_worked: demoMode ? "Auto-completed in demo mode." : "",
+            what_didnt: demoMode ? "Auto-completed in demo mode." : "",
             follow_on_signals_created: [],
-            notes: "",
+            notes: demoMode ? "Auto-completed in demo mode." : "",
             follow_on_draft_title: "",
             follow_on_draft_description: "",
             created_at: now,
@@ -2654,7 +2693,7 @@ export const useTfpStore = create<State>()(
         const item = get().comms.find((c) => c.id === id);
         if (!item) return;
         // B6: separation of duties — drafter cannot self-approve.
-        if (item.drafted_by === me) {
+        if (item.drafted_by === me && !get().flags.demoModeEnabled) {
           if (typeof window !== "undefined") {
             // Lazy import to avoid bundling toast in pure-state path.
             import("sonner").then(({ toast }) => {
@@ -2914,6 +2953,9 @@ export const useTfpStore = create<State>()(
       setFlag: (key, value) => {
         set({ flags: { ...get().flags, [key]: value } });
       },
+      setDemoMode: (enabled) => {
+        set({ flags: { ...get().flags, demoModeEnabled: enabled } });
+      },
       upsertUser: (user) => {
         const exists = get().users.find((u) => u.id === user.id);
         set({ users: exists ? get().users.map((u) => (u.id === user.id ? user : u)) : [...get().users, user] });
@@ -2981,7 +3023,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 9,
+      version: 10,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;

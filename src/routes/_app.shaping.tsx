@@ -21,6 +21,7 @@ import { ScrollTable } from "@/components/tfp/ScrollTable";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
 import type { Attachment } from "@/lib/tfp/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/shaping")({
   validateSearch: zodValidator(z.object({ item: fallback(z.string().optional(), undefined).default(undefined) })),
@@ -582,6 +583,7 @@ function DefineBrief({ item }: { item: ShapingItem }) {
   const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
   const pushNotification = useTfpStore((s) => s.pushNotification);
   const currentUserId = useTfpStore((s) => s.currentUserId);
+  const demoModeEnabled = useTfpStore((s) => s.flags.demoModeEnabled);
   const [assignOpen, setAssignOpen] = useState(false);
   const techLeads = USERS.filter((u) => u.role === "Tech Lead");
   const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? "");
@@ -600,11 +602,20 @@ function DefineBrief({ item }: { item: ShapingItem }) {
   function confirmAssignment() {
     const lead = USERS.find((u) => u.id === selectedTechLead);
     if (!lead) return;
+    const now = new Date().toISOString();
     updateShaping(item.id, {
       current_step: 2,
-      shaping_status: "In Tech Review",
+      shaping_status: demoModeEnabled ? "Ready for Sprint" : "In Tech Review",
       tech_reviewer_id: lead.id,
       solution_complexity: item.solution_complexity ?? "Medium",
+      ...(demoModeEnabled
+        ? {
+            tech_review_notes: "Auto-completed in demo mode.",
+            tech_estimate_pts: 5,
+            tech_concerns: "",
+            tech_signed_off_at: now,
+          }
+        : {}),
     });
     pushNotification({
       trigger: "tech_review_ready",
@@ -614,6 +625,9 @@ function DefineBrief({ item }: { item: ShapingItem }) {
       for_user_id: lead.id,
       entity_id: item.id,
     });
+    if (demoModeEnabled) {
+      toast.success("Tech review auto-completed (demo mode).");
+    }
     setAssignOpen(false);
   }
 

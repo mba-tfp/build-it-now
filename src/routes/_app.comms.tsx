@@ -41,6 +41,7 @@ export function CommsPage() {
   const approve = useTfpStore((s) => s.approveComms);
   const reject = useTfpStore((s) => s.rejectComms);
   const send = useTfpStore((s) => s.sendComms);
+  const demoModeEnabled = useTfpStore((s) => s.flags.demoModeEnabled);
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
 
@@ -175,7 +176,12 @@ export function CommsPage() {
                       <Send className="h-3 w-3" /> Send directly
                     </button>
                   )}
-                  {c.status === "Pending Approval" && canApprove && (
+                  {c.status === "Pending Approval" && demoModeEnabled && c.drafted_by === me && (
+                    <button onClick={() => approve(c.id)} className="inline-flex items-center gap-1 rounded-md bg-[var(--color-status-hold)] px-2.5 py-1 text-xs text-primary-foreground hover:opacity-90">
+                      <Check className="h-3 w-3" /> Approve (demo mode)
+                    </button>
+                  )}
+                  {c.status === "Pending Approval" && canApprove && (!demoModeEnabled || c.drafted_by !== me) && (
                     <>
                       <button onClick={() => approve(c.id)} className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90">
                         <Check className="h-3 w-3" /> Approve
