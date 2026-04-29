@@ -1697,6 +1697,24 @@ export const useTfpStore = create<State>()(
         return { ok: true };
       },
 
+      reopenSignal: (signalId, reason) => {
+        const cleanReason = reason.trim();
+        const prev = get().signals.find((s) => s.id === signalId);
+        if (!prev) return { ok: false, error: "Signal not found" };
+        if (prev.status !== "Rejected") return { ok: false, error: "Only rejected signals can be reopened" };
+        if (cleanReason.length < 20) return { ok: false, error: "Reason must be at least 20 characters" };
+        set({
+          signals: get().signals.map((s) =>
+            s.id === signalId
+              ? { ...s, status: "In Review", triage_reason: null, hold_until: null, owner_id: get().currentUserId }
+              : s,
+          ),
+        });
+        get().audit_log({ entity_type: "signal", entity_id: signalId, action: `Signal reopened: ${cleanReason}` });
+        get().logOverride({ kind: "Other", reason: cleanReason, signal_id: signalId, shahid_visible: true });
+        return { ok: true };
+      },
+
       setSignalAttachments: (signalId, attachments) => {
         set({
           signals: get().signals.map((s) => (s.id === signalId ? { ...s, attachments } : s)),
