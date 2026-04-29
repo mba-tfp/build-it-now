@@ -4,7 +4,6 @@ import { CheckCircle2, Circle, Loader2, RotateCcw, XCircle } from "lucide-react"
 import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
 import type { GoLiveChecklist, Review, ShapingItem, Signal } from "@/lib/tfp/types";
-import { cn } from "@/lib/utils";
 import { procreaFlag } from "./_app.clinics";
 
 export const Route = createFileRoute("/_app/self-test")({
