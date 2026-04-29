@@ -1441,6 +1441,7 @@ type State = {
   reopenSignal: (signalId: string, reason: string) => { ok: boolean; error?: string };
   setSignalAttachments: (signalId: string, next: Attachment[]) => void;
   setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
+  ensureOutcomeReview: (shapingId: string) => Review | null;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
   setRoadmapBucket: (id: string, bucket: RoadmapBucket, displacement: string) => void;
   setComplexity: (id: string, c: Complexity) => void;
@@ -1841,37 +1842,51 @@ export const useTfpStore = create<State>()(
         });
       },
 
+      ensureOutcomeReview: (shapingId) => {
+        const item = get().shaping.find((s) => s.id === shapingId);
+        if (!item) return null;
+        const existing = get().reviews.find((review) => review.shaping_id === shapingId);
+        if (existing) return existing;
+        const now = new Date().toISOString();
+        let size: ReviewSize = "Medium";
+        try {
+          size = pickReviewSize(item);
+        } catch {
+          size = "Medium";
+        }
+        const newReview: Review = {
+          id: "rev-" + uid(),
+          shaping_id: shapingId,
+          signal_id: item.signal_id,
+          size,
+          status: "Pending",
+          pm_owner_id: item.pm_owner_id || "u-bazil",
+          scheduled_for: null,
+          completed_at: null,
+          outcome_rating: null,
+          what_worked: "",
+          what_didnt: "",
+          follow_on_signals_created: [],
+          notes: "",
+          follow_on_draft_title: "",
+          follow_on_draft_description: "",
+          created_at: now,
+          updated_at: now,
+        };
+        set({ reviews: [newReview, ...get().reviews] });
+        return newReview;
+      },
+
       updateShaping: (id, patch) => {
         const item = get().shaping.find((s) => s.id === id);
         const now = new Date().toISOString();
         const movingToDone = patch.delivery_status === "Done" && item?.delivery_status !== "Done";
-        const existingReview = get().reviews.some((review) => review.shaping_id === id);
-        const review: Review | null = item && movingToDone && !existingReview
-          ? {
-              id: "rev-" + uid(),
-              shaping_id: item.id,
-              signal_id: item.signal_id,
-              size: pickReviewSize(item),
-              status: "Pending",
-              pm_owner_id: item.pm_owner_id,
-              scheduled_for: null,
-              completed_at: null,
-              outcome_rating: null,
-              what_worked: "",
-              what_didnt: "",
-              follow_on_signals_created: [],
-              notes: "",
-              follow_on_draft_title: "",
-              follow_on_draft_description: "",
-              created_at: now,
-              updated_at: now,
-            }
-          : null;
+        const alreadyHadReview = get().reviews.some((review) => review.shaping_id === id);
         set({
           shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: now } : s)),
-          ...(review ? { reviews: [review, ...get().reviews] } : {}),
         });
-        if (item && review) {
+        const review = movingToDone ? get().ensureOutcomeReview(id) : null;
+        if (item && review && !alreadyHadReview) {
           const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? "item";
           get().pushNotification({
             trigger: "review_overdue",
