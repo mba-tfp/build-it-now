@@ -74,7 +74,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Inbox",
     section: "Workflow",
     body_markdown:
-      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests origin and P1/P2/P3 priority — P0 is only for explicit intake escalation.",
+      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- SLA tiers: P0 = 48 hours, P1 = 7 days, P2 = 14 days, P3 = 30 days. Auto-classification never assigns P0; it is only for explicit intake escalation.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -3477,7 +3477,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 11,
+      version: 12,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
