@@ -429,7 +429,7 @@ function PlanningTab(props: {
           action={undefined}
         />
         <div className="border-t border-border p-3 text-xs text-muted-foreground">
-          Click a row to move it into sprint planning.
+          Click a row to move it into sprint planning. Jira tickets are created only when the sprint is confirmed.
         </div>
       </section>
 
