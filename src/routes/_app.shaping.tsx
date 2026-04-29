@@ -584,7 +584,7 @@ function DefineBrief({ item }: { item: ShapingItem }) {
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const [assignOpen, setAssignOpen] = useState(false);
   const techLeads = USERS.filter((u) => u.role === "Tech Lead");
-  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? techLeads[0]?.id ?? "");
+  const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? "");
   const requiredFields = [
     { key: "problem_what" as const, label: "Problem", min: 30 },
     { key: "problem_why" as const, label: "Why now", min: 30 },
@@ -658,11 +658,12 @@ function DefineBrief({ item }: { item: ShapingItem }) {
               onChange={(e) => setSelectedTechLead(e.target.value)}
               className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
+              <option value="">Select a Tech Lead</option>
               {techLeads.map((lead) => <option key={lead.id} value={lead.id}>{techLeadName(lead)}</option>)}
             </select>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setAssignOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
-              <button onClick={confirmAssignment} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Confirm</button>
+              <button disabled={!selectedTechLead} onClick={confirmAssignment} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40">Confirm</button>
             </div>
           </div>
         </div>
