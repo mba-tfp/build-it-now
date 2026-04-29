@@ -451,6 +451,7 @@ export type FeatureFlags = {
   multiSelectIntake: boolean;
   auditVerbose: boolean;
   adminPanelEnabled: boolean;
+  demoModeEnabled: boolean;
 };
 
 export type HelpArticle = {
