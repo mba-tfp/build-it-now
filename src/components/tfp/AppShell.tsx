@@ -71,7 +71,6 @@ function AppSidebar() {
       <SidebarContent>
         {([{ label: "Pipeline", items: PIPELINE_NAV }] as const).map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((n) => {
@@ -118,7 +117,12 @@ export function AppShell() {
   const meLive = users.find((u) => u.id === currentUserId);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const showOnboarding = !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset dismiss when user switches
   useEffect(() => {
@@ -284,8 +288,10 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  if (!mounted) return <div className="min-h-screen bg-background" />;
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <SidebarInset>
@@ -332,7 +338,7 @@ export function AppShell() {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1500px] px-6 py-8">
+          <main className="mx-auto w-full max-w-[1500px] px-6 pb-8 pt-4">
             <Outlet />
           </main>
 
