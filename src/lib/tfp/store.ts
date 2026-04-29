@@ -2065,9 +2065,9 @@ export const useTfpStore = create<State>()(
         if (nowDone && !wasDone && !alreadyHasReview) {
           get().pushNotification({
             trigger: "review_overdue",
-            title: "Outcome review pending",
-            body: `${item.jira_key} moved to Done and needs an outcome review.`,
-            link_to: "/delivery?tab=board",
+            title: `Outcome review needed: ${item.title}`,
+            body: `${item.jira_key} moved to Done. Rate the outcome to close the loop.`,
+            link_to: "/delivery",
             for_user_id: item.pm_owner_id,
             entity_id: id,
           });
@@ -2299,6 +2299,7 @@ export const useTfpStore = create<State>()(
         const g = item.dev_complete;
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         const now = new Date().toISOString();
+        const wasDone = item.delivery_status === "Done";
         // B5: auto-advance to Done when sign-off completes the gate.
         const nextDelivery: DeliveryStatus = "Done";
         set({
@@ -2337,6 +2338,16 @@ export const useTfpStore = create<State>()(
             updated_at: now,
           };
           set({ reviews: [review, ...reviews] });
+          if (!wasDone) {
+            get().pushNotification({
+              trigger: "review_overdue",
+              title: `Outcome review needed: ${item.title}`,
+              body: `${item.jira_key ?? "Jira item"} moved to Done. Rate the outcome to close the loop.`,
+              link_to: "/delivery",
+              for_user_id: item.pm_owner_id,
+              entity_id: id,
+            });
+          }
         }
       },
 
