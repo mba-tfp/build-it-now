@@ -2406,6 +2406,7 @@ export const useTfpStore = create<State>()(
         if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed) return;
         const now = new Date().toISOString();
         const wasDone = item.delivery_status === "Done";
+        const demoMode = get().flags.demoModeEnabled;
         // B5: auto-advance to Done when sign-off completes the gate.
         const nextDelivery: DeliveryStatus = "Done";
         set({
@@ -2421,7 +2422,7 @@ export const useTfpStore = create<State>()(
           ),
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
-        // Auto-create a Pending review if none exists yet.
+        // Auto-create a review if none exists yet.
         const reviews = get().reviews;
         if (!reviews.some((r) => r.shaping_id === id)) {
           const review: Review = {
@@ -2429,15 +2430,15 @@ export const useTfpStore = create<State>()(
             shaping_id: id,
             signal_id: item.signal_id,
             size: pickReviewSize(item),
-            status: "Pending",
+            status: demoMode ? "Completed" : "Pending",
             pm_owner_id: item.pm_owner_id,
             scheduled_for: null,
-            completed_at: null,
-            outcome_rating: null,
-            what_worked: "",
-            what_didnt: "",
+            completed_at: demoMode ? now : null,
+            outcome_rating: demoMode ? "Met" : null,
+            what_worked: demoMode ? "Auto-completed in demo mode." : "",
+            what_didnt: demoMode ? "Auto-completed in demo mode." : "",
             follow_on_signals_created: [],
-            notes: "",
+            notes: demoMode ? "Auto-completed in demo mode." : "",
             follow_on_draft_title: "",
             follow_on_draft_description: "",
             created_at: now,
