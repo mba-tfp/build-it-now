@@ -641,10 +641,11 @@ seedShaping.forEach((item) => {
 });
 
 function pickReviewSize(s: ShapingItem): ReviewSize {
-  const pts = s.tech_estimate_pts ?? 0;
-  if (s.solution_complexity === "Complex" || pts >= 13) return "Large";
-  if (s.solution_complexity === "Medium" || pts >= 5) return "Medium";
-  return "Small";
+  const pts = s.tech_estimate_pts;
+  if (pts == null) return "Medium";
+  if (pts <= 3) return "Small";
+  if (pts <= 8) return "Medium";
+  return "Large";
 }
 
 const seedReviews: Review[] = [
@@ -1841,9 +1842,46 @@ export const useTfpStore = create<State>()(
       },
 
       updateShaping: (id, patch) => {
+        const item = get().shaping.find((s) => s.id === id);
+        const now = new Date().toISOString();
+        const movingToDone = patch.delivery_status === "Done" && item?.delivery_status !== "Done";
+        const existingReview = get().reviews.some((review) => review.shaping_id === id);
+        const review: Review | null = item && movingToDone && !existingReview
+          ? {
+              id: "rev-" + uid(),
+              shaping_id: item.id,
+              signal_id: item.signal_id,
+              size: pickReviewSize(item),
+              status: "Pending",
+              pm_owner_id: item.pm_owner_id,
+              scheduled_for: null,
+              completed_at: null,
+              outcome_rating: null,
+              what_worked: "",
+              what_didnt: "",
+              follow_on_signals_created: [],
+              notes: "",
+              follow_on_draft_title: "",
+              follow_on_draft_description: "",
+              created_at: now,
+              updated_at: now,
+            }
+          : null;
         set({
-          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: new Date().toISOString() } : s)),
+          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: now } : s)),
+          ...(review ? { reviews: [review, ...get().reviews] } : {}),
         });
+        if (item && review) {
+          const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? "item";
+          get().pushNotification({
+            trigger: "review_overdue",
+            title: "Outcome review needed",
+            body: `${item.jira_key ?? signalTitle} reached Done — capture what worked.`,
+            link_to: "/delivery",
+            for_user_id: item.pm_owner_id,
+            entity_id: item.id,
+          });
+        }
       },
 
       setRoadmapBucket: (id, bucket, displacement) => {
@@ -2285,7 +2323,19 @@ export const useTfpStore = create<State>()(
       },
 
       updateReview: (id, patch) => {
-        set({ reviews: get().reviews.map((r) => (r.id === id ? { ...r, ...patch, updated_at: new Date().toISOString() } : r)) });
+        const now = new Date().toISOString();
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  ...patch,
+                  completed_at: patch.status === "Completed" ? (patch.completed_at ?? now) : (patch.completed_at ?? r.completed_at),
+                  updated_at: now,
+                }
+              : r,
+          ),
+        });
       },
 
       scheduleReview: (id, when) => {
@@ -2353,6 +2403,20 @@ export const useTfpStore = create<State>()(
       closeSprint: (data) => {
         const current = get().sprint;
         const now = new Date();
+        const missingReviewCount = get().shaping.filter(
+          (item) =>
+            item.in_sprint &&
+            item.delivery_status === "Done" &&
+            !get().reviews.some((review) => review.shaping_id === item.id && review.status === "Completed"),
+        ).length;
+        if (missingReviewCount > 0) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`${missingReviewCount} items need outcome reviews`);
+            });
+          }
+          return;
+        }
         const retro = get().createRetro({
           sprint_id: current.id,
           what_worked: data.what_worked,
