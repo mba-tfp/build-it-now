@@ -221,69 +221,69 @@ function DeliveryPage() {
         </button>
       </header>
 
-      <div className="mb-5 flex flex-wrap gap-2 border-b border-border">
-        {(
-          [
-            ["backlog", "Backlog"],
-            ["planning", "Sprint Planning"],
-            ["board", "Sprint Board"],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => navigate({ search: { tab: value } })}
-            className={cn(
-              "border-b-2 px-3 py-2 text-sm font-medium transition",
-              tab === value
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <div className="space-y-4">
+        <DeliverySection
+          title="SPRINT BOARD"
+          countLabel={`${sprintRows.length} ${sprintRows.length === 1 ? "item" : "items"}`}
+          open={openSections.board}
+          onToggle={() => toggleSection("board")}
+        >
+          <SprintBoard
+            rows={sprintRows}
+            reviews={reviews}
+            sprintName={sprint.name}
+            committedKeys={committedKeys}
+            closeBlocker={closeBlocker}
+            users={users}
+            expandedCriteria={expandedCriteria}
+            setExpandedCriteria={setExpandedCriteria}
+            onViewBrief={setBriefFor}
+            onLogBlocker={setBlockerFor}
+            onEnsureReview={ensureReview}
+            onCompleteReview={completeReview}
+            onLogFollowOn={logFollowOn}
+            onCarryForward={(row) => {
+              updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
+              toast.success("Marked carry-forward");
+            }}
+            onCloseSprint={() => setCloseOpen(true)}
+          />
+        </DeliverySection>
 
-      {tab === "backlog" && (
-        <BacklogTab rows={orderedBacklog} onMove={movePriority} />
-      )}
-      {tab === "planning" && (
-        <PlanningTab
-          backlogRows={planningBacklog}
-          planningRows={planningRows}
-          sprintGoal={sprintGoal}
-          setSprintGoal={setSprintGoal}
-          usedPoints={usedPoints}
-          usable={usable}
-          onPick={(id) => setPlanningIds((current) => [...current, id])}
-          onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
-          onConfirm={confirmSprint}
-          committedKeys={committedKeys}
-          sprint={sprint}
-        />
-      )}
-      {tab === "board" && (
-        <SprintBoard
-          rows={sprintRows}
-          reviews={reviews}
-          sprintName={sprint.name}
-          committedKeys={committedKeys}
-          closeBlocker={closeBlocker}
-          users={users}
-          expandedCriteria={expandedCriteria}
-          setExpandedCriteria={setExpandedCriteria}
-          onViewBrief={setBriefFor}
-          onLogBlocker={setBlockerFor}
-          onEnsureReview={ensureReview}
-          onCompleteReview={completeReview}
-          onLogFollowOn={logFollowOn}
-          onCarryForward={(row) => {
-            updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
-            toast.success("Marked carry-forward");
-          }}
-          onCloseSprint={() => setCloseOpen(true)}
-        />
-      )}
+        <DeliverySection
+          title="SPRINT PLANNING"
+          countLabel={`${planningRows.length} selected`}
+          open={openSections.planning}
+          onToggle={() => toggleSection("planning")}
+        >
+          <PlanningTab
+            backlogRows={planningBacklog}
+            planningRows={planningRows}
+            sprintGoal={sprintGoal}
+            setSprintGoal={setSprintGoal}
+            usedPoints={usedPoints}
+            usable={usable}
+            onPick={(id) => setPlanningIds((current) => [...current, id])}
+            onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
+            onConfirm={confirmSprint}
+            committedKeys={committedKeys}
+            sprint={sprint}
+          />
+        </DeliverySection>
+
+        <DeliverySection
+          title="BACKLOG"
+          countLabel={`${planningBacklog.length} ready`}
+          open={openSections.backlog}
+          onToggle={() => toggleSection("backlog")}
+        >
+          <BacklogTab
+            rows={planningBacklog}
+            onMove={movePriority}
+            onAddToPlanning={(id) => setPlanningIds((current) => current.includes(id) ? current : [...current, id])}
+          />
+        </DeliverySection>
+      </div>
 
       {briefFor && <BriefSlideover row={briefFor} onClose={() => setBriefFor(null)} />}
       {blockerFor && (
