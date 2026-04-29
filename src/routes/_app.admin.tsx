@@ -244,6 +244,7 @@ function UsersTab() {
 function FlagsTab() {
   const flags = useTfpStore((s) => s.flags);
   const setFlag = useTfpStore((s) => s.setFlag);
+  const resetDemoData = useTfpStore((s) => s.resetDemoData);
 
   const items: Array<{ key: keyof FeatureFlags; label: string; description: string }> = [
     { key: "attachmentsEnabled", label: "Attachments", description: "Show attachment links across signals, shaping, comms, etc." },
@@ -256,6 +257,21 @@ function FlagsTab() {
 
   return (
     <div className="tfp-card divide-y divide-border">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-medium">Demo data</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Restore the latest seeded workflow state if the demo gets stale.</p>
+        </div>
+        <button
+          onClick={() => {
+            resetDemoData();
+            toast.success("Demo data reset");
+          }}
+          className="rounded-md border border-input bg-surface px-2.5 py-1.5 text-xs hover:bg-accent/40"
+        >
+          Reset demo data
+        </button>
+      </div>
       {items.map((it) => (
         <label key={it.key} className="flex items-start justify-between gap-4 p-4">
           <div>
