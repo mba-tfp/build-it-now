@@ -23,6 +23,7 @@ export type Product =
   | "FertiWise"
   | "StimSmart"
   | "Platform";
+/** @deprecated Use Source for Origin and ShapingItem.commitment_type for commitment classification. */
 export type IssueType =
   | "Feature"
   | "Bug"
@@ -31,6 +32,7 @@ export type IssueType =
   | "Support"
   | "Incident"
   | "Dependency Change";
+export type CommitmentType = "Feature" | "Fix" | "Research" | "Dependency" | "Incident";
 
 export type DependencySystem =
   | "Accuro"
@@ -107,6 +109,7 @@ export type ShapingItem = {
   id: string;
   signal_id: string;
   shaping_status: ShapingStatus;
+  commitment_type: CommitmentType | null;
   pm_owner_id: string;
   current_step: 1 | 2 | 3 | 4 | 5;
   problem_what: string;
