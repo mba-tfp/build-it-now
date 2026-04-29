@@ -1847,17 +1847,12 @@ export const useTfpStore = create<State>()(
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", shaping_status: "In Delivery", updated_at: new Date().toISOString() }
+              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", updated_at: new Date().toISOString() }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Pushed to Jira backlog as ${key}` });
-        if (typeof window !== "undefined") {
-          import("sonner").then(({ toast }) => {
-            toast.success(`Pushed to Jira as ${key} — sitting in Backlog. Use "Add to Sprint" on the Delivery board.`);
-          });
-        }
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Jira ticket created as ${key}` });
         return key;
       },
 
