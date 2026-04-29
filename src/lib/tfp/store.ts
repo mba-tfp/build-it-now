@@ -1955,7 +1955,6 @@ export const useTfpStore = create<State>()(
         if (item.jira_key) return item.jira_key;
         const key = nextJiraKey();
         const now = new Date().toISOString();
-        const demoMode = get().flags.demoModeEnabled;
         const event: JiraEvent = {
           id: "je-" + uid(),
           ts: now,
