@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppWorkflowsRouteImport } from './routes/_app.workflows'
 import { Route as AppTriageRouteImport } from './routes/_app.triage'
 import { Route as AppShapingRouteImport } from './routes/_app.shaping'
+import { Route as AppSelfTestRouteImport } from './routes/_app.self-test'
 import { Route as AppRoadmapRouteImport } from './routes/_app.roadmap'
 import { Route as AppReviewRouteImport } from './routes/_app.review'
 import { Route as AppRetrosRouteImport } from './routes/_app.retros'
@@ -60,6 +61,11 @@ const AppTriageRoute = AppTriageRouteImport.update({
 const AppShapingRoute = AppShapingRouteImport.update({
   id: '/shaping',
   path: '/shaping',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSelfTestRoute = AppSelfTestRouteImport.update({
+  id: '/self-test',
+  path: '/self-test',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRoadmapRoute = AppRoadmapRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
   '/roadmap': typeof AppRoadmapRoute
+  '/self-test': typeof AppSelfTestRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
   '/workflows': typeof AppWorkflowsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/retros': typeof AppRetrosRoute
   '/review': typeof AppReviewRoute
   '/roadmap': typeof AppRoadmapRoute
+  '/self-test': typeof AppSelfTestRoute
   '/shaping': typeof AppShapingRoute
   '/triage': typeof AppTriageRoute
   '/workflows': typeof AppWorkflowsRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/_app/retros': typeof AppRetrosRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/roadmap': typeof AppRoadmapRoute
+  '/_app/self-test': typeof AppSelfTestRoute
   '/_app/shaping': typeof AppShapingRoute
   '/_app/triage': typeof AppTriageRoute
   '/_app/workflows': typeof AppWorkflowsRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/retros'
     | '/review'
     | '/roadmap'
+    | '/self-test'
     | '/shaping'
     | '/triage'
     | '/workflows'
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/retros'
     | '/review'
     | '/roadmap'
+    | '/self-test'
     | '/shaping'
     | '/triage'
     | '/workflows'
@@ -291,6 +302,7 @@ export interface FileRouteTypes {
     | '/_app/retros'
     | '/_app/review'
     | '/_app/roadmap'
+    | '/_app/self-test'
     | '/_app/shaping'
     | '/_app/triage'
     | '/_app/workflows'
@@ -345,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/shaping'
       fullPath: '/shaping'
       preLoaderRoute: typeof AppShapingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/self-test': {
+      id: '/_app/self-test'
+      path: '/self-test'
+      fullPath: '/self-test'
+      preLoaderRoute: typeof AppSelfTestRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/roadmap': {
@@ -497,6 +516,7 @@ interface AppRouteChildren {
   AppRetrosRoute: typeof AppRetrosRoute
   AppReviewRoute: typeof AppReviewRoute
   AppRoadmapRoute: typeof AppRoadmapRoute
+  AppSelfTestRoute: typeof AppSelfTestRoute
   AppShapingRoute: typeof AppShapingRoute
   AppTriageRoute: typeof AppTriageRoute
   AppWorkflowsRoute: typeof AppWorkflowsRoute
@@ -520,6 +540,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRetrosRoute: AppRetrosRoute,
   AppReviewRoute: AppReviewRoute,
   AppRoadmapRoute: AppRoadmapRoute,
+  AppSelfTestRoute: AppSelfTestRoute,
   AppShapingRoute: AppShapingRoute,
   AppTriageRoute: AppTriageRoute,
   AppWorkflowsRoute: AppWorkflowsRoute,

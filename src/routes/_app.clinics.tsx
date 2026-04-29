@@ -339,7 +339,7 @@ function phaseStartDate(clinic: GoLiveChecklist, phase: Phase) {
   return previous ?? clinic.created_at;
 }
 
-function procreaFlag(clinic: GoLiveChecklist, item: string) {
+export function procreaFlag(clinic: GoLiveChecklist, item: string) {
   if (!clinicName(clinic).toLowerCase().includes("procrea qc")) return null;
   if (item.startsWith("12.")) return "French language review required + Law 25 (Quebec) compliance sign-off needed before closing.";
   if (item.startsWith("16")) return "French language review required for all integration documentation.";
