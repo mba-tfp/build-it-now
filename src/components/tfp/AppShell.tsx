@@ -148,9 +148,11 @@ export function AppShell() {
       firedSessionNotifications.add(key);
       pushNotification(notification);
     };
+    const signalForShaping = (signalId: string) => signals.find((signal) => signal.id === signalId);
+    const tierForShaping = (signalId: string): Tier => signalForShaping(signalId)?.tier ?? "P2";
 
     signals
-      .filter((signal) => (signal.status === "New" || signal.status === "In Review") && !signal.owner_id && hoursSince(signal.created_at) > 4)
+      .filter((signal) => (signal.status === "New" || signal.status === "In Review") && !signal.owner_id && hoursSince(signal.created_at) > slaHoursForTier(signal.tier) * 0.25)
       .forEach((signal) => fireOnce(signal.id, "shaping_stuck", {
         trigger: "shaping_stuck",
         title: "Signal unowned",
@@ -161,7 +163,7 @@ export function AppShell() {
       }));
 
     shaping
-      .filter((item) => item.shaping_status === "In Shaping" && hoursSince(item.updated_at) > 120)
+      .filter((item) => item.shaping_status === "In Shaping" && hoursSince(item.updated_at) > slaHoursForTier(tierForShaping(item.signal_id)) * 0.5)
       .forEach((item) => fireOnce(item.id, "shaping_stuck", {
         trigger: "shaping_stuck",
         title: "Shaping stuck",
@@ -172,7 +174,7 @@ export function AppShell() {
       }));
 
     shaping
-      .filter((item) => item.in_sprint && item.delivery_status && item.delivery_status !== "Done" && item.delivery_status !== "Blocked" && hoursSince(item.updated_at) > 48)
+      .filter((item) => item.in_sprint && item.delivery_status && item.delivery_status !== "Done" && item.delivery_status !== "Blocked" && hoursSince(item.updated_at) > sprintStaleHoursForTier(tierForShaping(item.signal_id)))
       .forEach((item) => {
         [item.delivery_assignee_id, "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
@@ -187,7 +189,7 @@ export function AppShell() {
     const inSprint = shaping.filter((item) => item.in_sprint && item.delivery_status);
 
     shaping
-      .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > 48)
+      .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > blockedEscalationHoursForTier(tierForShaping(item.signal_id)))
       .forEach((item) => {
         [item.delivery_assignee_id, "u-shahid", "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
