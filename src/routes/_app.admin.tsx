@@ -253,6 +253,7 @@ function FlagsTab() {
     { key: "multiSelectIntake", label: "Multi-select intake", description: "Allow multi-source / multi-product on intake." },
     { key: "auditVerbose", label: "Verbose audit log", description: "Use field-by-field readable audit entries." },
     { key: "adminPanelEnabled", label: "Admin panel", description: "Master toggle for this page." },
+    { key: "demoModeEnabled", label: "Demo mode", description: "Auto-complete multi-user steps for solo demos." },
   ];
 
   return (
