@@ -1842,9 +1842,46 @@ export const useTfpStore = create<State>()(
       },
 
       updateShaping: (id, patch) => {
+        const item = get().shaping.find((s) => s.id === id);
+        const now = new Date().toISOString();
+        const movingToDone = patch.delivery_status === "Done" && item?.delivery_status !== "Done";
+        const existingReview = get().reviews.some((review) => review.shaping_id === id);
+        const review: Review | null = item && movingToDone && !existingReview
+          ? {
+              id: "rev-" + uid(),
+              shaping_id: item.id,
+              signal_id: item.signal_id,
+              size: pickReviewSize(item),
+              status: "Pending",
+              pm_owner_id: item.pm_owner_id,
+              scheduled_for: null,
+              completed_at: null,
+              outcome_rating: null,
+              what_worked: "",
+              what_didnt: "",
+              follow_on_signals_created: [],
+              notes: "",
+              follow_on_draft_title: "",
+              follow_on_draft_description: "",
+              created_at: now,
+              updated_at: now,
+            }
+          : null;
         set({
-          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: new Date().toISOString() } : s)),
+          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: now } : s)),
+          ...(review ? { reviews: [review, ...get().reviews] } : {}),
         });
+        if (item && review) {
+          const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? "item";
+          get().pushNotification({
+            trigger: "review_overdue",
+            title: "Outcome review needed",
+            body: `${item.jira_key ?? signalTitle} reached Done — capture what worked.`,
+            link_to: "/delivery",
+            for_user_id: item.pm_owner_id,
+            entity_id: item.id,
+          });
+        }
       },
 
       setRoadmapBucket: (id, bucket, displacement) => {
