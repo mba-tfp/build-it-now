@@ -949,7 +949,7 @@ function briefField(label: string, value: string) {
   );
 }
 
-function BriefSection({ title, children }: { title: string; children: React.ReactNode }) {
+function BriefSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t border-border pt-4 first:border-t-0 first:pt-0">
       <h3 className="mb-3 font-display text-lg">{title}</h3>
