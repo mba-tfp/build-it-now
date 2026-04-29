@@ -213,7 +213,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
               if (list.length === 0) return null;
               const visible = list.slice(0, 5);
               return (
-                <CommandGroup key={type} heading={`${type}s (${list.length})`}>
+                <CommandGroup key={type} heading={`${type === "Clinics" ? "Clinics" : `${type}s`} (${list.length})`}>
                   {visible.map((h) => (
                     <CommandItem key={h.id} value={`${h.type}-${h.id}`} onSelect={() => go(h.to)}>
                       <span className={cn("rounded-sm px-1.5 py-0.5 text-[10px] font-medium uppercase", typeBadgeTone(type))}>{type}</span>
