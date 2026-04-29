@@ -1,3 +1,13 @@
+// DEMO CLICK PATH — Friday April 2026
+// 1. Home → review urgent items
+// 2. Inbox → New signal tab → log Help Center signal → Proceed
+// 3. Shaping → open new item → fill Define form → Send to Tech Review → assign Waseem
+// 4. Switch to Waseem → complete Tech Review → sign off → Ready for Sprint
+// 5. Delivery → Backlog tab → see Help Center item → Sprint Planning tab → add to sprint → confirm
+// 6. Delivery → Sprint Board → show all 7 seed items, blocked eIVF item, stale flag
+// 7. Leadership → walk through 4 sections → acknowledge override → show Procrea QC in clinic signals
+// 8. Clinics → show Procrea QC Phase 2 checklist → show Heartland Phase 1
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, Clock, Inbox, ShieldCheck } from "lucide-react";
 import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
@@ -32,6 +42,7 @@ function DashboardPage() {
   );
   const sprintHealth = sprintItems.length === 0 ? 100 : Math.round((healthySprintItems.length / sprintItems.length) * 100);
   const blockers = sprintItems.filter((item) => item.delivery_status === "Blocked");
+  const calmState = openSignals.length === 0 && waitingOnYou.length === 0 && sprintHealth === 100 && blockers.length === 0;
 
   const urgentSignal = [...openSignals].sort(
     (a, b) => new Date(a.sla_due_at).getTime() - new Date(b.sla_due_at).getTime(),
@@ -74,6 +85,14 @@ function DashboardPage() {
         <MetricTile to="/delivery" search={{ tab: "board" }} icon={<AlertTriangle className="h-4 w-4" />} label="Open blockers" value={`${blockers.length}`} detail="Items currently blocked" tone={blockers.length ? "bad" : "good"} />
       </div>
 
+      {calmState ? (
+        <section className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 p-5 text-[var(--color-status-proceed)]">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5" />
+            <p className="font-medium">Everything is on track. Check in again after standup.</p>
+          </div>
+        </section>
+      ) : (
       <div className="grid gap-4 lg:grid-cols-3">
         {urgentSignal ? (
           <UrgentCard title="Most urgent signal" tone="warn">
@@ -112,6 +131,7 @@ function DashboardPage() {
           <AllClearCard title="Most overdue clinic phase" />
         )}
       </div>
+      )}
     </div>
   );
 }
