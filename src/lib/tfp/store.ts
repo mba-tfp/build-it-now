@@ -1899,6 +1899,26 @@ export const useTfpStore = create<State>()(
             shahid_visible: true,
           });
         }
+        if (newAlloc / Math.max(1, usable) >= 0.9) {
+          get().pushNotification({
+            trigger: "scope_change",
+            title: "Sprint capacity over 90%",
+            body: `${newAlloc}/${usable} pts allocated after adding ${item.jira_key}.`,
+            link_to: "/delivery",
+            for_user_id: get().currentUserId,
+            entity_id: sp.id,
+          });
+        }
+        if (newAlloc > usable) {
+          get().pushNotification({
+            trigger: "scope_change",
+            title: "Sprint goal at risk",
+            body: `${newAlloc}/${usable} pts allocated after adding ${item.jira_key}.`,
+            link_to: "/leadership",
+            for_user_id: "u-shahid",
+            entity_id: sp.id,
+          });
+        }
         if (typeof window !== "undefined") {
           import("sonner").then(({ toast }) => {
             toast.success(`${item.jira_key} added to ${sp.name}`);
@@ -2016,6 +2036,16 @@ export const useTfpStore = create<State>()(
               for_user_id: userId,
               entity_id: id,
             }));
+        }
+        if (nowDone && !wasDone && !alreadyHasReview) {
+          get().pushNotification({
+            trigger: "review_overdue",
+            title: "Outcome review pending",
+            body: `${item.jira_key} moved to Done and needs an outcome review.`,
+            link_to: "/review",
+            for_user_id: item.pm_owner_id,
+            entity_id: id,
+          });
         }
       },
 
