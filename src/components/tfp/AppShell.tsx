@@ -229,7 +229,7 @@ export function AppShell() {
         trigger: "retro_escalation",
         title: "Retro due for Active Sprint",
         body: "Retro due for Active Sprint — please log before closing.",
-        link_to: "/delivery?tab=board",
+        link_to: "/delivery",
         for_user_id: "u-karim",
         entity_id: sprint.id,
       });
@@ -279,7 +279,7 @@ export function AppShell() {
           trigger: "review_overdue",
           title: "Review overdue",
           body: `${item.jira_key ?? "Done item"} needs an outcome review.`,
-          link_to: "/delivery?tab=board",
+          link_to: "/delivery",
           for_user_id: userId,
           entity_id: item.id,
         }));
