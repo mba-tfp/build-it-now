@@ -2980,7 +2980,7 @@ export const useTfpStore = create<State>()(
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
         const demo = latestDemoState(p.currentUserId ?? "u-bazil");
-        const shaping = (p.shaping ?? demo.shaping ?? []).map((s) => ({
+        const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
           // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
           in_sprint: typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
