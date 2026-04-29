@@ -257,7 +257,7 @@ function DeliveryPage() {
         <SprintCloseModal
           sprintName={sprint.name}
           onCancel={() => setCloseOpen(false)}
-          onConfirm={(data) => {
+          onConfirm={(data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => {
             closeSprint(data);
             setCloseOpen(false);
             toast.success("Sprint closed");
