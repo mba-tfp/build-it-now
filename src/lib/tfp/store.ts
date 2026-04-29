@@ -1882,13 +1882,13 @@ export const useTfpStore = create<State>()(
         const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, in_sprint: true, updated_at: new Date().toISOString() } : s,
+            s.id === id ? { ...s, in_sprint: true, delivery_status: "To Do", updated_at: new Date().toISOString() } : s,
           ),
           sprint: { ...sp, allocated_pts: newAlloc },
         });
         get().audit_log({ entity_type: "shaping", entity_id: id, action: `Added to ${sp.name}` });
         if (overrideReason) {
-          get().logOverride({
+          const override = get().logOverride({
             kind: overrideKind ?? "Scope added mid-sprint",
             reason: overrideReason,
             signal_id: item.signal_id,
@@ -1896,6 +1896,14 @@ export const useTfpStore = create<State>()(
             displaced_shaping_ids: displacedShapingIds,
             displaced_pts: displacedShapingIds.reduce((sum, displacedId) => sum + (get().shaping.find((s) => s.id === displacedId)?.tech_estimate_pts ?? 0), Math.max(0, newAlloc - usable)),
             shahid_visible: true,
+          });
+          get().pushNotification({
+            trigger: "override_logged",
+            title: "Scope added mid-sprint",
+            body: overrideReason,
+            link_to: "/leadership",
+            for_user_id: "u-shahid",
+            entity_id: override.id,
           });
         }
         if (newAlloc / Math.max(1, usable) >= 0.9) {
