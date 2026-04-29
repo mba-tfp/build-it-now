@@ -73,7 +73,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Inbox",
     section: "Workflow",
     body_markdown:
-      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests type and P1/P2/P3 priority — override only when you have a strong reason.",
+      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests origin and P1/P2/P3 priority — override only when you have a strong reason.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -83,7 +83,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Review incoming work",
     section: "Workflow",
     body_markdown:
-      "# Review incoming work\n\nClick a signal in Inbox to decide: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, P1/P2/P3 priority, type, and owner can be edited inline.\n\n## Risky changes\nUnusual status changes ask for a reason and record the override in the background.",
+      "# Review incoming work\n\nClick a signal in Inbox to decide: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, P1/P2/P3 priority, origin, and owner can be edited inline.\n\n## Risky changes\nUnusual status changes ask for a reason and record the override in the background.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
