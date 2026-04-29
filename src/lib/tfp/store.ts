@@ -48,7 +48,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<SignalStatus, SignalStatus[]> = 
   New: ["In Review", "Hold", "Rejected", "Proceed"],
   "In Review": ["Proceed", "Hold", "Rejected"],
   Hold: ["In Review", "Proceed", "Rejected"],
-  Rejected: [],
+  Rejected: ["In Review"],
   Proceed: [],
 };
 
@@ -1368,6 +1368,7 @@ type State = {
     commitmentType?: import("./types").CommitmentType | null,
   ) => void;
   updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
+  reopenSignal: (signalId: string, reason: string) => { ok: boolean; error?: string };
   setSignalAttachments: (signalId: string, next: Attachment[]) => void;
   setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
   updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
