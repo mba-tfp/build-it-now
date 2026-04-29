@@ -183,6 +183,7 @@ function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: bo
     id: "sh-" + uid(),
     signal_id: signalId,
     shaping_status: "Unshaped",
+    commitment_type: null,
     pm_owner_id: ownerId,
     current_step: 1,
     problem_what: "",
@@ -266,7 +267,7 @@ function buildSeedSignal(args: {
     created_at: created.toISOString(),
     created_by: "u-sami",
     shaping_item_id: null,
-    labels: c.labels,
+    labels: [],
     displacement_flag: false,
     displacement_note: null,
   };
