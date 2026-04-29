@@ -7,6 +7,7 @@ import type { Attachment, IntakePriority, Product, Source } from "@/lib/tfp/type
 import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { MultiSelectPills } from "@/components/tfp/MultiSelectPills";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { LabelSuggestions } from "@/components/tfp/LabelSuggestions";
 import { cn } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
 
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/_app/intake")({
   component: () => <Navigate to="/inbox" search={{ tab: "submit" }} />,
 });
 
-const SOURCES: readonly Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
+const SOURCES: readonly Source[] = ["Leadership", "Clinic", "Internal"];
 const PRODUCTS: readonly Product[] = [
   "Otto-Onboard",
   "Otto Notes",
@@ -23,13 +24,11 @@ const PRODUCTS: readonly Product[] = [
   "StimSmart",
   "Platform",
 ];
-const PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
-const SUGGESTED_LABELS = ["French-required", "PHIPA", "patient-facing", "integration", "tech-debt", "Procrea-QC", "compliance", "board"];
+const PRIORITIES: IntakePriority[] = ["P0", "P1", "P2", "P3"];
 const parseLabels = (value: string) => value.split(",").map((label) => label.trim()).filter(Boolean);
 
 function defaultSourceForRole(role: string): Source {
   if (role === "Leadership") return "Leadership";
-  if (role === "Developer" || role === "Tech Lead") return "Dev Team";
   return "Internal";
 }
 
