@@ -2323,7 +2323,19 @@ export const useTfpStore = create<State>()(
       },
 
       updateReview: (id, patch) => {
-        set({ reviews: get().reviews.map((r) => (r.id === id ? { ...r, ...patch, updated_at: new Date().toISOString() } : r)) });
+        const now = new Date().toISOString();
+        set({
+          reviews: get().reviews.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  ...patch,
+                  completed_at: patch.status === "Completed" ? (patch.completed_at ?? now) : (patch.completed_at ?? r.completed_at),
+                  updated_at: now,
+                }
+              : r,
+          ),
+        });
       },
 
       scheduleReview: (id, when) => {
@@ -2391,6 +2403,20 @@ export const useTfpStore = create<State>()(
       closeSprint: (data) => {
         const current = get().sprint;
         const now = new Date();
+        const missingReviewCount = get().shaping.filter(
+          (item) =>
+            item.in_sprint &&
+            item.delivery_status === "Done" &&
+            !get().reviews.some((review) => review.shaping_id === item.id && review.status === "Completed"),
+        ).length;
+        if (missingReviewCount > 0) {
+          if (typeof window !== "undefined") {
+            import("sonner").then(({ toast }) => {
+              toast.error(`${missingReviewCount} items need outcome reviews`);
+            });
+          }
+          return;
+        }
         const retro = get().createRetro({
           sprint_id: current.id,
           what_worked: data.what_worked,
