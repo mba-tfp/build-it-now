@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import { PRIORITY_TONE } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
@@ -109,6 +109,9 @@ export function AppShell() {
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
+  const goLives = useTfpStore((s) => s.goLives);
+  const sprint = useTfpStore((s) => s.sprint);
+  const retros = useTfpStore((s) => s.retros);
   const pushNotification = useTfpStore((s) => s.pushNotification);
   const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
@@ -165,10 +168,12 @@ export function AppShell() {
         }));
       });
 
+    const inSprint = shaping.filter((item) => item.in_sprint && item.delivery_status);
+
     shaping
       .filter((item) => item.in_sprint && item.blocked_since && hoursSince(item.blocked_since) > 48)
       .forEach((item) => {
-        ["u-shahid", "u-karim"].forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
+        [item.delivery_assignee_id, "u-shahid", "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
           title: "Blocker escalated",
           body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked for 48+ hours.`,
@@ -177,6 +182,70 @@ export function AppShell() {
           entity_id: item.id,
         }));
       });
+
+    if (sprint.allocated_pts > 0) {
+      const usable = Math.max(1, sprint.gross_capacity_pts - sprint.leave_deduction_pts - sprint.interrupt_buffer_pts - sprint.qa_buffer_pts - sprint.uncertainty_buffer_pts - sprint.carryforward_estimate_pts - sprint.golive_deduction_pts);
+      const blockedCount = inSprint.filter((item) => item.delivery_status === "Blocked").length;
+      if (sprint.allocated_pts > usable || blockedCount >= 2) {
+        fireOnce(sprint.id, "scope_change", {
+          trigger: "scope_change",
+          title: "Sprint goal at risk",
+          body: `${sprint.allocated_pts}/${usable} pts allocated · ${blockedCount} blocked.`,
+          link_to: "/leadership",
+          for_user_id: "u-shahid",
+          entity_id: sprint.id,
+        });
+      }
+      if (sprint.allocated_pts / usable >= 0.9) {
+        fireOnce(`${sprint.id}-capacity`, "scope_change", {
+          trigger: "scope_change",
+          title: "Sprint capacity over 90%",
+          body: `${sprint.allocated_pts}/${usable} pts allocated.`,
+          link_to: "/delivery",
+          for_user_id: currentUserId,
+          entity_id: sprint.id,
+        });
+      }
+    }
+
+    const sprintEndsInHours = (new Date(sprint.end_date).getTime() - Date.now()) / 3600000;
+    if (sprintEndsInHours <= 24 && sprintEndsInHours >= 0 && !retros.some((retro) => retro.sprint_id === sprint.id)) {
+      fireOnce(`${sprint.id}-retro`, "retro_escalation", {
+        trigger: "retro_escalation",
+        title: "Retro due within 24h",
+        body: `${sprint.name} ends soon and needs a retro scheduled.`,
+        link_to: "/retros",
+        for_user_id: "u-karim",
+        entity_id: sprint.id,
+      });
+    }
+    if (sprintEndsInHours < 0 && inSprint.some((item) => item.delivery_status !== "Done")) {
+      fireOnce(`${sprint.id}-close`, "blocker_signoff", {
+        trigger: "blocker_signoff",
+        title: "Sprint close checklist incomplete",
+        body: `${sprint.name} has open delivery items after sprint end.`,
+        link_to: "/delivery",
+        for_user_id: "u-karim",
+        entity_id: sprint.id,
+      });
+    }
+
+    goLives.forEach((clinic) => {
+      const entries = Object.entries(clinic.criteria);
+      const firstOpenIndex = entries.findIndex(([, state]) => !state.done);
+      if (clinic.status === "Live" || firstOpenIndex < 0) return;
+      const previousCompleted = entries.slice(0, firstOpenIndex).map(([, state]) => state.checked_at).filter((date): date is string => Boolean(date)).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+      if (hoursSince(previousCompleted ?? clinic.created_at) > 72) {
+        fireOnce(clinic.id, "golive_unconfirmed", {
+          trigger: "golive_unconfirmed",
+          title: "Clinic onboarding phase overdue",
+          body: `${clinic.release_name} has an onboarding phase open for 3+ days.`,
+          link_to: "/clinics",
+          for_user_id: "u-shahid",
+          entity_id: clinic.id,
+        });
+      }
+    });
 
     shaping
       .filter((item) => item.delivery_status === "Done" && hoursSince(item.updated_at) > 120 && !reviews.some((review) => review.shaping_id === item.id && review.status === "Completed"))
@@ -190,7 +259,7 @@ export function AppShell() {
           entity_id: item.id,
         }));
       });
-  }, [currentUserId, pushNotification, reviews, shaping, signals]);
+  }, [currentUserId, goLives, pushNotification, retros, reviews, shaping, signals, sprint]);
 
   // Global Cmd+K / Ctrl+K shortcut to open search
   useEffect(() => {
