@@ -800,6 +800,41 @@ const seedOverrides: Override[] = [
   },
 ];
 
+const CLINIC_ONBOARDING_ITEMS = [
+  "1. Initial workflow discussion with the clinic",
+  "2. Create workflow requirements document",
+  "3. Obtain health forms from the clinic",
+  "4. Align with physicians on health form content",
+  "5. Gather all required configuration items",
+  "6. Configure workflows, forms, and templates in CNP",
+  "7. Prepare pre-production environment with configuration",
+  "8. Product validation of configurations (internal TFP review)",
+  "9. Get email content validated (clinic approval)",
+  "10. Walk through pre-prod workflow with clinic and gather feedback",
+  "11. Implement clinic feedback",
+  "12. Get consents and privacy policy through Legal",
+  "13. Clinic UAT — minimum 2-3 scenarios tested by clinic staff",
+  "14. Decide on go-live date (confirmed with clinic)",
+  "15. Prepare production environment",
+  "16a. Complete eIVF integration",
+  "16b. Complete EngagedMD integration",
+  "16c. Complete Google Analytics integration",
+  "16d. Complete Accuro / IDEAS / Oscar / other EMR integration",
+  "17. Final testing in production",
+  "18. Define go-live plan (roles, timing, rollback criteria)",
+  "19. Go-live execution",
+  "20. Post-launch follow-up with clinic within 48 hours",
+] as const;
+
+function clinicCriteria(doneCount: number): GoLiveChecklist["criteria"] {
+  return Object.fromEntries(CLINIC_ONBOARDING_ITEMS.map((item, index) => [item, {
+    done: index < doneCount,
+    note: index < doneCount ? "Completed during clinic onboarding kickoff." : "",
+    checked_by: index < doneCount ? "u-sami" : null,
+    checked_at: index < doneCount ? new Date(SEED_EPOCH - (doneCount - index) * 86400000).toISOString() : null,
+  }])) as GoLiveChecklist["criteria"];
+}
+
 const seedGoLive: GoLiveChecklist[] = [
   {
     id: "gl-" + uid(),
