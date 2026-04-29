@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useMemo, useState } from "react";
 import {
   completenessScore,
@@ -21,6 +23,7 @@ import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
 import type { Attachment } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/shaping")({
+  validateSearch: zodValidator(z.object({ item: fallback(z.string().optional(), undefined).default(undefined) })),
   component: ShapingPage,
 });
 
@@ -42,15 +45,19 @@ function techLeadName(user?: { name: string } | null): string {
 }
 
 function ShapingPage() {
+  const { item } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(item ?? null);
 
   type SortKey = "started" | "completeness" | "priority";
   const { sort, setSort } = useSortMenu<SortKey>("shaping");
 
   const cards = useMemo(
-    () => shaping.map((sh) => ({ sh, sig: signals.find((s) => s.id === sh.signal_id) })),
+    () => shaping
+      .filter((sh) => sh.shaping_status !== "Ready for Sprint" || daysSince(sh.updated_at) < 1)
+      .map((sh) => ({ sh, sig: signals.find((s) => s.id === sh.signal_id) })),
     [shaping, signals],
   );
 
@@ -78,7 +85,7 @@ function ShapingPage() {
   const open = cards.find((c) => c.sh.id === openId);
 
   if (open?.sig) {
-    return <ShapingWorkspace itemId={open.sh.id} onBack={() => setOpenId(null)} />;
+    return <ShapingWorkspace itemId={open.sh.id} onBack={() => { setOpenId(null); navigate({ search: {} }); }} />;
   }
 
   return (
