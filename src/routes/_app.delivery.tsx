@@ -600,19 +600,30 @@ function SprintBoard({
 
 function BoardCard({
   row,
+  review,
   users,
   expanded,
   onToggleMore,
   onViewBrief,
+  onEnsureReview,
+  onCompleteReview,
+  onLogFollowOn,
+  onCarryForward,
 }: {
   row: Row;
+  review: Review | null;
   users: User[];
   expanded: boolean;
   onToggleMore: () => void;
   onViewBrief: () => void;
+  onEnsureReview: () => Review | null;
+  onCompleteReview: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void;
+  onLogFollowOn: (text: string) => void;
+  onCarryForward: () => void;
 }) {
   const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
   const staleDays = daysSince(row.sh.updated_at);
+  const [reviewOpen, setReviewOpen] = useState(false);
   return (
     <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -631,6 +642,7 @@ function BoardCard({
             {staleDays}d stale
           </span>
         )}
+        {row.sh.carry_forwarded_at && <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">Carry-forwarded</span>}
       </div>
       <div className="mt-3 rounded-md bg-surface-2 p-2 text-xs text-muted-foreground">
         <p className={expanded ? "" : "line-clamp-2"}>
@@ -642,12 +654,20 @@ function BoardCard({
           </button>
         )}
       </div>
-      <button
-        onClick={onViewBrief}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
-      >
-        <Eye className="h-3.5 w-3.5" /> View brief
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={onViewBrief} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">
+          <Eye className="h-3.5 w-3.5" /> View brief
+        </button>
+        {row.sh.delivery_status !== "Done" && !row.sh.carry_forwarded_at && (
+          <button onClick={onCarryForward} className="rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">Carry forward</button>
+        )}
+        {row.sh.delivery_status === "Done" && (review ? (
+          <span className="rounded-full border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 px-2 py-1 text-xs font-medium text-[var(--color-status-proceed)]">Review complete</span>
+        ) : (
+          <button onClick={() => { onEnsureReview(); setReviewOpen((open) => !open); }} className="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Review pending</button>
+        ))}
+      </div>
+      {reviewOpen && row.sh.delivery_status === "Done" && !review && <OutcomeReviewPanel review={onEnsureReview()} onComplete={onCompleteReview} onLogFollowOn={onLogFollowOn} />}
     </article>
   );
 }
