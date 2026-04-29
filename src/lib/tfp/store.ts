@@ -2161,49 +2161,7 @@ export const useTfpStore = create<State>()(
         };
         const wasDone = item.delivery_status === "Done";
         const nowDone = next === "Done";
-        const reviews = get().reviews;
-        const alreadyHasReview = reviews.some((r) => r.shaping_id === id);
-        const newReviews = nowDone && !wasDone
-          ? alreadyHasReview && demoMode
-            ? reviews.map((review) =>
-                review.shaping_id === id
-                  ? {
-                      ...review,
-                      status: "Completed" as const,
-                      completed_at: now,
-                      outcome_rating: "Met" as const,
-                      what_worked: review.what_worked || "Auto-completed in demo mode.",
-                      what_didnt: review.what_didnt || "Auto-completed in demo mode.",
-                      notes: review.notes || "Auto-completed in demo mode.",
-                      updated_at: now,
-                    }
-                  : review,
-              )
-            : !alreadyHasReview
-              ? [
-                {
-                  id: "rv-" + uid(),
-                  shaping_id: id,
-                  signal_id: item.signal_id,
-                  size: pickReviewSize(item),
-                  status: demoMode ? "Completed" as const : "Pending" as const,
-                  pm_owner_id: item.pm_owner_id,
-                  scheduled_for: null,
-                  completed_at: demoMode ? now : null,
-                  outcome_rating: demoMode ? "Met" as const : null,
-                  what_worked: demoMode ? "Auto-completed in demo mode." : "",
-                  what_didnt: demoMode ? "Auto-completed in demo mode." : "",
-                  follow_on_signals_created: [],
-                  notes: demoMode ? "Auto-completed in demo mode." : "",
-                  follow_on_draft_title: "",
-                  follow_on_draft_description: "",
-                  created_at: now,
-                  updated_at: now,
-                },
-                ...reviews,
-              ]
-              : reviews
-          : reviews;
+        const alreadyHasReview = get().reviews.some((r) => r.shaping_id === id);
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
@@ -2216,8 +2174,18 @@ export const useTfpStore = create<State>()(
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
-          reviews: newReviews,
         });
+        const review = nowDone && !wasDone ? get().ensureOutcomeReview(id) : null;
+        if (review && demoMode) {
+          get().updateReview(review.id, {
+            status: "Completed",
+            completed_at: now,
+            outcome_rating: "Met",
+            what_worked: review.what_worked || "Auto-completed in demo mode.",
+            what_didnt: review.what_didnt || "Auto-completed in demo mode.",
+            notes: review.notes || "Auto-completed in demo mode.",
+          });
+        }
         get().audit_log({
           entity_type: "shaping",
           entity_id: id,
