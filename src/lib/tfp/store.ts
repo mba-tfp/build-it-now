@@ -2969,6 +2969,9 @@ export const useTfpStore = create<State>()(
           ),
         });
       },
+      resetDemoData: () => {
+        set(latestDemoState(get().currentUserId));
+      },
     }),
     {
       name: "tfp-os-v6",
