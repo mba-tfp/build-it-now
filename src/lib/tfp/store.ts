@@ -2182,7 +2182,7 @@ export const useTfpStore = create<State>()(
         if (review) {
           set({
             signals: get().signals.map((s) =>
-              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id } : s,
+              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id, shaping_item_id: review.shaping_id } : s,
             ),
           });
           get().audit_log({
