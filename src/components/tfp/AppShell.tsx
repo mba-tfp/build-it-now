@@ -120,7 +120,12 @@ export function AppShell() {
   const showOnboarding = storeHydrated && !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
 
   useEffect(() => {
-    void useTfpStore.persist.rehydrate().finally(() => setStoreHydrated(true));
+    const rehydrated = useTfpStore.persist.rehydrate();
+    if (rehydrated instanceof Promise) {
+      rehydrated.finally(() => setStoreHydrated(true));
+    } else {
+      setStoreHydrated(true);
+    }
   }, []);
 
   // Reset dismiss when user switches
