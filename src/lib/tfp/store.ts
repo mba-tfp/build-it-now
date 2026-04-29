@@ -1954,9 +1954,11 @@ export const useTfpStore = create<State>()(
         }
         if (item.jira_key) return item.jira_key;
         const key = nextJiraKey();
+        const now = new Date().toISOString();
+        const demoMode = get().flags.demoModeEnabled;
         const event: JiraEvent = {
           id: "je-" + uid(),
-          ts: new Date().toISOString(),
+          ts: now,
           direction: "outbound",
           type: "issue.created",
           jira_key: key,
@@ -2115,19 +2117,19 @@ export const useTfpStore = create<State>()(
                   shaping_id: id,
                   signal_id: item.signal_id,
                   size: pickReviewSize(item),
-                  status: "Pending" as const,
+                  status: demoMode ? "Completed" as const : "Pending" as const,
                   pm_owner_id: item.pm_owner_id,
                   scheduled_for: null,
-                  completed_at: null,
-                  outcome_rating: null,
-                  what_worked: "",
-                  what_didnt: "",
+                  completed_at: demoMode ? now : null,
+                  outcome_rating: demoMode ? "Met" as const : null,
+                  what_worked: demoMode ? "Auto-completed in demo mode." : "",
+                  what_didnt: demoMode ? "Auto-completed in demo mode." : "",
                   follow_on_signals_created: [],
-                  notes: "",
+                  notes: demoMode ? "Auto-completed in demo mode." : "",
                   follow_on_draft_title: "",
                   follow_on_draft_description: "",
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
+                  created_at: now,
+                  updated_at: now,
                 },
                 ...reviews,
               ]
@@ -2138,8 +2140,8 @@ export const useTfpStore = create<State>()(
               ? {
                   ...s,
                   delivery_status: next,
-                  blocked_since: next === "Blocked" ? new Date().toISOString() : null,
-                  updated_at: new Date().toISOString(),
+                  blocked_since: next === "Blocked" ? now : null,
+                  updated_at: now,
                 }
               : s,
           ),
