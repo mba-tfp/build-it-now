@@ -2661,7 +2661,7 @@ export const useTfpStore = create<State>()(
         const item = get().comms.find((c) => c.id === id);
         if (!item) return;
         // B6: separation of duties — drafter cannot self-approve.
-        if (item.drafted_by === me) {
+        if (item.drafted_by === me && !get().flags.demoModeEnabled) {
           if (typeof window !== "undefined") {
             // Lazy import to avoid bundling toast in pure-state path.
             import("sonner").then(({ toast }) => {
