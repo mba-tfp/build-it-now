@@ -840,7 +840,7 @@ const seedGoLive: GoLiveChecklist[] = [
     id: "gl-" + uid(),
     shaping_id: shapingInTechReview.id,
     product: "Otto-Onboard",
-    release_name: "Procrea QC Go-Live",
+    release_name: "Procrea QC",
     scheduled_for: new Date(SEED_EPOCH + 14 * 86400000).toISOString(),
     status: "In Progress",
     war_room: false,
