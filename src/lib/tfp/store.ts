@@ -3484,8 +3484,8 @@ export const useTfpStore = create<State>()(
         const demo = latestDemoState(p.currentUserId ?? "u-bazil");
         const signals = (p.signals?.length ? p.signals : demo.signals ?? []).map((signal) => ({
           ...signal,
-          source: signal.source === "Dev Team" ? "Internal" : signal.source,
-          additional_sources: signal.additional_sources?.map((source) => source === "Dev Team" ? "Internal" : source),
+          source: (signal.source as string) === "Dev Team" ? "Internal" : signal.source,
+          additional_sources: signal.additional_sources?.map((source) => (source as string) === "Dev Team" ? "Internal" : source),
         })) as Signal[];
         const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
