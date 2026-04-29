@@ -39,7 +39,6 @@ function DeliveryPage() {
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
-  const removeFromSprint = useTfpStore((s) => s.removeFromSprint);
   const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const pushNotification = useTfpStore((s) => s.pushNotification);
@@ -106,11 +105,6 @@ function DeliveryPage() {
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     setOrderedIds(next);
-  }
-
-  function addPlanning(id: string) {
-    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
-    navigate({ search: { tab: "planning" } });
   }
 
   function commitSprint(override?: { reason: string; displacedIds: string[] }) {
