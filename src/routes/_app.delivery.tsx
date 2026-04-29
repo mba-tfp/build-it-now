@@ -1,9 +1,9 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { useMemo, useState } from "react";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
@@ -11,7 +11,7 @@ import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Si
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
-  tab: fallback(z.enum(["backlog", "planning", "board", "golive", "clinics"]), "backlog").default("backlog"),
+  tab: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_app/delivery")({
@@ -19,8 +19,25 @@ export const Route = createFileRoute("/_app/delivery")({
   component: DeliveryPage,
 });
 
-type DeliveryTab = "backlog" | "planning" | "board";
 type Row = { sh: ShapingItem; sig: Signal };
+type DeliverySectionKey = "board" | "planning" | "backlog";
+
+const DELIVERY_SECTIONS_STORAGE_KEY = "tfp-delivery-sections-v1";
+const DEFAULT_SECTION_STATE: Record<DeliverySectionKey, boolean> = {
+  board: true,
+  planning: true,
+  backlog: false,
+};
+
+function readSectionState(): Record<DeliverySectionKey, boolean> {
+  if (typeof window === "undefined") return DEFAULT_SECTION_STATE;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DELIVERY_SECTIONS_STORAGE_KEY) ?? "{}");
+    return { ...DEFAULT_SECTION_STATE, ...parsed };
+  } catch {
+    return DEFAULT_SECTION_STATE;
+  }
+}
 
 const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
   "To Do",
@@ -31,7 +48,6 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
 
 function DeliveryPage() {
   const { tab } = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
@@ -57,6 +73,11 @@ function DeliveryPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
+
+  useEffect(() => {
+    window.localStorage.setItem(DELIVERY_SECTIONS_STORAGE_KEY, JSON.stringify(openSections));
+  }, [openSections]);
 
   const readyRows = useMemo<Row[]>(() => {
     return shaping
@@ -89,7 +110,11 @@ function DeliveryPage() {
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
-  if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
+  if (tab) return <Navigate to="/delivery" search={{}} replace />;
+
+  function toggleSection(section: DeliverySectionKey) {
+    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  }
 
   function handleSync() {
     syncFromJira();
@@ -128,7 +153,6 @@ function DeliveryPage() {
       entity_id: sprint.id,
     });
     toast.success("Sprint committed", { description: `${createdKeys.length} Jira tickets created.` });
-    navigate({ search: { tab: "board" } });
   }
 
   function confirmSprint() {
