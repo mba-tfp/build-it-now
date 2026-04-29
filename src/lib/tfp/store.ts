@@ -2699,6 +2699,13 @@ export const useTfpStore = create<State>()(
         return tdr;
       },
       simulateMonitoringAlert: (data) => {
+        const productBySystem: Record<MonitoringSystem, Product> = {
+          "Phelix AI": "Otto Notes",
+          Accuro: "Otto-Onboard",
+          "Olive EngagedMD": "Otto-Onboard",
+          EngagedMD: "Otto-Onboard",
+          "Tia Health": "Platform",
+        };
         const alert: MonitoringAlert = {
           id: "mon-" + uid(),
           system: data.system,
@@ -2728,7 +2735,7 @@ export const useTfpStore = create<State>()(
             title: `[MONITORING] ${data.system} — ${data.integration}`,
             description: `${data.severity}: ${data.message}`,
             source: "Internal",
-            product: "Platform",
+            product: productBySystem[data.system] ?? "Platform",
             issue_type_override: "Incident",
             tier_override: "P1",
             displacement_flag: false,
