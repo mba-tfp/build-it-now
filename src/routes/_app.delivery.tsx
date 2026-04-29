@@ -3,7 +3,7 @@ import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
@@ -946,5 +946,14 @@ function briefField(label: string, value: string) {
       <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd className="mt-1 whitespace-pre-wrap text-sm">{value}</dd>
     </div>
+  );
+}
+
+function BriefSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="border-t border-border pt-4 first:border-t-0 first:pt-0">
+      <h3 className="mb-3 font-display text-lg">{title}</h3>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
