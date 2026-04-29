@@ -1449,6 +1449,7 @@ type State = {
   monitoringAlerts: MonitoringAlert[];
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
+  customLabels: string[];
   // Round 5
   flags: FeatureFlags;
   helpArticles: HelpArticle[];
@@ -1628,6 +1629,8 @@ type State = {
   completeOnboardingItem: (userId: string, itemId: string) => void;
   completeOnboarding: (userId: string) => void;
   resetOnboarding: (userId: string) => void;
+  addCustomLabel: (label: string) => void;
+  removeCustomLabel: (label: string) => void;
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
   setDemoMode: (enabled: boolean) => void;
@@ -1674,6 +1677,7 @@ function latestDemoState(currentUserId = "u-bazil"): Partial<State> {
     monitoringAlerts: seedMonitoring,
     techDebtReviews: seedTechDebtReviews,
     clinicFeedbackLog: [],
+    customLabels: [],
     flags: DEFAULT_FLAGS,
     helpArticles: SEED_HELP,
     workflows: [],
@@ -1702,6 +1706,7 @@ export const useTfpStore = create<State>()(
       monitoringAlerts: seedMonitoring,
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
+      customLabels: [],
       flags: DEFAULT_FLAGS,
       helpArticles: SEED_HELP,
       workflows: [],
@@ -1748,7 +1753,7 @@ export const useTfpStore = create<State>()(
       createSignal: (data) => {
         const c = classifySignal({ source: data.source, description: data.description });
         const origin = data.origin_override ?? data.issue_type_override ?? c.origin;
-        const tier = data.tier_override ?? c.tier;
+        const tier = data.tier_override ?? data.priority ?? c.tier;
         const created = new Date();
         const sig: Signal = {
           id: "sig-" + uid(),
