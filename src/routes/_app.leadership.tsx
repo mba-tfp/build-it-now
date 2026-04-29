@@ -106,7 +106,7 @@ function LeadershipPage() {
                 <button onClick={() => ackOverride(override.id)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Acknowledge</button>
               </AttentionRow>
             ))}
-            {blocked48.map((item) => (
+            {blockedEscalated.map((item) => (
               <AttentionRow key={item.id} tone="bad" title={`${item.jira_key}: ${signalTitle(signals, item)}`} meta={`${item.blocker_description || "Blocked"} · ${item.blocked_since ? daysSince(item.blocked_since) : 0}d blocked`} />
             ))}
             {slaBreached.map((signal) => (
