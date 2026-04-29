@@ -785,6 +785,36 @@ function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: str
   );
 }
 
+function ScopeOverrideModal({ rows, onCancel, onConfirm }: { rows: Row[]; onCancel: () => void; onConfirm: (data: { reason: string; displacedIds: string[] }) => void }) {
+  const [reason, setReason] = useState("");
+  const [displacedIds, setDisplacedIds] = useState<string[]>([]);
+  const ready = reason.trim().length > 0 && displacedIds.length > 0;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Scope added mid-sprint</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Locked sprint scope requires an override and displaced item selection.</p>
+        <label className="mt-4 block text-sm font-medium">Reason</label>
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <label className="mt-4 block text-sm font-medium">Displaced items</label>
+        <div className="mt-2 max-h-48 space-y-2 overflow-auto rounded-md border border-border p-2">
+          {rows.map((row) => (
+            <label key={row.sh.id} className="flex gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/30">
+              <input type="checkbox" checked={displacedIds.includes(row.sh.id)} onChange={(e) => setDisplacedIds((current) => e.target.checked ? [...current, row.sh.id] : current.filter((id) => id !== row.sh.id))} />
+              <span>{row.sh.jira_key ?? "—"} · {row.sig.title}</span>
+            </label>
+          ))}
+          {rows.length === 0 && <p className="p-3 text-sm text-muted-foreground">No current sprint items to displace.</p>}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+          <button disabled={!ready} onClick={() => onConfirm({ reason: reason.trim(), displacedIds })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm override</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function completedReview(reviews: Review[], shapingId: string) {
   return reviews.find((review) => review.shaping_id === shapingId && review.status === "Completed") ?? null;
 }
