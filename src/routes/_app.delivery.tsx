@@ -148,7 +148,7 @@ function DeliveryPage() {
       trigger: "scope_change",
       title: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
       body: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
-      link_to: "/delivery?tab=board",
+      link_to: "/delivery",
       for_user_id: "u-karim",
       entity_id: sprint.id,
     });
