@@ -7,7 +7,6 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertic
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
-import { slaHoursForTier } from "@/lib/tfp/notify";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
