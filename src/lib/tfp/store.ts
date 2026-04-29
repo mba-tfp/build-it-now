@@ -1305,6 +1305,7 @@ const seedNotifications: Notification[] = [
     title: "SLA breach: eIVF duplicate patient records",
     body: "P1 signal needs close delivery tracking. Owner: Bazil.",
     link_to: "/delivery",
+    for_user_id: shapingForApproval.pm_owner_id,
     entity_id: sigForApproval.id,
     ts: new Date(SEED_EPOCH - 3600000).toISOString(),
   }),
