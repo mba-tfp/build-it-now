@@ -13,6 +13,8 @@ export const Route = createFileRoute("/_app/leadership")({
 });
 
 const STATUS_ORDER: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Blocked", "Done"];
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
+const blockedEscalationHoursForTier = (tier: Signal["tier"]) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
 function LeadershipPage() {
   const signals = useTfpStore((s) => s.signals);
@@ -32,11 +34,14 @@ function LeadershipPage() {
   const inProgress = inSprint.filter((item) => item.delivery_status === "In Progress" || item.delivery_status === "In QA");
   const capacityPct = Math.round((sprint.allocated_pts / Math.max(1, usable)) * 100);
   const pendingOverrides = overrides.filter((override) => override.shahid_visible && override.ack_status === "Pending");
-  const blocked48 = blocked.filter((item) => item.blocked_since && daysSince(item.blocked_since) >= 2);
+  const blockedEscalated = blocked.filter((item) => {
+    const signal = signals.find((s) => s.id === item.signal_id);
+    return !!item.blocked_since && hoursSince(item.blocked_since) >= blockedEscalationHoursForTier(signal?.tier ?? "P2");
+  });
   const slaBreached = signals.filter((signal) => isOpen(signal) && new Date(signal.sla_due_at).getTime() < Date.now());
   const reviewsMissing = shaping.filter((item) => item.delivery_status === "Done" && daysSince(item.updated_at) > 5 && !completedReview(reviews, item.id));
   const retroOverdue = new Date(sprint.end_date).getTime() < Date.now() && !retros.some((retro) => retro.sprint_id === sprint.id);
-  const attentionCount = pendingOverrides.length + blocked48.length + slaBreached.length + reviewsMissing.length + (retroOverdue ? 1 : 0);
+  const attentionCount = pendingOverrides.length + blockedEscalated.length + slaBreached.length + reviewsMissing.length + (retroOverdue ? 1 : 0);
   const sprintAtRisk = blocked.length >= 2 || sprint.allocated_pts > usable;
   const recentClinicSignals = signals.filter((signal) => signal.source === "Clinic" && daysSince(signal.created_at) <= 14);
   const rejectedClinicSignals = recentClinicSignals.filter((signal) => signal.status === "Rejected");
@@ -51,7 +56,7 @@ function LeadershipPage() {
       `# Leadership briefing — ${fmtDate(new Date().toISOString())}`,
       "",
       "## Needs your attention",
-      attentionCount ? `- ${attentionCount} item(s): ${pendingOverrides.length} overrides, ${blocked48.length} 48h blockers, ${slaBreached.length} SLA breaches, ${reviewsMissing.length} items shipped with no outcome review${retroOverdue ? ", retro overdue" : ""}.` : "- Nothing needs your attention right now.",
+      attentionCount ? `- ${attentionCount} item(s): ${pendingOverrides.length} overrides, ${blockedEscalated.length} escalated blockers, ${slaBreached.length} SLA breaches, ${reviewsMissing.length} items shipped with no outcome review${retroOverdue ? ", retro overdue" : ""}.` : "- Nothing needs your attention right now.",
       "",
       "## This sprint",
       `- ${sprint.notes || "Sprint goal not set."}`,
@@ -64,7 +69,7 @@ function LeadershipPage() {
       ...(shippedVisible.length ? shippedVisible.map((item) => `- ${signalTitle(signals, item)} — ${reviewLabel(completedReview(reviews, item.id))}`) : ["- Nothing marked Done yet."]),
     ];
     return lines.join("\n");
-  }, [attentionCount, blocked.length, blocked48.length, done.length, inSprint.length, pendingOverrides.length, recentClinicSignals.length, rejectedClinicSignals.length, reviews, reviewsMissing.length, retroOverdue, shippedVisible, signals, slaBreached.length, sprint, usable]);
+  }, [attentionCount, blocked.length, blockedEscalated.length, done.length, inSprint.length, pendingOverrides.length, recentClinicSignals.length, rejectedClinicSignals.length, reviews, reviewsMissing.length, retroOverdue, shippedVisible, signals, slaBreached.length, sprint, usable]);
 
   function copyBriefing() {
     navigator.clipboard?.writeText(briefingMarkdown);
