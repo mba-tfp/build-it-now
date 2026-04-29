@@ -134,9 +134,6 @@ function ShapingPage() {
               // Hide items that have moved to delivery — they live on the Delivery board
               if (sh.shaping_status === "In Delivery") return null;
               const daysInStatus = daysSince(sh.updated_at || sh.created_at);
-              const hoursSinceStart = sh.shaping_started_at
-                ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
-                : 0;
               const hoursInStatus = (Date.now() - new Date(sh.updated_at).getTime()) / 3600000;
               const isBug = isFix(sh);
               const overdue = isBug && !sh.fast_track && hoursInStatus > slaHoursForTier(sig.tier) * 0.5 && sh.shaping_status !== "Approved";
