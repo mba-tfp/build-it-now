@@ -641,10 +641,11 @@ seedShaping.forEach((item) => {
 });
 
 function pickReviewSize(s: ShapingItem): ReviewSize {
-  const pts = s.tech_estimate_pts ?? 0;
-  if (s.solution_complexity === "Complex" || pts >= 13) return "Large";
-  if (s.solution_complexity === "Medium" || pts >= 5) return "Medium";
-  return "Small";
+  const pts = s.tech_estimate_pts;
+  if (pts == null) return "Medium";
+  if (pts <= 3) return "Small";
+  if (pts <= 8) return "Medium";
+  return "Large";
 }
 
 const seedReviews: Review[] = [
