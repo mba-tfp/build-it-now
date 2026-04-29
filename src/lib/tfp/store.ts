@@ -2003,13 +2003,14 @@ export const useTfpStore = create<State>()(
           after: next,
         });
         if (next === "Blocked") {
-          get().pushNotification({
-            trigger: "blocker_signoff",
-            title: `${item.jira_key} marked Blocked`,
-            body: "Investigate and clear blocker; auto-escalates after 24h.",
-            link_to: "/delivery",
-            entity_id: id,
-          });
+          [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+              trigger: "blocker_signoff",
+              title: `${item.jira_key} marked Blocked`,
+              body: "Investigate and clear blocker; auto-escalates after 24h.",
+              link_to: "/delivery",
+              for_user_id: userId,
+              entity_id: id,
+            }));
         }
       },
 
@@ -2036,13 +2037,14 @@ export const useTfpStore = create<State>()(
           action: "Marked Blocked",
           after: description.slice(0, 80),
         });
-        get().pushNotification({
-          trigger: "blocker_signoff",
-          title: `${item.jira_key} marked Blocked`,
-          body: description.slice(0, 120),
-          link_to: "/delivery",
-          entity_id: id,
-        });
+        [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+            trigger: "blocker_signoff",
+            title: `${item.jira_key} marked Blocked`,
+            body: description.slice(0, 120),
+            link_to: "/delivery",
+            for_user_id: userId,
+            entity_id: id,
+          }));
       },
 
       unblock: (id, next) => {
