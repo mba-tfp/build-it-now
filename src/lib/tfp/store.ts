@@ -130,7 +130,6 @@ const SEED_HELP: HelpArticle[] = [
   },
 ];
 
-
 let _uidCounter = 0;
 const uid = () => {
   _uidCounter += 1;
@@ -178,7 +177,11 @@ const seedSprint: Sprint = {
   allocated_pts: 38,
 };
 
-function blankShaping(signalId: string, ownerId: string, opts?: { fastTrack?: boolean }): ShapingItem {
+function blankShaping(
+  signalId: string,
+  ownerId: string,
+  opts?: { fastTrack?: boolean },
+): ShapingItem {
   const now = new Date().toISOString();
   return {
     id: "sh-" + uid(),
@@ -374,7 +377,16 @@ sigForApproval.tier = "P1";
 sigForTechReview.tier = "P2";
 sigHelpCenter.tier = "P2";
 sigUniquePatientId.tier = "P2";
-[sigDone, sigInDelivery, sigInQA, sigBlocked, sigForApproval, sigForTechReview, sigHelpCenter, sigUniquePatientId].forEach((signal) => {
+[
+  sigDone,
+  sigInDelivery,
+  sigInQA,
+  sigBlocked,
+  sigForApproval,
+  sigForTechReview,
+  sigHelpCenter,
+  sigUniquePatientId,
+].forEach((signal) => {
   signal.sla_due_at = slaDueAt(signal.tier, new Date(signal.created_at)).toISOString();
 });
 
@@ -437,12 +449,14 @@ const shapingInDelivery: ShapingItem = {
   commitment_type: "Feature",
   shaping_status: "In Delivery",
   current_step: 5,
-  problem_what: "Clinic admin accounts have no second factor. A stolen password gives full admin access.",
+  problem_what:
+    "Clinic admin accounts have no second factor. A stolen password gives full admin access.",
   problem_why:
     "New clinic security policy requires 2FA for all admin accounts by Q2 2026. Two clinics have flagged this as a compliance blocker.",
   problem_who: "All clinic admins across 13 clinics, approximately 40 users.",
   problem_where: "Otto platform login screen and admin user management.",
-  problem_evidence: "Security policy document received February 2026. Two clinics flagged in onboarding calls.",
+  problem_evidence:
+    "Security policy document received February 2026. Two clinics flagged in onboarding calls.",
   roadmap_bucket: "Committed",
   solution_complexity: "Medium",
   solution_approach:
@@ -508,7 +522,8 @@ const shapingBlocked: ShapingItem = {
   commitment_type: "Fix",
   shaping_status: "In Delivery",
   current_step: 5,
-  problem_what: "Phelix AI webhook delivery is taking over 30 seconds for notes sync events causing visible lag in OttoNotes.",
+  problem_what:
+    "Phelix AI webhook delivery is taking over 30 seconds for notes sync events causing visible lag in OttoNotes.",
   problem_why:
     "Coordinators see a delay between completing a note in Phelix and it appearing in OttoNotes. Two clinics have reported this as a data reliability concern.",
   problem_who: "All clinics using Phelix AI integration, currently RCC and OFC.",
@@ -550,9 +565,11 @@ const shapingForApproval: ShapingItem = {
     "When CNP sends a returning patient to eIVF at Generation Fertility, a duplicate patient record is created if the patient was originally registered outside CNP.",
   problem_why:
     "Duplicate records cause billing errors, treatment history gaps, and confusion for clinic staff. Generation Fertility reported 12 duplicate records in the past 2 weeks.",
-  problem_who: "Generation Fertility clinical staff and patients. Affects all returning patients not originally registered via CNP.",
+  problem_who:
+    "Generation Fertility clinical staff and patients. Affects all returning patients not originally registered via CNP.",
   problem_where: "CNP to eIVF EMR integration — send patient flow.",
-  problem_evidence: "Generation Fertility support ticket CNP-12852. 12 confirmed duplicates reported.",
+  problem_evidence:
+    "Generation Fertility support ticket CNP-12852. 12 confirmed duplicates reported.",
   roadmap_bucket: "Committed",
   solution_complexity: "Medium",
   solution_approach:
@@ -613,7 +630,8 @@ const shapingInProgress: ShapingItem = {
     "Patients exist in OttoOnboard, OttoNotes, OttoPulse, and downstream EMRs (eIVF, Accuro, Athena) as completely separate records with no shared identifier. The same patient has a different ID in every system.",
   problem_why:
     "Consent forms cannot route to correct records. Nurses cannot reliably match patients across systems. Duplicate records keep appearing (see CNP-12852, CNP-12662, TPI-113). A unified patient timeline is impossible without a shared key.",
-  problem_who: "All clinic staff across 13 clinics. Affects every patient interaction that touches more than one system.",
+  problem_who:
+    "All clinic staff across 13 clinics. Affects every patient interaction that touches more than one system.",
   problem_where: "Cross-system: OttoOnboard, OttoNotes, OttoPulse, eIVF, Accuro, Athena.",
   problem_evidence:
     "Three live Jira tickets: CNP-12852 (eIVF duplicates at GF), CNP-12662 (Olive duplicate on phone match), TPI-113 (Athena/Illume duplicates). Raised as strategic issue April 28 2026.",
@@ -772,7 +790,8 @@ const seedOverrides: Override[] = [
   {
     id: "OVR-001",
     kind: "Capacity exceeded",
-    reason: "2FA pulled forward for clinic compliance deadline. Sprint at 87% allocation. Accepted risk.",
+    reason:
+      "2FA pulled forward for clinic compliance deadline. Sprint at 87% allocation. Accepted risk.",
     signal_id: sigInDelivery.id,
     shaping_id: shapingInDelivery.id,
     sprint_id: seedSprint.id,
@@ -788,7 +807,8 @@ const seedOverrides: Override[] = [
   {
     id: "OVR-002",
     kind: "Scope added mid-sprint",
-    reason: "eIVF duplicate records causing patient care risk at Generation Fertility. Added to sprint with Shahid approval.",
+    reason:
+      "eIVF duplicate records causing patient care risk at Generation Fertility. Added to sprint with Shahid approval.",
     signal_id: sigForApproval.id,
     shaping_id: shapingForApproval.id,
     sprint_id: seedSprint.id,
@@ -830,12 +850,20 @@ const CLINIC_ONBOARDING_ITEMS = [
 ] as const;
 
 function clinicCriteria(doneCount: number): GoLiveChecklist["criteria"] {
-  return Object.fromEntries(CLINIC_ONBOARDING_ITEMS.map((item, index) => [item, {
-    done: index < doneCount,
-    note: index < doneCount ? "Completed during clinic onboarding kickoff." : "",
-    checked_by: index < doneCount ? "u-sami" : null,
-    checked_at: index < doneCount ? new Date(SEED_EPOCH - (doneCount - index) * 86400000).toISOString() : null,
-  }])) as GoLiveChecklist["criteria"];
+  return Object.fromEntries(
+    CLINIC_ONBOARDING_ITEMS.map((item, index) => [
+      item,
+      {
+        done: index < doneCount,
+        note: index < doneCount ? "Completed during clinic onboarding kickoff." : "",
+        checked_by: index < doneCount ? "u-sami" : null,
+        checked_at:
+          index < doneCount
+            ? new Date(SEED_EPOCH - (doneCount - index) * 86400000).toISOString()
+            : null,
+      },
+    ]),
+  ) as GoLiveChecklist["criteria"];
 }
 
 const seedGoLive: GoLiveChecklist[] = [
@@ -852,61 +880,61 @@ const seedGoLive: GoLiveChecklist[] = [
         done: true,
         note: "Workflow discussion completed with Procrea QC operations and physician stakeholders.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH -13 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 13 * 86400000).toISOString(),
       },
       "2. Create workflow requirements document": {
         done: true,
         note: "Requirements document approved for Procrea QC onboarding.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH -12 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 12 * 86400000).toISOString(),
       },
       "3. Obtain health forms from the clinic": {
         done: true,
         note: "Clinic shared the French and English health form packet.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH -11 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 11 * 86400000).toISOString(),
       },
       "4. Align with physicians on health form content": {
         done: true,
         note: "Physician review completed with minor wording updates.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH -10 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 10 * 86400000).toISOString(),
       },
       "5. Gather all required configuration items": {
         done: true,
         note: "Required configuration items gathered from clinic admin team.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH -9 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 9 * 86400000).toISOString(),
       },
       "6. Configure workflows, forms, and templates in CNP": {
         done: true,
         note: "CNP workflows, forms, and templates configured for pre-production.",
         checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH -8 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 8 * 86400000).toISOString(),
       },
       "7. Prepare pre-production environment with configuration": {
         done: true,
         note: "Pre-production environment prepared with Procrea QC configuration.",
         checked_by: "u-waseem",
-        checked_at: new Date(SEED_EPOCH -7 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 7 * 86400000).toISOString(),
       },
       "8. Product validation of configurations (internal TFP review)": {
         done: true,
         note: "Internal TFP product validation completed.",
         checked_by: "u-bazil",
-        checked_at: new Date(SEED_EPOCH -6 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 6 * 86400000).toISOString(),
       },
       "9. Get email content validated (clinic approval)": {
         done: true,
         note: "Clinic approved email content for UAT.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH -5 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 5 * 86400000).toISOString(),
       },
       "10. Walk through pre-prod workflow with clinic and gather feedback": {
         done: true,
         note: "Walkthrough completed; feedback captured for final updates.",
         checked_by: "u-sami",
-        checked_at: new Date(SEED_EPOCH -4 * 86400000).toISOString(),
+        checked_at: new Date(SEED_EPOCH - 4 * 86400000).toISOString(),
       },
       "11. Implement clinic feedback": {
         done: false,
@@ -1103,8 +1131,19 @@ const seedComms: CommsItem[] = [
 // ============ New entity seeds ============
 
 const ACTIVE_CLINIC_NAMES = [
-  "OFC", "RCC", "Procrea QC", "GF Waterloo", "GF Vaughan", "GF Newmarket",
-  "GF Twin Waters", "Heartland", "Aurora", "Kelowna", "Ovo", "Olive", "Grace",
+  "OFC",
+  "RCC",
+  "Procrea QC",
+  "GF Waterloo",
+  "GF Vaughan",
+  "GF Newmarket",
+  "GF Twin Waters",
+  "Heartland",
+  "Aurora",
+  "Kelowna",
+  "Ovo",
+  "Olive",
+  "Grace",
 ];
 
 const seedClinics: Clinic[] = ACTIVE_CLINIC_NAMES.map((name, i) => ({
@@ -1437,7 +1476,11 @@ type State = {
     holdUntil?: string,
     commitmentType?: import("./types").CommitmentType | null,
   ) => void;
-  updateSignal: (signalId: string, patch: Partial<Signal>, opts?: { force?: boolean; reason?: string }) => { ok: boolean; error?: string };
+  updateSignal: (
+    signalId: string,
+    patch: Partial<Signal>,
+    opts?: { force?: boolean; reason?: string },
+  ) => { ok: boolean; error?: string };
   reopenSignal: (signalId: string, reason: string) => { ok: boolean; error?: string };
   setSignalAttachments: (signalId: string, next: Attachment[]) => void;
   setShapingAttachments: (shapingId: string, next: Attachment[]) => void;
@@ -1450,7 +1493,12 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
-  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind, displacedShapingIds?: string[]) => boolean;
+  addToSprint: (
+    id: string,
+    overrideReason?: string,
+    overrideKind?: OverrideKind,
+    displacedShapingIds?: string[],
+  ) => boolean;
   removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
@@ -1466,10 +1514,25 @@ type State = {
   ) => void;
   logFollowOnSignal: (
     reviewId: string,
-    data: { title: string; description: string; source: Signal["source"]; product: Signal["product"] },
+    data: {
+      title: string;
+      description: string;
+      source: Signal["source"];
+      product: Signal["product"];
+    },
   ) => Signal;
-  closeSprint: (data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => void;
-  toggleDevCompleteGate: (id: string, key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed", value: boolean) => void;
+  closeSprint: (data: {
+    summary: string;
+    what_worked: string;
+    what_didnt: string;
+    one_change: string;
+    primary_theme: RetroTheme;
+  }) => void;
+  toggleDevCompleteGate: (
+    id: string,
+    key: "merged_to_main" | "deployed_to_staging" | "smoke_test_passed",
+    value: boolean,
+  ) => void;
   signOffDevComplete: (id: string) => void;
   toggleSprintLock: () => void;
   logOverride: (data: {
@@ -1482,17 +1545,43 @@ type State = {
     shahid_visible?: boolean;
   }) => Override;
   ackOverride: (id: string) => void;
-  upsertGoLive: (data: Partial<GoLiveChecklist> & { id?: string; shaping_id: string; product: Product; release_name: string; scheduled_for: string; criteria_keys?: string[] }) => GoLiveChecklist;
+  upsertGoLive: (
+    data: Partial<GoLiveChecklist> & {
+      id?: string;
+      shaping_id: string;
+      product: Product;
+      release_name: string;
+      scheduled_for: string;
+      criteria_keys?: string[];
+    },
+  ) => GoLiveChecklist;
   toggleGoLiveCriterion: (id: string, criterion: string, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
-  createComms: (data: Omit<CommsItem, "id" | "drafted_by" | "drafted_at" | "status" | "approved_by" | "approved_at" | "sent_at" | "rejected_reason" | "requires_pm_approval"> & { requires_pm_approval?: boolean }) => CommsItem;
+  createComms: (
+    data: Omit<
+      CommsItem,
+      | "id"
+      | "drafted_by"
+      | "drafted_at"
+      | "status"
+      | "approved_by"
+      | "approved_at"
+      | "sent_at"
+      | "rejected_reason"
+      | "requires_pm_approval"
+    > & { requires_pm_approval?: boolean },
+  ) => CommsItem;
   submitCommsForApproval: (id: string) => void;
   approveComms: (id: string) => void;
   rejectComms: (id: string, reason: string) => void;
   sendComms: (id: string) => void;
-  createDecision: (data: Omit<Decision, "id" | "decided_at" | "decided_by" | "status" | "superseded_by_id">) => Decision;
-  createRetro: (data: Omit<SprintRetro, "id" | "created_at" | "created_by" | "escalated">) => SprintRetro;
+  createDecision: (
+    data: Omit<Decision, "id" | "decided_at" | "decided_by" | "status" | "superseded_by_id">,
+  ) => Decision;
+  createRetro: (
+    data: Omit<SprintRetro, "id" | "created_at" | "created_by" | "escalated">,
+  ) => SprintRetro;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   pushNotification: (n: {
@@ -1508,14 +1597,33 @@ type State = {
   // Clinics
   offboardClinic: (clinicId: string, reason: string) => void;
   // Sprints
-  createSprint: (data: { name: string; start_date: string; end_date: string; gross_capacity_pts: number; notes?: string }) => Sprint;
+  createSprint: (data: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    gross_capacity_pts: number;
+    notes?: string;
+  }) => Sprint;
   // Tech debt
   markTechDebtReviewed: (shapingId: string) => void;
-  recordTechDebtReview: (data: Omit<TechDebtReview, "id" | "reviewed_by_id" | "reviewed_at">) => TechDebtReview;
+  recordTechDebtReview: (
+    data: Omit<TechDebtReview, "id" | "reviewed_by_id" | "reviewed_at">,
+  ) => TechDebtReview;
   // Monitoring
-  simulateMonitoringAlert: (data: { system: MonitoringSystem; integration: string; severity: MonitoringSeverity; message: string }) => MonitoringAlert;
+  simulateMonitoringAlert: (data: {
+    system: MonitoringSystem;
+    integration: string;
+    severity: MonitoringSeverity;
+    message: string;
+  }) => MonitoringAlert;
   // Public clinic feedback
-  submitClinicFeedback: (data: { clinic_id: string; clinic_name: string; reporter_name: string; description: string; urgent: boolean }) => { ok: true; signal_id: string } | { ok: false; reason: string };
+  submitClinicFeedback: (data: {
+    clinic_id: string;
+    clinic_name: string;
+    reporter_name: string;
+    description: string;
+    urgent: boolean;
+  }) => { ok: true; signal_id: string } | { ok: false; reason: string };
   // Onboarding
   completeOnboardingItem: (userId: string, itemId: string) => void;
   completeOnboarding: (userId: string) => void;
@@ -1525,9 +1633,13 @@ type State = {
   setDemoMode: (enabled: boolean) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
-  upsertHelpArticle: (article: Omit<HelpArticle, "id" | "updated_at" | "updated_by"> & { id?: string }) => HelpArticle;
+  upsertHelpArticle: (
+    article: Omit<HelpArticle, "id" | "updated_at" | "updated_by"> & { id?: string },
+  ) => HelpArticle;
   removeHelpArticle: (id: string) => void;
-  upsertWorkflow: (workflow: Omit<Workflow, "id" | "created_at" | "updated_at"> & { id?: string }) => Workflow;
+  upsertWorkflow: (
+    workflow: Omit<Workflow, "id" | "created_at" | "updated_at"> & { id?: string },
+  ) => Workflow;
   removeWorkflow: (id: string) => void;
   toggleWorkflowActive: (id: string) => void;
   resetDemoData: () => void;
@@ -1624,7 +1736,9 @@ export const useTfpStore = create<State>()(
       },
 
       markNotificationRead: (id) => {
-        set({ notifications: get().notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) });
+        set({
+          notifications: get().notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        });
       },
 
       markAllNotificationsRead: () => {
@@ -1679,11 +1793,14 @@ export const useTfpStore = create<State>()(
             sh.shaping_status = "In Shaping";
             sh.current_step = 1;
             if (s.source === "Leadership") {
-              sh.problem_evidence =
-                `Raised by Leadership on ${new Date(s.created_at).toLocaleDateString()}.\nOriginal ask:\n"${s.description.slice(0, 300)}"`;
+              sh.problem_evidence = `Raised by Leadership on ${new Date(s.created_at).toLocaleDateString()}.\nOriginal ask:\n"${s.description.slice(0, 300)}"`;
             }
             set({ shaping: [sh, ...get().shaping] });
-            get().audit_log({ entity_type: "signal", entity_id: signalId, action: isFastTrack ? "Triaged → Proceed (Fast-track)" : "Triaged → Proceed" });
+            get().audit_log({
+              entity_type: "signal",
+              entity_id: signalId,
+              action: isFastTrack ? "Triaged → Proceed (Fast-track)" : "Triaged → Proceed",
+            });
             if (isFastTrack) {
               get().pushNotification({
                 trigger: "fast_track_review",
@@ -1694,13 +1811,36 @@ export const useTfpStore = create<State>()(
                 entity_id: sh.id,
               });
             }
-            return { ...s, status: "Proceed" as const, owner_id: me, shaping_item_id: sh.id, triage_reason: null, hold_until: null };
+            return {
+              ...s,
+              status: "Proceed" as const,
+              owner_id: me,
+              shaping_item_id: sh.id,
+              triage_reason: null,
+              hold_until: null,
+            };
           }
           if (decision === "Hold") {
-            get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Hold", after: reason ?? null });
-            return { ...s, status: "Hold" as const, owner_id: me, triage_reason: reason ?? null, hold_until: holdUntil ?? null };
+            get().audit_log({
+              entity_type: "signal",
+              entity_id: signalId,
+              action: "Triaged → Hold",
+              after: reason ?? null,
+            });
+            return {
+              ...s,
+              status: "Hold" as const,
+              owner_id: me,
+              triage_reason: reason ?? null,
+              hold_until: holdUntil ?? null,
+            };
           }
-          get().audit_log({ entity_type: "signal", entity_id: signalId, action: "Triaged → Rejected", after: reason ?? null });
+          get().audit_log({
+            entity_type: "signal",
+            entity_id: signalId,
+            action: "Triaged → Rejected",
+            after: reason ?? null,
+          });
           return { ...s, status: "Rejected" as const, owner_id: me, triage_reason: reason ?? null };
         });
         set({ signals });
@@ -1749,7 +1889,9 @@ export const useTfpStore = create<State>()(
           sh.commitment_type = next.origin === "Incident" ? "Incident" : null;
           set({
             shaping: [sh, ...get().shaping],
-            signals: get().signals.map((s) => (s.id === signalId ? { ...s, shaping_item_id: sh.id } : s)),
+            signals: get().signals.map((s) =>
+              s.id === signalId ? { ...s, shaping_item_id: sh.id } : s,
+            ),
           });
         }
 
@@ -1804,17 +1946,34 @@ export const useTfpStore = create<State>()(
         const cleanReason = reason.trim();
         const prev = get().signals.find((s) => s.id === signalId);
         if (!prev) return { ok: false, error: "Signal not found" };
-        if (prev.status !== "Rejected") return { ok: false, error: "Only rejected signals can be reopened" };
-        if (cleanReason.length < 20) return { ok: false, error: "Reason must be at least 20 characters" };
+        if (prev.status !== "Rejected")
+          return { ok: false, error: "Only rejected signals can be reopened" };
+        if (cleanReason.length < 20)
+          return { ok: false, error: "Reason must be at least 20 characters" };
         set({
           signals: get().signals.map((s) =>
             s.id === signalId
-              ? { ...s, status: "In Review", triage_reason: null, hold_until: null, owner_id: get().currentUserId }
+              ? {
+                  ...s,
+                  status: "In Review",
+                  triage_reason: null,
+                  hold_until: null,
+                  owner_id: get().currentUserId,
+                }
               : s,
           ),
         });
-        get().audit_log({ entity_type: "signal", entity_id: signalId, action: `Signal reopened: ${cleanReason}` });
-        get().logOverride({ kind: "Other", reason: cleanReason, signal_id: signalId, shahid_visible: true });
+        get().audit_log({
+          entity_type: "signal",
+          entity_id: signalId,
+          action: `Signal reopened: ${cleanReason}`,
+        });
+        get().logOverride({
+          kind: "Other",
+          reason: cleanReason,
+          signal_id: signalId,
+          shahid_visible: true,
+        });
         return { ok: true };
       },
 
@@ -1883,7 +2042,9 @@ export const useTfpStore = create<State>()(
         const movingToDone = patch.delivery_status === "Done" && item?.delivery_status !== "Done";
         const alreadyHadReview = get().reviews.some((review) => review.shaping_id === id);
         set({
-          shaping: get().shaping.map((s) => (s.id === id ? { ...s, ...patch, updated_at: now } : s)),
+          shaping: get().shaping.map((s) =>
+            s.id === id ? { ...s, ...patch, updated_at: now } : s,
+          ),
         });
         const review = movingToDone ? get().ensureOutcomeReview(id) : null;
         if (item && review && !alreadyHadReview) {
@@ -1904,12 +2065,23 @@ export const useTfpStore = create<State>()(
         const sp = get().sprint;
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, roadmap_bucket: bucket, displacement, updated_at: new Date().toISOString() } : s,
+            s.id === id
+              ? { ...s, roadmap_bucket: bucket, displacement, updated_at: new Date().toISOString() }
+              : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Roadmap bucket set to ${bucket}` });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Roadmap bucket set to ${bucket}`,
+        });
         // B9: if sprint is locked AND we leave "Committed" mid-sprint, log an Override for visibility.
-        if (prev && prev.roadmap_bucket === "Committed" && bucket !== "Committed" && sp.status === "Locked") {
+        if (
+          prev &&
+          prev.roadmap_bucket === "Committed" &&
+          bucket !== "Committed" &&
+          sp.status === "Locked"
+        ) {
           get().logOverride({
             kind: "Scope added mid-sprint",
             reason: `Bucket moved from Committed → ${bucket} mid-sprint. Displacement: ${displacement || "—"}`,
@@ -1922,7 +2094,9 @@ export const useTfpStore = create<State>()(
       setComplexity: (id, c) => {
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, solution_complexity: c, updated_at: new Date().toISOString() } : s,
+            s.id === id
+              ? { ...s, solution_complexity: c, updated_at: new Date().toISOString() }
+              : s,
           ),
         });
       },
@@ -1943,7 +2117,11 @@ export const useTfpStore = create<State>()(
               : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Tech review signed off" });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: "Tech review signed off",
+        });
         if (item) {
           get().pushNotification({
             trigger: "tech_review_ready",
@@ -2000,7 +2178,9 @@ export const useTfpStore = create<State>()(
         if (item.shaping_status !== "Ready for Sprint") {
           if (typeof window !== "undefined") {
             import("sonner").then(({ toast }) => {
-              toast.error(`Cannot create Jira ticket: shaping is "${item.shaping_status}". Get tech sign-off first.`);
+              toast.error(
+                `Cannot create Jira ticket: shaping is "${item.shaping_status}". Get tech sign-off first.`,
+              );
             });
           }
           return item.jira_key ?? "";
@@ -2015,17 +2195,31 @@ export const useTfpStore = create<State>()(
           type: "issue.created",
           jira_key: key,
           shaping_id: id,
-          payload: { summary: item.problem_what.slice(0, 80), points: item.tech_estimate_pts ?? 0, sprint: "backlog" },
+          payload: {
+            summary: item.problem_what.slice(0, 80),
+            points: item.tech_estimate_pts ?? 0,
+            sprint: "backlog",
+          },
         };
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, jira_key: key, in_sprint: false, delivery_status: "To Do", updated_at: new Date().toISOString() }
+              ? {
+                  ...s,
+                  jira_key: key,
+                  in_sprint: false,
+                  delivery_status: "To Do",
+                  updated_at: new Date().toISOString(),
+                }
               : s,
           ),
           jiraEvents: [event, ...get().jiraEvents],
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Jira ticket created as ${key}` });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Jira ticket created as ${key}`,
+        });
         return key;
       },
 
@@ -2055,7 +2249,14 @@ export const useTfpStore = create<State>()(
         const newAlloc = sp.allocated_pts + (item.tech_estimate_pts ?? 0);
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, in_sprint: true, delivery_status: "To Do", updated_at: new Date().toISOString() } : s,
+            s.id === id
+              ? {
+                  ...s,
+                  in_sprint: true,
+                  delivery_status: "To Do",
+                  updated_at: new Date().toISOString(),
+                }
+              : s,
           ),
           sprint: { ...sp, allocated_pts: newAlloc },
         });
@@ -2067,7 +2268,11 @@ export const useTfpStore = create<State>()(
             signal_id: item.signal_id,
             shaping_id: item.id,
             displaced_shaping_ids: displacedShapingIds,
-            displaced_pts: displacedShapingIds.reduce((sum, displacedId) => sum + (get().shaping.find((s) => s.id === displacedId)?.tech_estimate_pts ?? 0), Math.max(0, newAlloc - usable)),
+            displaced_pts: displacedShapingIds.reduce(
+              (sum, displacedId) =>
+                sum + (get().shaping.find((s) => s.id === displacedId)?.tech_estimate_pts ?? 0),
+              Math.max(0, newAlloc - usable),
+            ),
             shahid_visible: true,
           });
           get().pushNotification({
@@ -2123,9 +2328,16 @@ export const useTfpStore = create<State>()(
           shaping: get().shaping.map((s) =>
             s.id === id ? { ...s, in_sprint: false, updated_at: new Date().toISOString() } : s,
           ),
-          sprint: { ...sp, allocated_pts: Math.max(0, sp.allocated_pts - (item.tech_estimate_pts ?? 0)) },
+          sprint: {
+            ...sp,
+            allocated_pts: Math.max(0, sp.allocated_pts - (item.tech_estimate_pts ?? 0)),
+          },
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: `Removed from ${sp.name}` });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: `Removed from ${sp.name}`,
+        });
         return true;
       },
 
@@ -2135,7 +2347,12 @@ export const useTfpStore = create<State>()(
         // Dev-complete gate enforcement: cannot transition to Done unless gate is signed off.
         if (next === "Done") {
           const g = item.dev_complete;
-          if (!g.merged_to_main || !g.deployed_to_staging || !g.smoke_test_passed || !g.signed_off_at) {
+          if (
+            !g.merged_to_main ||
+            !g.deployed_to_staging ||
+            !g.smoke_test_passed ||
+            !g.signed_off_at
+          ) {
             // Fire a P2 notification but block the transition.
             get().pushNotification({
               trigger: "blocker_signoff",
@@ -2194,17 +2411,20 @@ export const useTfpStore = create<State>()(
           after: next,
         });
         if (next === "Blocked") {
-          [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+          [item.pm_owner_id, "u-karim"].forEach((userId) =>
+            get().pushNotification({
               trigger: "blocker_signoff",
               title: `${item.jira_key} marked Blocked`,
               body: "Investigate and clear blocker; auto-escalates after 24h.",
               link_to: "/delivery",
               for_user_id: userId,
               entity_id: id,
-            }));
+            }),
+          );
         }
         if (nowDone && !wasDone && !alreadyHasReview) {
-          const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
+          const signalTitle =
+            get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
           get().pushNotification({
             trigger: "review_overdue",
             title: `Outcome review needed: ${signalTitle}`,
@@ -2239,14 +2459,16 @@ export const useTfpStore = create<State>()(
           action: "Marked Blocked",
           after: description.slice(0, 80),
         });
-        [item.pm_owner_id, "u-karim"].forEach((userId) => get().pushNotification({
+        [item.pm_owner_id, "u-karim"].forEach((userId) =>
+          get().pushNotification({
             trigger: "blocker_signoff",
             title: `${item.jira_key} marked Blocked`,
             body: description.slice(0, 120),
             link_to: "/delivery",
             for_user_id: userId,
             entity_id: id,
-          }));
+          }),
+        );
       },
 
       unblock: (id, next) => {
@@ -2256,7 +2478,13 @@ export const useTfpStore = create<State>()(
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, delivery_status: next, blocked_since: null, blocker_description: "", updated_at: now }
+              ? {
+                  ...s,
+                  delivery_status: next,
+                  blocked_since: null,
+                  blocker_description: "",
+                  updated_at: now,
+                }
               : s,
           ),
         });
@@ -2270,7 +2498,9 @@ export const useTfpStore = create<State>()(
       setDeliveryAssignee: (id, userId) => {
         set({
           shaping: get().shaping.map((s) =>
-            s.id === id ? { ...s, delivery_assignee_id: userId, updated_at: new Date().toISOString() } : s,
+            s.id === id
+              ? { ...s, delivery_assignee_id: userId, updated_at: new Date().toISOString() }
+              : s,
           ),
         });
       },
@@ -2313,7 +2543,10 @@ export const useTfpStore = create<State>()(
               ? {
                   ...r,
                   ...patch,
-                  completed_at: patch.status === "Completed" ? (patch.completed_at ?? now) : (patch.completed_at ?? r.completed_at),
+                  completed_at:
+                    patch.status === "Completed"
+                      ? (patch.completed_at ?? now)
+                      : (patch.completed_at ?? r.completed_at),
                   updated_at: now,
                 }
               : r,
@@ -2324,7 +2557,14 @@ export const useTfpStore = create<State>()(
       scheduleReview: (id, when) => {
         set({
           reviews: get().reviews.map((r) =>
-            r.id === id ? { ...r, scheduled_for: when, status: "Scheduled", updated_at: new Date().toISOString() } : r,
+            r.id === id
+              ? {
+                  ...r,
+                  scheduled_for: when,
+                  status: "Scheduled",
+                  updated_at: new Date().toISOString(),
+                }
+              : r,
           ),
         });
       },
@@ -2337,11 +2577,21 @@ export const useTfpStore = create<State>()(
         set({
           reviews: get().reviews.map((r) =>
             r.id === id
-              ? { ...r, ...data, status: "Completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+              ? {
+                  ...r,
+                  ...data,
+                  status: "Completed",
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }
               : r,
           ),
         });
-        get().audit_log({ entity_type: "review", entity_id: id, action: `Review completed: ${data.outcome_rating}` });
+        get().audit_log({
+          entity_type: "review",
+          entity_id: id,
+          action: `Review completed: ${data.outcome_rating}`,
+        });
       },
 
       logFollowOnSignal: (reviewId, data) => {
@@ -2358,7 +2608,9 @@ export const useTfpStore = create<State>()(
         if (review) {
           set({
             signals: get().signals.map((s) =>
-              s.id === sig.id ? { ...s, parent_signal_id: review.signal_id, shaping_item_id: review.shaping_id } : s,
+              s.id === sig.id
+                ? { ...s, parent_signal_id: review.signal_id, shaping_item_id: review.shaping_id }
+                : s,
             ),
           });
           get().audit_log({
@@ -2390,7 +2642,9 @@ export const useTfpStore = create<State>()(
           (item) =>
             item.in_sprint &&
             item.delivery_status === "Done" &&
-            !get().reviews.some((review) => review.shaping_id === item.id && review.status === "Completed"),
+            !get().reviews.some(
+              (review) => review.shaping_id === item.id && review.status === "Completed",
+            ),
         ).length;
         if (missingReviewCount > 0) {
           if (typeof window !== "undefined") {
@@ -2427,21 +2681,37 @@ export const useTfpStore = create<State>()(
           allocated_pts: 0,
           notes: "",
         };
-        const completedSprint = { ...current, status: "Completed" as const, close_summary: data.summary, closed_at: now.toISOString() };
+        const completedSprint = {
+          ...current,
+          status: "Completed" as const,
+          close_summary: data.summary,
+          closed_at: now.toISOString(),
+        };
         set({
           sprint: nextSprint,
-          sprints: [...get().sprints.map((sp) => (sp.id === current.id ? completedSprint : sp)), nextSprint],
-          shaping: get().shaping.map((item) => item.in_sprint ? { ...item, in_sprint: false, updated_at: now.toISOString() } : item),
+          sprints: [
+            ...get().sprints.map((sp) => (sp.id === current.id ? completedSprint : sp)),
+            nextSprint,
+          ],
+          shaping: get().shaping.map((item) =>
+            item.in_sprint ? { ...item, in_sprint: false, updated_at: now.toISOString() } : item,
+          ),
         });
-        get().audit_log({ entity_type: "sprint", entity_id: current.id, action: `Sprint closed: ${data.summary}` });
-        USERS.forEach((user) => get().pushNotification({
-          trigger: "retro_escalation",
-          title: `${current.name} closed`,
-          body: `${data.summary} Retro logged: ${retro.primary_theme}.`,
-          link_to: "/delivery",
-          for_user_id: user.id,
+        get().audit_log({
+          entity_type: "sprint",
           entity_id: current.id,
-        }));
+          action: `Sprint closed: ${data.summary}`,
+        });
+        USERS.forEach((user) =>
+          get().pushNotification({
+            trigger: "retro_escalation",
+            title: `${current.name} closed`,
+            body: `${data.summary} Retro logged: ${retro.primary_theme}.`,
+            link_to: "/delivery",
+            for_user_id: user.id,
+            entity_id: current.id,
+          }),
+        );
       },
 
       // ============ Wave 4 actions ============
@@ -2452,7 +2722,12 @@ export const useTfpStore = create<State>()(
             s.id === id
               ? {
                   ...s,
-                  dev_complete: { ...s.dev_complete, [key]: value, signed_off_at: null, signed_off_by: null },
+                  dev_complete: {
+                    ...s.dev_complete,
+                    [key]: value,
+                    signed_off_at: null,
+                    signed_off_by: null,
+                  },
                   updated_at: new Date().toISOString(),
                 }
               : s,
@@ -2483,7 +2758,11 @@ export const useTfpStore = create<State>()(
               : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: "Dev-complete gate signed off · auto-advanced to Done",
+        });
         // Auto-create a review if none exists yet.
         const reviews = get().reviews;
         if (demoMode && reviews.some((r) => r.shaping_id === id)) {
@@ -2525,7 +2804,8 @@ export const useTfpStore = create<State>()(
           };
           set({ reviews: [review, ...reviews] });
           if (!wasDone) {
-            const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
+            const signalTitle =
+              get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
             get().pushNotification({
               trigger: "review_overdue",
               title: `Outcome review needed: ${signalTitle}`,
@@ -2575,7 +2855,11 @@ export const useTfpStore = create<State>()(
           shahid_visible: data.shahid_visible ?? true,
         };
         set({ overrides: [ovr, ...get().overrides] });
-        get().audit_log({ entity_type: "override", entity_id: ovr.id, action: `Override logged: ${ovr.kind.toLowerCase()}` });
+        get().audit_log({
+          entity_type: "override",
+          entity_id: ovr.id,
+          action: `Override logged: ${ovr.kind.toLowerCase()}`,
+        });
         get().pushNotification({
           trigger: "override_logged",
           title: `${ovr.id} awaiting acknowledgement`,
@@ -2592,22 +2876,38 @@ export const useTfpStore = create<State>()(
         set({
           overrides: get().overrides.map((o) =>
             o.id === id
-              ? { ...o, ack_status: "Acknowledged", acknowledged_by: me, acknowledged_at: new Date().toISOString() }
+              ? {
+                  ...o,
+                  ack_status: "Acknowledged",
+                  acknowledged_by: me,
+                  acknowledged_at: new Date().toISOString(),
+                }
               : o,
           ),
         });
-        get().audit_log({ entity_type: "override", entity_id: id, action: "Override acknowledged" });
+        get().audit_log({
+          entity_type: "override",
+          entity_id: id,
+          action: "Override acknowledged",
+        });
       },
 
       upsertGoLive: (data) => {
         const existing = data.id ? get().goLives.find((g) => g.id === data.id) : null;
         if (existing) {
-          const updated: GoLiveChecklist = { ...existing, ...data, updated_at: new Date().toISOString() } as GoLiveChecklist;
+          const updated: GoLiveChecklist = {
+            ...existing,
+            ...data,
+            updated_at: new Date().toISOString(),
+          } as GoLiveChecklist;
           set({ goLives: get().goLives.map((g) => (g.id === existing.id ? updated : g)) });
           return updated;
         }
         // Build criteria from explicit keys, an explicit Record, or fall back to defaults.
-        let criteria: Record<string, { done: boolean; note: string; checked_by: string | null; checked_at: string | null }>;
+        let criteria: Record<
+          string,
+          { done: boolean; note: string; checked_by: string | null; checked_at: string | null }
+        >;
         if (data.criteria) {
           criteria = data.criteria;
         } else if (data.criteria_keys && data.criteria_keys.length > 0) {
@@ -2618,10 +2918,30 @@ export const useTfpStore = create<State>()(
         } else {
           criteria = {
             "Clinic staff trained": { done: false, note: "", checked_by: null, checked_at: null },
-            "Data migrated and verified": { done: false, note: "", checked_by: null, checked_at: null },
-            "UAT completed by clinic contact": { done: false, note: "", checked_by: null, checked_at: null },
-            "Rollback plan confirmed and tested": { done: false, note: "", checked_by: null, checked_at: null },
-            "Go-live comms sent to clinic staff": { done: false, note: "", checked_by: null, checked_at: null },
+            "Data migrated and verified": {
+              done: false,
+              note: "",
+              checked_by: null,
+              checked_at: null,
+            },
+            "UAT completed by clinic contact": {
+              done: false,
+              note: "",
+              checked_by: null,
+              checked_at: null,
+            },
+            "Rollback plan confirmed and tested": {
+              done: false,
+              note: "",
+              checked_by: null,
+              checked_at: null,
+            },
+            "Go-live comms sent to clinic staff": {
+              done: false,
+              note: "",
+              checked_by: null,
+              checked_at: null,
+            },
           };
         }
         const fresh: GoLiveChecklist = {
@@ -2640,7 +2960,11 @@ export const useTfpStore = create<State>()(
           updated_at: new Date().toISOString(),
         };
         set({ goLives: [fresh, ...get().goLives] });
-        get().audit_log({ entity_type: "checklist", entity_id: fresh.id, action: `Go-live created for ${fresh.product}` });
+        get().audit_log({
+          entity_type: "checklist",
+          entity_id: fresh.id,
+          action: `Go-live created for ${fresh.product}`,
+        });
         return fresh;
       },
 
@@ -2692,7 +3016,11 @@ export const useTfpStore = create<State>()(
               : g,
           ),
         });
-        get().audit_log({ entity_type: "checklist", entity_id: id, action: `Go/No-Go: ${decision}` });
+        get().audit_log({
+          entity_type: "checklist",
+          entity_id: id,
+          action: `Go/No-Go: ${decision}`,
+        });
       },
 
       createComms: (data) => {
@@ -2704,8 +3032,7 @@ export const useTfpStore = create<State>()(
           Postponement: true,
           "Scope change": true,
         };
-        const requires_pm_approval =
-          data.requires_pm_approval ?? autoApproval[data.comms_type];
+        const requires_pm_approval = data.requires_pm_approval ?? autoApproval[data.comms_type];
         const item: CommsItem = {
           id: "cm-" + uid(),
           ...data,
@@ -2724,7 +3051,9 @@ export const useTfpStore = create<State>()(
       },
 
       submitCommsForApproval: (id) => {
-        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Pending Approval" } : c)) });
+        set({
+          comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Pending Approval" } : c)),
+        });
         get().pushNotification({
           trigger: "comms_approval",
           title: "Comms awaiting PM approval",
@@ -2751,14 +3080,20 @@ export const useTfpStore = create<State>()(
         }
         set({
           comms: get().comms.map((c) =>
-            c.id === id ? { ...c, status: "Approved", approved_by: me, approved_at: new Date().toISOString() } : c,
+            c.id === id
+              ? { ...c, status: "Approved", approved_by: me, approved_at: new Date().toISOString() }
+              : c,
           ),
         });
         get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms approved" });
       },
 
       rejectComms: (id, reason) => {
-        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Rejected", rejected_reason: reason } : c)) });
+        set({
+          comms: get().comms.map((c) =>
+            c.id === id ? { ...c, status: "Rejected", rejected_reason: reason } : c,
+          ),
+        });
       },
 
       sendComms: (id) => {
@@ -2773,7 +3108,11 @@ export const useTfpStore = create<State>()(
           }
           return;
         }
-        set({ comms: get().comms.map((c) => (c.id === id ? { ...c, status: "Sent", sent_at: new Date().toISOString() } : c)) });
+        set({
+          comms: get().comms.map((c) =>
+            c.id === id ? { ...c, status: "Sent", sent_at: new Date().toISOString() } : c,
+          ),
+        });
         get().audit_log({ entity_type: "comms", entity_id: id, action: "Comms sent" });
       },
 
@@ -2787,7 +3126,11 @@ export const useTfpStore = create<State>()(
           superseded_by_id: null,
         };
         set({ decisions: [dec, ...get().decisions] });
-        get().audit_log({ entity_type: "decision", entity_id: dec.id, action: `Decision: ${dec.title}` });
+        get().audit_log({
+          entity_type: "decision",
+          entity_id: dec.id,
+          action: `Decision: ${dec.title}`,
+        });
         return dec;
       },
 
@@ -2795,7 +3138,8 @@ export const useTfpStore = create<State>()(
         const me = get().currentUserId;
         const all = get().retros;
         const recent = all.slice(0, 2);
-        const escalated = recent.length === 2 && recent.every((r) => r.primary_theme === data.primary_theme);
+        const escalated =
+          recent.length === 2 && recent.every((r) => r.primary_theme === data.primary_theme);
         const retro: SprintRetro = {
           id: "rt-" + uid(),
           ...data,
@@ -2804,7 +3148,11 @@ export const useTfpStore = create<State>()(
           escalated,
         };
         set({ retros: [retro, ...all] });
-        get().audit_log({ entity_type: "retro", entity_id: retro.id, action: `Retro logged (${data.primary_theme})` });
+        get().audit_log({
+          entity_type: "retro",
+          entity_id: retro.id,
+          action: `Retro logged (${data.primary_theme})`,
+        });
         if (escalated) {
           get().pushNotification({
             trigger: "retro_escalation",
@@ -2824,11 +3172,23 @@ export const useTfpStore = create<State>()(
         set({
           shaping: get().shaping.map((s) =>
             s.id === id
-              ? { ...s, approver_id: approverId, approval_decision: "Approved", approval_notes: "Fast-track approved", approved_at: now, shaping_status: "Ready for Sprint", updated_at: now }
+              ? {
+                  ...s,
+                  approver_id: approverId,
+                  approval_decision: "Approved",
+                  approval_notes: "Fast-track approved",
+                  approved_at: now,
+                  shaping_status: "Ready for Sprint",
+                  updated_at: now,
+                }
               : s,
           ),
         });
-        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Fast-track approved for sprint planning" });
+        get().audit_log({
+          entity_type: "shaping",
+          entity_id: id,
+          action: "Fast-track approved for sprint planning",
+        });
       },
       offboardClinic: (clinicId, reason) => {
         const me = get().currentUserId;
@@ -2837,11 +3197,21 @@ export const useTfpStore = create<State>()(
         set({
           clinics: get().clinics.map((c) =>
             c.id === clinicId
-              ? { ...c, status: "Offboarded", offboarded_at: new Date().toISOString(), offboarded_by_id: me, offboard_reason: reason }
+              ? {
+                  ...c,
+                  status: "Offboarded",
+                  offboarded_at: new Date().toISOString(),
+                  offboarded_by_id: me,
+                  offboard_reason: reason,
+                }
               : c,
           ),
         });
-        get().audit_log({ entity_type: "clinic", entity_id: clinicId, action: `Clinic offboarded: ${clinic.name}` });
+        get().audit_log({
+          entity_type: "clinic",
+          entity_id: clinicId,
+          action: `Clinic offboarded: ${clinic.name}`,
+        });
       },
       createSprint: (data) => {
         const sp: Sprint = {
@@ -2863,7 +3233,11 @@ export const useTfpStore = create<State>()(
           notes: data.notes,
         };
         set({ sprints: [...get().sprints, sp] });
-        get().audit_log({ entity_type: "sprint", entity_id: sp.id, action: `Sprint created: ${sp.name}` });
+        get().audit_log({
+          entity_type: "sprint",
+          entity_id: sp.id,
+          action: `Sprint created: ${sp.name}`,
+        });
         return sp;
       },
       markTechDebtReviewed: (shapingId) => {
@@ -2902,7 +3276,8 @@ export const useTfpStore = create<State>()(
           deduplicated: false,
         };
         const existing = get().signals.find(
-          (s) => s.origin === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
+          (s) =>
+            s.origin === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
         );
         if (existing) {
           alert.deduplicated = true;
@@ -2911,7 +3286,11 @@ export const useTfpStore = create<State>()(
             monitoringAlerts: [alert, ...get().monitoringAlerts],
             signals: get().signals.map((s) =>
               s.id === existing.id
-                ? { ...s, description: s.description + `\n\nAlert repeated at ${new Date().toISOString()}` }
+                ? {
+                    ...s,
+                    description:
+                      s.description + `\n\nAlert repeated at ${new Date().toISOString()}`,
+                  }
                 : s,
             ),
           });
@@ -2966,7 +3345,12 @@ export const useTfpStore = create<State>()(
           displacement_flag: false,
           displacement_note: null,
         });
-        set({ clinicFeedbackLog: [...get().clinicFeedbackLog, { clinic_id: data.clinic_id, ts: now, desc_key: descKey }] });
+        set({
+          clinicFeedbackLog: [
+            ...get().clinicFeedbackLog,
+            { clinic_id: data.clinic_id, ts: now, desc_key: descKey },
+          ],
+        });
         get().pushNotification({
           trigger: "clinic_feedback",
           title: `Clinic feedback from ${data.clinic_name}`,
@@ -2980,13 +3364,17 @@ export const useTfpStore = create<State>()(
       completeOnboardingItem: (userId, itemId) => {
         set({
           users: get().users.map((u) =>
-            u.id === userId ? { ...u, onboarding_progress: { ...u.onboarding_progress, [itemId]: true } } : u,
+            u.id === userId
+              ? { ...u, onboarding_progress: { ...u.onboarding_progress, [itemId]: true } }
+              : u,
           ),
         });
       },
       completeOnboarding: (userId) => {
         set({
-          users: get().users.map((u) => (u.id === userId ? { ...u, onboarding_completed: true } : u)),
+          users: get().users.map((u) =>
+            u.id === userId ? { ...u, onboarding_completed: true } : u,
+          ),
         });
       },
       resetOnboarding: (userId) => {
@@ -3005,7 +3393,11 @@ export const useTfpStore = create<State>()(
       },
       upsertUser: (user) => {
         const exists = get().users.find((u) => u.id === user.id);
-        set({ users: exists ? get().users.map((u) => (u.id === user.id ? user : u)) : [...get().users, user] });
+        set({
+          users: exists
+            ? get().users.map((u) => (u.id === user.id ? user : u))
+            : [...get().users, user],
+        });
       },
       removeUser: (userId) => {
         set({ users: get().users.filter((x) => x.id !== userId) });
@@ -3078,7 +3470,8 @@ export const useTfpStore = create<State>()(
         const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
           // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
-          in_sprint: typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
+          in_sprint:
+            typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
         }));
         return {
           ...demo,
@@ -3123,11 +3516,7 @@ export function techReviewComplete(s: ShapingItem): boolean {
 }
 
 export function canApprove(s: ShapingItem): boolean {
-  return (
-    completenessScore(s) >= 3 &&
-    solutionComplete(s) &&
-    techReviewComplete(s)
-  );
+  return completenessScore(s) >= 3 && solutionComplete(s) && techReviewComplete(s);
 }
 
 export function devCompleteReady(s: ShapingItem): boolean {
