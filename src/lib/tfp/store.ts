@@ -2045,7 +2045,7 @@ export const useTfpStore = create<State>()(
             trigger: "review_overdue",
             title: "Outcome review pending",
             body: `${item.jira_key} moved to Done and needs an outcome review.`,
-            link_to: "/review",
+            link_to: "/delivery?tab=board",
             for_user_id: item.pm_owner_id,
             entity_id: id,
           });
@@ -2238,7 +2238,11 @@ export const useTfpStore = create<State>()(
           notes: "",
         };
         const completedSprint = { ...current, status: "Completed" as const, close_summary: data.summary, closed_at: now.toISOString() };
-        set({ sprint: nextSprint, sprints: [...get().sprints.map((sp) => (sp.id === current.id ? completedSprint : sp)), nextSprint] });
+        set({
+          sprint: nextSprint,
+          sprints: [...get().sprints.map((sp) => (sp.id === current.id ? completedSprint : sp)), nextSprint],
+          shaping: get().shaping.map((item) => item.in_sprint ? { ...item, in_sprint: false, updated_at: now.toISOString() } : item),
+        });
         get().audit_log({ entity_type: "sprint", entity_id: current.id, action: `Sprint closed: ${data.summary}` });
         USERS.forEach((user) => get().pushNotification({
           trigger: "retro_escalation",
