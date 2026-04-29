@@ -762,6 +762,10 @@ function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: str
   );
 }
 
+function completedReview(reviews: Review[], shapingId: string) {
+  return reviews.find((review) => review.shaping_id === shapingId && review.status === "Completed") ?? null;
+}
+
 function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
   const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
   return (
