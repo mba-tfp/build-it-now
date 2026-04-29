@@ -21,6 +21,7 @@ import { ScrollTable } from "@/components/tfp/ScrollTable";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { LabelSuggestions } from "@/components/tfp/LabelSuggestions";
 import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
+import { slaHoursForTier } from "@/lib/tfp/notify";
 import type { Attachment } from "@/lib/tfp/types";
 import { toast } from "sonner";
 
@@ -78,10 +79,10 @@ function ShapingPage() {
     }
     // Default: overdue → fast-track → others
     return [...cards].sort((a, b) => {
-      const ah = a.sh.shaping_started_at ? (Date.now() - new Date(a.sh.shaping_started_at).getTime()) / 3600000 : 0;
-      const bh = b.sh.shaping_started_at ? (Date.now() - new Date(b.sh.shaping_started_at).getTime()) / 3600000 : 0;
-      const aOverdue = isFix(a.sh) && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
-      const bOverdue = isFix(b.sh) && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      const ah = (Date.now() - new Date(a.sh.updated_at).getTime()) / 3600000;
+      const bh = (Date.now() - new Date(b.sh.updated_at).getTime()) / 3600000;
+      const aOverdue = isFix(a.sh) && !a.sh.fast_track && ah > slaHoursForTier(a.sig?.tier ?? "P2") * 0.5 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      const bOverdue = isFix(b.sh) && !b.sh.fast_track && bh > slaHoursForTier(b.sig?.tier ?? "P2") * 0.5 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
       if (aOverdue !== bOverdue) return bOverdue - aOverdue;
       if (a.sh.fast_track !== b.sh.fast_track) return a.sh.fast_track ? -1 : 1;
       return 0;
@@ -136,8 +137,9 @@ function ShapingPage() {
               const hoursSinceStart = sh.shaping_started_at
                 ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
                 : 0;
+              const hoursInStatus = (Date.now() - new Date(sh.updated_at).getTime()) / 3600000;
               const isBug = isFix(sh);
-              const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
+              const overdue = isBug && !sh.fast_track && hoursInStatus > slaHoursForTier(sig.tier) * 0.5 && sh.shaping_status !== "Approved";
               const score = completenessScore(sh);
               const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
               const readyForSprint = sh.shaping_status === "Ready for Sprint";
