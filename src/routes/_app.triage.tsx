@@ -753,7 +753,47 @@ function TriagePanel({
             </div>
           ) : !editing ? (
             <div className="rounded-md border border-border bg-surface-2 p-3 text-sm text-muted-foreground">
-              Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>. Use Edit to change details or status.
+              <p>Decision recorded: <span className="font-medium text-foreground">{sig.status}</span>. Use Edit to change details or status.</p>
+              {sig.status === "Rejected" && mode === "none" && (
+                <button
+                  onClick={() => openMode("reopen")}
+                  className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground hover:bg-accent/40"
+                >
+                  Reopen signal
+                </button>
+              )}
+              {sig.status === "Rejected" && mode === "reopen" && (
+                <div className="mt-3 space-y-3">
+                  <label className="block text-xs text-muted-foreground">Reason for reopening
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      rows={3}
+                      placeholder="Explain what changed and why this should be reviewed again."
+                      className="mt-1 block w-full rounded-md border border-input bg-surface px-2 py-1.5 text-sm text-foreground"
+                    />
+                  </label>
+                  {formError && <p className="text-xs text-destructive">{formError}</p>}
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openMode("none")} className="rounded-md px-3 py-1.5 text-sm hover:bg-muted">Cancel</button>
+                    <button
+                      disabled={reason.trim().length < 20}
+                      onClick={() => {
+                        const res = reopenSignal(sig.id, reason);
+                        if (res.ok) {
+                          toast.success("Signal reopened and back in review");
+                          openMode("none");
+                        } else {
+                          setFormError(res.error ?? "Couldn't reopen signal");
+                        }
+                      }}
+                      className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-40"
+                    >
+                      Confirm reopen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
         </div>
