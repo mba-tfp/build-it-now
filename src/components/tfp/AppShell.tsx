@@ -15,6 +15,7 @@ import {
   Truck,
   Building2,
   Crown,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingModal } from "./OnboardingModal";
@@ -112,10 +113,13 @@ export function AppShell() {
   const retros = useTfpStore((s) => s.retros);
   const pushNotification = useTfpStore((s) => s.pushNotification);
   const resetOnboarding = useTfpStore((s) => s.resetOnboarding);
+  const demoModeEnabled = useTfpStore((s) => s.flags.demoModeEnabled);
+  const setDemoMode = useTfpStore((s) => s.setDemoMode);
   const me = (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))!;
   const meLive = users.find((u) => u.id === currentUserId);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
   const [storeHydrated, setStoreHydrated] = useState(false);
   const showOnboarding = storeHydrated && !!meLive && !meLive.onboarding_completed && !onboardingDismissed;
 
@@ -320,6 +324,20 @@ export function AppShell() {
                 <HelpCircle className="h-3.5 w-3.5" />
                 Getting started
               </button>
+              <button
+                onClick={() => setDemoMode(!demoModeEnabled)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-[11px] transition",
+                  demoModeEnabled
+                    ? "border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/20 text-[var(--color-status-hold)]"
+                    : "border-input bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )}
+                title="Auto-completes Tech Review and other multi-user steps for solo demos."
+                aria-pressed={demoModeEnabled}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Demo mode
+              </button>
               <label className="flex flex-col gap-0.5">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Viewing as</span>
                 <select
@@ -341,6 +359,17 @@ export function AppShell() {
               </div>
             </div>
           </header>
+
+          {demoModeEnabled && !demoBannerDismissed && (
+            <div className="border-b border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/15 px-6 py-2 text-sm text-[var(--color-status-hold)]">
+              <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between gap-3">
+                <span>Demo mode active — multi-user steps auto-complete.</span>
+                <button onClick={() => setDemoBannerDismissed(true)} className="rounded-md px-2 py-1 text-xs hover:bg-[var(--color-status-hold)]/10">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           <main className="mx-auto w-full max-w-[1500px] px-6 pb-8 pt-4">
             <Outlet />
