@@ -758,7 +758,7 @@ function BoardCard({
         {row.sh.delivery_status === "Done" && (review ? (
           <span className="rounded-full border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 px-2 py-1 text-xs font-medium text-[var(--color-status-proceed)]">Review complete</span>
         ) : (
-          <button onClick={() => { onEnsureReview(); setReviewOpen((open) => !open); }} className="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Review pending</button>
+          <button onClick={() => { onEnsureReview(); setReviewOpen((open) => !open); }} className="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Outcome review pending</button>
         ))}
       </div>
       {reviewOpen && row.sh.delivery_status === "Done" && !review && <OutcomeReviewPanel review={onEnsureReview()} onComplete={onCompleteReview} onLogFollowOn={onLogFollowOn} />}
