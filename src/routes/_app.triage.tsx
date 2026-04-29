@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/store";
 import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
-import type { IntakePriority, IssueType, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
-import { StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import type { CommitmentType, IntakePriority, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
+import { CommitmentBadge, LabelsList, StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -33,15 +33,9 @@ const ALL_STATUSES: SignalStatus[] = ["New", "In Review", "Proceed", "Hold", "Re
 const ALL_SOURCES: Source[] = ["Leadership", "Clinic", "Internal", "Dev Team"];
 const ALL_PRODUCTS: Product[] = ["Otto-Onboard", "Otto Notes", "Otto Pulse", "FertiWise", "StimSmart", "Platform"];
 const ALL_TIERS: Tier[] = ["P1", "P2", "P3"];
-const ALL_TYPES: IssueType[] = [
-  "Feature",
-  "Bug",
-  "Enhancement",
-  "Leadership Input",
-  "Support",
-  "Incident",
-  "Dependency Change",
-];
+const COMMITMENT_TYPES: CommitmentType[] = ["Feature", "Fix", "Research", "Dependency", "Incident"];
+const SUGGESTED_LABELS = ["French-required", "PHIPA", "patient-facing", "integration", "tech-debt", "Procrea-QC", "compliance", "board"];
+const parseLabels = (value: string) => value.split(",").map((label) => label.trim()).filter(Boolean);
 const ALL_PRIORITIES: IntakePriority[] = ["P1", "P2", "P3"];
 
 function priorityClasses(p: IntakePriority | undefined): string {
@@ -146,7 +140,7 @@ export function TriageQueuePage({ initialOpenId }: { initialOpenId?: string }) {
               <th className="px-3 py-2.5 font-medium">Priority</th>
               <th className="px-3 py-2.5 font-medium">Source</th>
               <th className="px-3 py-2.5 font-medium">Product</th>
-              <th className="px-3 py-2.5 font-medium">Type</th>
+              <th className="px-3 py-2.5 font-medium">Labels</th>
               <th className="px-3 py-2.5 font-medium">P1/P2/P3</th>
               <th className="px-3 py-2.5 font-medium">Status</th>
               <th className="px-3 py-2.5 font-medium">Owner</th>
@@ -178,11 +172,7 @@ export function TriageQueuePage({ initialOpenId }: { initialOpenId?: string }) {
                   <td className="px-3 py-2.5 text-muted-foreground">{s.source}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{s.product}</td>
                   <td className="px-3 py-2.5" onClick={stop}>
-                    <InlineSelect
-                      value={s.issue_type}
-                      options={ALL_TYPES}
-                      onChange={(v) => tryUpdate(s.id, { issue_type: v as IssueType })}
-                    />
+                    <LabelsList labels={s.labels} />
                   </td>
                   <td className="px-3 py-2.5" onClick={stop}>
                     <InlineSelect
@@ -233,8 +223,8 @@ export function TriageQueuePage({ initialOpenId }: { initialOpenId?: string }) {
           key={open.id}
           signalId={open.id}
           onClose={() => setOpenId(null)}
-          onProceed={() => {
-            triageDecision(open.id, "Proceed");
+          onProceed={(commitmentType) => {
+            triageDecision(open.id, "Proceed", undefined, undefined, commitmentType);
             setOpenId(null);
             navigate({ to: "/shaping" });
           }}
@@ -339,7 +329,7 @@ function TriagePanel({
 }: {
   signalId: string;
   onClose: () => void;
-  onProceed: () => void;
+  onProceed: (commitmentType: CommitmentType | null) => void;
   onHold: (reason: string, holdUntil: string) => void;
   onReject: (reason: string) => void;
 }) {
@@ -355,7 +345,7 @@ function TriagePanel({
     [sig.source, sig.description],
   );
   const suggestedSla = useMemo(() => slaDueAt(suggestion.tier), [suggestion.tier]);
-  const matchesSuggestion = sig.issue_type === suggestion.issue_type && sig.tier === suggestion.tier;
+  const matchesSuggestion = sig.tier === suggestion.tier;
 
   function tryUpdateInPanel(patch: Partial<Signal>) {
     const res = updateSignal(sig.id, patch);
@@ -378,7 +368,6 @@ function TriagePanel({
       description: sig.description,
       source: sig.source,
       product: sig.product,
-      issue_type: sig.issue_type,
       tier: sig.tier,
       status: sig.status,
       owner_id: sig.owner_id,
@@ -442,7 +431,6 @@ function TriagePanel({
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <TierBadge tier={sig.tier} />
                   <StatusBadge status={sig.status} />
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{sig.issue_type}</span>
                   <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", priorityClasses(sig.priority))}>
                     {sig.priority ?? sig.tier}
                   </span>
@@ -454,39 +442,17 @@ function TriagePanel({
                 {sig.description}
               </div>
 
-              {/* Auto-classification suggestion (moved from Intake) */}
               <div className="rounded-lg border border-border bg-surface-2 p-3">
                 <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <Sparkles className="h-3 w-3" /> Auto-classification suggestion
+                  <Sparkles className="h-3 w-3" /> Origin-based SLA suggestion
                 </div>
                 <div className="mt-2 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Suggested type</span>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded bg-muted px-1.5 py-0.5">{suggestion.issue_type}</span>
-                      {sig.issue_type !== suggestion.issue_type && (
-                        <button
-                          type="button"
-                          onClick={() => tryUpdateInPanel({ issue_type: suggestion.issue_type })}
-                          className="text-primary hover:underline"
-                        >
-                          apply
-                        </button>
-                      )}
-                    </div>
-                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Suggested tier</span>
                     <div className="flex items-center gap-2">
                       <TierBadge tier={suggestion.tier} />
                       {sig.tier !== suggestion.tier && (
-                        <button
-                          type="button"
-                          onClick={() => tryUpdateInPanel({ tier: suggestion.tier })}
-                          className="text-primary hover:underline"
-                        >
-                          apply
-                        </button>
+                        <button type="button" onClick={() => tryUpdateInPanel({ tier: suggestion.tier })} className="text-primary hover:underline">apply</button>
                       )}
                     </div>
                   </div>
@@ -495,8 +461,7 @@ function TriagePanel({
                     <span>{fmtDateTime(suggestedSla.toISOString())}</span>
                   </div>
                   <p className="border-t border-border pt-2 text-[11px] text-muted-foreground">
-                    <strong className="text-foreground">Why:</strong> {suggestion.reason}
-                    {matchesSuggestion && <span className="ml-1">· current values match.</span>}
+                    <strong className="text-foreground">Why:</strong> {suggestion.reason}{matchesSuggestion && <span className="ml-1">· current values match.</span>}
                   </p>
                 </div>
               </div>
@@ -596,13 +561,6 @@ function TriagePanel({
                     value={draft.product ?? sig.product}
                     options={ALL_PRODUCTS}
                     onChange={(v) => setDraft({ ...draft, product: v as Product })}
-                  />
-                </EditField>
-                <EditField label="Type">
-                  <SelectInput
-                    value={draft.issue_type ?? sig.issue_type}
-                    options={ALL_TYPES}
-                    onChange={(v) => setDraft({ ...draft, issue_type: v as IssueType })}
                   />
                 </EditField>
                 <EditField label="P1/P2/P3" hint="Changing priority resets SLA">
