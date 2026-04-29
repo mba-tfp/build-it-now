@@ -1615,6 +1615,10 @@ export const useTfpStore = create<State>()(
         }
 
         const next: Signal = { ...prev, ...patch };
+        if (patch.issue_type === "Incident") {
+          next.tier = "P1";
+          next.sla_due_at = slaDueAt("P1", new Date(prev.created_at)).toISOString();
+        }
 
         // SLA recompute when tier changes
         if (patch.tier && patch.tier !== prev.tier) {
@@ -1629,6 +1633,7 @@ export const useTfpStore = create<State>()(
           const isFastTrack = next.issue_type === "Incident" || next.tier === "P1";
           const ownerId = isFastTrack ? "u-waseem" : me;
           const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
+          sh.commitment_type = next.issue_type === "Incident" ? "Incident" : null;
           set({
             shaping: [sh, ...get().shaping],
             signals: get().signals.map((s) => (s.id === signalId ? { ...s, shaping_item_id: sh.id } : s)),
