@@ -134,7 +134,10 @@ function ShapingPage() {
               const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
               const score = completenessScore(sh);
               const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
-              const borderCls = overdue
+              const readyForSprint = sh.shaping_status === "Ready for Sprint";
+              const borderCls = readyForSprint
+                ? "border-l-4 border-l-[var(--color-status-proceed)] border-[var(--color-status-proceed)]/40"
+                : overdue
                 ? "border-destructive/60 ring-1 ring-destructive/30"
                 : sh.fast_track
                   ? "border-[var(--color-status-hold)]/60"
@@ -168,11 +171,12 @@ function ShapingPage() {
                             Overdue
                           </span>
                         )}
-                        <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
-                        {sh.shaping_status === "Ready for Sprint" && (
+                        {readyForSprint ? (
                           <span className="rounded-full bg-[var(--color-status-proceed)]/15 px-2 py-0.5 font-medium text-[var(--color-status-proceed)]">
-                            Ready
+                            Ready for Sprint
                           </span>
+                        ) : (
+                          <span className="rounded-full bg-muted px-2 py-0.5">{sh.shaping_status}</span>
                         )}
                         </span>
                         {sh.shaping_status === "In Tech Review" && (
@@ -199,6 +203,16 @@ function ShapingPage() {
                         />
                       </div>
                     </div>
+                    {readyForSprint && (
+                      <Link
+                        to="/delivery"
+                        search={{ tab: "backlog" }}
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-4 inline-flex text-xs font-medium text-[var(--color-status-proceed)] hover:underline"
+                      >
+                        Move to Backlog →
+                      </Link>
+                    )}
                   </div>
                 </button>
               );
