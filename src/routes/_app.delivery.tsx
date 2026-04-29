@@ -711,6 +711,57 @@ function BlockedRail({ rows, onLogBlocker }: { rows: Row[]; onLogBlocker: (row: 
   );
 }
 
+function OutcomeReviewPanel({ review, onComplete, onLogFollowOn }: { review: Review | null; onComplete: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void; onLogFollowOn: (text: string) => void }) {
+  const [rating, setRating] = useState<OutcomeRating | null>(null);
+  const [worked, setWorked] = useState("");
+  const [didnt, setDidnt] = useState("");
+  const [followOn, setFollowOn] = useState("");
+  const ready = !!review && !!rating && worked.trim().length > 0 && didnt.trim().length > 0;
+  return (
+    <div className="mt-3 rounded-md border border-border bg-surface-2 p-3">
+      <div className="flex flex-wrap gap-2">
+        {(["Met", "Partially Met", "Missed"] as OutcomeRating[]).map((option) => (
+          <button key={option} onClick={() => setRating(option)} className={cn("rounded-md border px-2 py-1 text-xs font-medium", rating === option ? option === "Met" ? "border-[var(--color-status-proceed)] bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]" : option === "Partially Met" ? "border-[var(--color-status-hold)] bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)]" : "border-destructive bg-destructive/10 text-destructive" : "border-input hover:bg-accent/40")}>{option}</button>
+        ))}
+      </div>
+      <input value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+      <input value={didnt} onChange={(e) => setDidnt(e.target.value)} placeholder="What did not work" className="mt-2 w-full rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+      <div className="mt-2 flex gap-2">
+        <input value={followOn} onChange={(e) => setFollowOn(e.target.value)} placeholder="Follow-on signal" className="min-w-0 flex-1 rounded-md border border-input bg-surface px-3 py-2 text-xs" />
+        <button disabled={!followOn.trim()} onClick={() => { onLogFollowOn(followOn.trim()); setFollowOn(""); }} className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40">Log as new signal</button>
+      </div>
+      <button disabled={!ready} onClick={() => review && rating && onComplete(review.id, { outcome_rating: rating, what_worked: worked.trim(), what_didnt: didnt.trim(), notes: `${worked.trim()} ${didnt.trim()}` })} className="mt-3 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-40">Submit</button>
+    </div>
+  );
+}
+
+function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: string; onCancel: () => void; onConfirm: (data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => void }) {
+  const [summary, setSummary] = useState("");
+  const [worked, setWorked] = useState("");
+  const [didnt, setDidnt] = useState("");
+  const [change, setChange] = useState("");
+  const [theme, setTheme] = useState<RetroTheme>("Process");
+  const ready = [summary, worked, didnt, change].every((value) => value.trim().length > 0);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Close {sprintName}</h2>
+        <input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Sprint summary" className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={didnt} onChange={(e) => setDidnt(e.target.value)} placeholder="What did not work" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <input value={change} onChange={(e) => setChange(e.target.value)} placeholder="One change next sprint" className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm" />
+        <select value={theme} onChange={(e) => setTheme(e.target.value as RetroTheme)} className="mt-3 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm">
+          {(["Process", "Tools", "Communication", "Quality", "Capacity", "Other"] as RetroTheme[]).map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
+          <button disabled={!ready} onClick={() => onConfirm({ summary: summary.trim(), what_worked: worked.trim(), what_didnt: didnt.trim(), one_change: change.trim(), primary_theme: theme })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
   const reviewer = USERS.find((u) => u.id === row.sh.tech_reviewer_id);
   return (
