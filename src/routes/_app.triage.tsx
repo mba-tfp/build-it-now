@@ -5,7 +5,7 @@ import { useTfpStore, daysSince, isAllowedStatusTransition } from "@/lib/tfp/sto
 import { classifySignal, slaDueAt } from "@/lib/tfp/classify";
 import { fmtDateTime, slaState } from "@/lib/tfp/format";
 import type { CommitmentType, IntakePriority, Product, Signal, SignalStatus, Source, Tier } from "@/lib/tfp/types";
-import { CommitmentBadge, LabelsList, StatusBadge, TierBadge } from "@/components/tfp/Badge";
+import { LabelsList, StatusBadge, TierBadge } from "@/components/tfp/Badge";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
 import { ConfirmDialog } from "@/components/tfp/ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -669,6 +669,7 @@ function TriagePanel({
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => onProceed(commitmentType || null)}
+                    disabled={!commitmentType}
                     className="rounded-md bg-[var(--color-status-proceed)] px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
                   >
                     Proceed → Shaping
