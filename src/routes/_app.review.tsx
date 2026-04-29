@@ -290,7 +290,7 @@ function ReviewDetail({ review }: { review: Review }) {
           <span className="ml-auto text-[11px] text-muted-foreground">PM owner · {owner?.name}</span>
         </div>
         <h2 className="font-display text-xl leading-tight">{sig?.title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{sig?.product} · {sh?.tech_estimate_pts ?? "—"} pts · approved {sh?.approved_at ? fmtDate(sh.approved_at) : "—"}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{sig?.product} · {sh?.tech_estimate_pts ?? "—"} pts · ready for sprint {sh?.approved_at ? fmtDate(sh.approved_at) : "—"}</p>
 
         {sh && (
           <div className="mt-4 grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-sm md:grid-cols-2">
