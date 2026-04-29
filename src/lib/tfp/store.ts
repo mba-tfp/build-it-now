@@ -2096,9 +2096,11 @@ export const useTfpStore = create<State>()(
             return;
           }
         }
+        const now = new Date().toISOString();
+        const demoMode = get().flags.demoModeEnabled;
         const event: JiraEvent = {
           id: "je-" + uid(),
-          ts: new Date().toISOString(),
+          ts: now,
           direction: "outbound",
           type: "issue.transitioned",
           jira_key: item.jira_key,
