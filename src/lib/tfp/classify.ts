@@ -27,19 +27,19 @@ export type Classification = {
 export function classifySignal(input: { source: Source | "Monitoring"; description: string }): Classification {
   // P0 is reserved for explicit human selection at intake; the classifier never returns it.
   if (matches(input.description || "", INCIDENT_KEYWORDS)) {
-    return { origin: "Incident", issue_type: "Incident", tier: "P1", labels: [], reason: "Incident language detected." };
+    return { origin: "Incident", issue_type: "Incident", tier: "P1", labels: [], reason: "Incident language detected; uses P1 SLA (7 days)." };
   }
 
   if (input.source === "Leadership") {
-    return { origin: "Leadership Input", issue_type: "Leadership Input", tier: "P1", labels: [], reason: "Leadership origin uses P1 SLA." };
+    return { origin: "Leadership Input", issue_type: "Leadership Input", tier: "P1", labels: [], reason: "Leadership origin uses P1 SLA (7 days)." };
   }
   if (input.source === "Clinic") {
-    return { origin: "Enhancement", issue_type: "Enhancement", tier: "P2", labels: [], reason: "Clinic origin uses P2 SLA." };
+    return { origin: "Enhancement", issue_type: "Enhancement", tier: "P2", labels: [], reason: "Clinic origin uses P2 SLA (14 days)." };
   }
   if (input.source === "Monitoring") {
-    return { origin: "Incident", issue_type: "Incident", tier: "P1", labels: [], reason: "Monitoring origin uses P1 SLA." };
+    return { origin: "Incident", issue_type: "Incident", tier: "P1", labels: [], reason: "Monitoring origin uses P1 SLA (7 days)." };
   }
-  return { origin: "Enhancement", issue_type: "Enhancement", tier: "P3", labels: [], reason: `${input.source} origin uses P3 SLA.` };
+  return { origin: "Enhancement", issue_type: "Enhancement", tier: "P3", labels: [], reason: `${input.source} origin uses P3 SLA (30 days).` };
 }
 
 export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
