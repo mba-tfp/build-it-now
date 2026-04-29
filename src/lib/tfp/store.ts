@@ -1722,10 +1722,12 @@ export const useTfpStore = create<State>()(
         }
 
         const next: Signal = { ...prev, ...patch };
-        if (patch.issue_type === "Incident") {
+        if (patch.origin === "Incident" || patch.issue_type === "Incident") {
           next.tier = "P1";
           next.sla_due_at = slaDueAt("P1", new Date(prev.created_at)).toISOString();
         }
+        if (patch.origin && !patch.issue_type) next.issue_type = patch.origin;
+        if (patch.issue_type && !patch.origin) next.origin = patch.issue_type;
 
         // SLA recompute when tier changes
         if (patch.tier && patch.tier !== prev.tier) {
@@ -1737,10 +1739,10 @@ export const useTfpStore = create<State>()(
         // B2: status → Proceed should create the ShapingItem (mirror triageDecision)
         if (patch.status === "Proceed" && prev.status !== "Proceed" && !prev.shaping_item_id) {
           const me = get().currentUserId;
-          const isFastTrack = next.issue_type === "Incident" || next.tier === "P1";
+          const isFastTrack = next.origin === "Incident" || next.tier === "P1";
           const ownerId = isFastTrack ? "u-waseem" : me;
           const sh = blankShaping(signalId, ownerId, { fastTrack: isFastTrack });
-          sh.commitment_type = next.issue_type === "Incident" ? "Incident" : null;
+          sh.commitment_type = next.origin === "Incident" ? "Incident" : null;
           set({
             shaping: [sh, ...get().shaping],
             signals: get().signals.map((s) => (s.id === signalId ? { ...s, shaping_item_id: sh.id } : s)),
@@ -2814,7 +2816,7 @@ export const useTfpStore = create<State>()(
           deduplicated: false,
         };
         const existing = get().signals.find(
-          (s) => s.issue_type === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
+          (s) => s.origin === "Incident" && s.status !== "Rejected" && s.title.includes(data.system),
         );
         if (existing) {
           alert.deduplicated = true;
