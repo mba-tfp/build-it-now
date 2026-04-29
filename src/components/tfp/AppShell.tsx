@@ -209,13 +209,24 @@ export function AppShell() {
     }
 
     const sprintEndsInHours = (new Date(sprint.end_date).getTime() - Date.now()) / 3600000;
-    if (sprintEndsInHours <= 24 && sprintEndsInHours >= 0 && !retros.some((retro) => retro.sprint_id === sprint.id)) {
-      fireOnce(`${sprint.id}-retro`, "retro_escalation", {
+    const hasRetro = retros.some((retro) => retro.sprint_id === sprint.id);
+    if (sprintEndsInHours < 0 && !hasRetro) {
+      fireOnce(`${sprint.id}-retro-due`, "retro_escalation", {
         trigger: "retro_escalation",
-        title: "Retro due within 24h",
-        body: `${sprint.name} ends soon and needs a retro scheduled.`,
-        link_to: "/retros",
+        title: "Retro due for Active Sprint",
+        body: "Retro due for Active Sprint — please log before closing.",
+        link_to: "/delivery?tab=board",
         for_user_id: "u-karim",
+        entity_id: sprint.id,
+      });
+    }
+    if (sprintEndsInHours < -48 && !hasRetro) {
+      fireOnce(`${sprint.id}-retro-overdue`, "retro_escalation", {
+        trigger: "retro_escalation",
+        title: "Sprint retro overdue",
+        body: "Sprint retro overdue — Active Sprint has not been reviewed.",
+        link_to: "/leadership",
+        for_user_id: "u-shahid",
         entity_id: sprint.id,
       });
     }
