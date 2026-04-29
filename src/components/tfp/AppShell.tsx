@@ -412,7 +412,7 @@ function NotificationsBell() {
     }
     if (newest.id !== lastSeenIdRef.current && !newest.read) {
       lastSeenIdRef.current = newest.id;
-      const fn = newest.priority === "P1" ? toast.error : newest.priority === "P2" ? toast.warning : toast;
+      const fn = newest.priority === "P0" || newest.priority === "P1" ? toast.error : newest.priority === "P2" ? toast.warning : toast;
       fn(newest.title, { description: newest.body });
     }
   }, [visibleNotifications]);
