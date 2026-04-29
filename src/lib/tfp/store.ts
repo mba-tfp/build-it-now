@@ -2376,7 +2376,7 @@ export const useTfpStore = create<State>()(
           trigger: "retro_escalation",
           title: `${current.name} closed`,
           body: `${data.summary} Retro logged: ${retro.primary_theme}.`,
-          link_to: "/delivery?tab=board",
+          link_to: "/delivery",
           for_user_id: user.id,
           entity_id: current.id,
         }));
