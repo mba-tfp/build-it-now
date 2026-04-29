@@ -322,17 +322,64 @@ function DeliveryPage() {
 function BacklogTab({
   rows,
   onMove,
+  onAddToPlanning,
 }: {
   rows: Row[];
   onMove: (dragId: string, targetId: string) => void;
+  onAddToPlanning?: (id: string) => void;
 }) {
   return (
     <section className="rounded-md border border-border bg-surface/50">
       <BacklogTable
         rows={rows}
         onMove={onMove}
+        action={onAddToPlanning ? (row) => (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddToPlanning(row.sh.id);
+            }}
+            className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/40"
+          >
+            Add to Sprint Planning
+          </button>
+        ) : undefined}
       />
       <div className="border-t border-border p-3 text-xs text-muted-foreground">Use Sprint Planning to select and commit backlog items.</div>
+    </section>
+  );
+}
+
+function DeliverySection({
+  title,
+  countLabel,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  countLabel: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-md border border-border bg-surface/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-accent/20"
+        aria-expanded={open}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {open ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+          <span className="truncate font-display text-lg">{title}</span>
+          <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground">
+            {countLabel}
+          </span>
+        </span>
+      </button>
+      {open && <div className="border-t border-border p-4">{children}</div>}
     </section>
   );
 }
