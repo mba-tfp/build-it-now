@@ -270,6 +270,7 @@ export function AppShell() {
 
 
 function NotificationsBell() {
+  const currentUserId = useTfpStore((s) => s.currentUserId);
   const notifications = useTfpStore((s) => s.notifications);
   const markRead = useTfpStore((s) => s.markNotificationRead);
   const markAll = useTfpStore((s) => s.markAllNotificationsRead);
@@ -277,12 +278,13 @@ function NotificationsBell() {
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const visibleNotifications = notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId);
+  const unread = visibleNotifications.filter((n) => !n.read).length;
 
   // Toast on new notifications (fired during session, not on initial mount)
   useEffect(() => {
-    if (notifications.length === 0) return;
-    const newest = notifications[0];
+    if (visibleNotifications.length === 0) return;
+    const newest = visibleNotifications[0];
     if (lastSeenIdRef.current === null) {
       lastSeenIdRef.current = newest.id;
       return;
@@ -292,7 +294,7 @@ function NotificationsBell() {
       const fn = newest.priority === "P1" ? toast.error : newest.priority === "P2" ? toast.warning : toast;
       fn(newest.title, { description: newest.body });
     }
-  }, [notifications]);
+  }, [visibleNotifications]);
 
   // Close on outside click
   useEffect(() => {
@@ -330,10 +332,10 @@ function NotificationsBell() {
             </button>
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
-            {notifications.length === 0 && (
+            {visibleNotifications.length === 0 && (
               <p className="p-6 text-center text-sm text-muted-foreground">No notifications.</p>
             )}
-            {notifications.slice(0, 30).map((n) => (
+            {visibleNotifications.slice(0, 30).map((n) => (
               <Link
                 key={n.id}
                 to={n.link_to ?? "/intake"}
