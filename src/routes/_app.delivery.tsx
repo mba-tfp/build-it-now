@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertic
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
+import { slaHoursForTier } from "@/lib/tfp/notify";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,9 @@ const DEFAULT_SECTION_STATE: Record<DeliverySectionKey, boolean> = {
   planning: true,
   backlog: false,
 };
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
+const sprintStaleHoursForTier = (tier: Signal["tier"]) => tier === "P0" || tier === "P1" ? 48 : 96;
+const blockedEscalationHoursForTier = (tier: Signal["tier"]) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
 function readSectionState(): Record<DeliverySectionKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_SECTION_STATE;
