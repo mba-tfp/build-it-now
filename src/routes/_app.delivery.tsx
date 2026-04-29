@@ -6,7 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, Eye, GripVertical, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
-import type { DeliveryStatus, ShapingItem, Signal, User } from "@/lib/tfp/types";
+import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
@@ -34,6 +34,7 @@ function DeliveryPage() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
+  const reviews = useTfpStore((s) => s.reviews);
   const users = useTfpStore((s) => s.users);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
@@ -42,6 +43,10 @@ function DeliveryPage() {
   const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
   const updateShaping = useTfpStore((s) => s.updateShaping);
   const pushNotification = useTfpStore((s) => s.pushNotification);
+  const startReview = useTfpStore((s) => s.startReview);
+  const completeReview = useTfpStore((s) => s.completeReview);
+  const logFollowOnSignal = useTfpStore((s) => s.logFollowOnSignal);
+  const closeSprint = useTfpStore((s) => s.closeSprint);
 
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
   const [planningIds, setPlanningIds] = useState<string[]>([]);
@@ -49,6 +54,7 @@ function DeliveryPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
 
   const readyRows = useMemo<Row[]>(() => {
@@ -77,6 +83,10 @@ function DeliveryPage() {
     .filter((row): row is Row => !!row.sig);
   const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
   const usable = usableCapacity(sprint);
+  const sprintEnded = new Date(sprint.end_date).getTime() < Date.now();
+  const unresolvedCount = sprintRows.filter(({ sh }) => sh.delivery_status !== "Done" && !sh.carry_forwarded_at).length;
+  const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
+  const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
   if (tab === "golive" || tab === "clinics") return <Navigate to="/clinics" />;
 
@@ -140,6 +150,17 @@ function DeliveryPage() {
     }
     toast.success("Product blocker logged");
     setBlockerFor(null);
+  }
+
+  function ensureReview(shapingId: string) {
+    return reviews.find((review) => review.shaping_id === shapingId) ?? startReview(shapingId);
+  }
+
+  function logFollowOn(row: Row, text: string) {
+    const review = ensureReview(row.sh.id);
+    if (!review) return;
+    logFollowOnSignal(review.id, { title: text, description: text, source: "Internal", product: row.sig.product });
+    toast.success("Follow-on signal logged in Inbox");
   }
 
   return (
