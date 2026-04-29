@@ -3482,6 +3482,11 @@ export const useTfpStore = create<State>()(
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
         const demo = latestDemoState(p.currentUserId ?? "u-bazil");
+        const signals = (p.signals?.length ? p.signals : demo.signals ?? []).map((signal) => ({
+          ...signal,
+          source: signal.source === "Dev Team" ? "Internal" : signal.source,
+          additional_sources: signal.additional_sources?.map((source) => source === "Dev Team" ? "Internal" : source),
+        })) as Signal[];
         const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
           // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
@@ -3492,7 +3497,9 @@ export const useTfpStore = create<State>()(
           ...demo,
           currentUserId: p.currentUserId ?? demo.currentUserId,
           users: p.users?.length ? p.users : demo.users,
+          signals,
           shaping,
+          customLabels: p.customLabels ?? [],
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
           workflows: p.workflows ?? demo.workflows,
