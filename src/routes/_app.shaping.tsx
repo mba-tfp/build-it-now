@@ -68,8 +68,8 @@ function ShapingPage() {
     return [...cards].sort((a, b) => {
       const ah = a.sh.shaping_started_at ? (Date.now() - new Date(a.sh.shaping_started_at).getTime()) / 3600000 : 0;
       const bh = b.sh.shaping_started_at ? (Date.now() - new Date(b.sh.shaping_started_at).getTime()) / 3600000 : 0;
-      const aOverdue = a.sig?.issue_type === "Bug" && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
-      const bOverdue = b.sig?.issue_type === "Bug" && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      const aOverdue = isFix(a.sh) && !a.sh.fast_track && ah > 72 && a.sh.shaping_status !== "Approved" && a.sh.shaping_status !== "In Delivery" ? 1 : 0;
+      const bOverdue = isFix(b.sh) && !b.sh.fast_track && bh > 72 && b.sh.shaping_status !== "Approved" && b.sh.shaping_status !== "In Delivery" ? 1 : 0;
       if (aOverdue !== bOverdue) return bOverdue - aOverdue;
       if (a.sh.fast_track !== b.sh.fast_track) return a.sh.fast_track ? -1 : 1;
       return 0;
@@ -124,7 +124,7 @@ function ShapingPage() {
               const hoursSinceStart = sh.shaping_started_at
                 ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
                 : 0;
-              const isBug = sig.issue_type === "Bug";
+              const isBug = isFix(sh);
               const overdue = isBug && !sh.fast_track && hoursSinceStart > 72 && sh.shaping_status !== "Approved";
               const score = completenessScore(sh);
               const techLead = USERS.find((u) => u.id === sh.tech_reviewer_id);
@@ -177,6 +177,10 @@ function ShapingPage() {
                       </span>
                     </div>
                     <h3 className="line-clamp-2 font-display text-base leading-snug">{sig.title}</h3>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <CommitmentBadge type={sh.commitment_type} />
+                      <LabelsList labels={sig.labels} />
+                    </div>
                     <div className="mt-4">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                         <span>Completeness {score}/5</span>
@@ -205,7 +209,7 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === sh.signal_id))!;
 
   // Bug timebox tracking (P2/P3 standard shaping)
-  const isBug = sig.issue_type === "Bug";
+  const isBug = isFix(sh);
   const hoursSinceStart = sh.shaping_started_at
     ? (Date.now() - new Date(sh.shaping_started_at).getTime()) / 3600000
     : 0;
@@ -223,9 +227,12 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
       <header className="mb-6">
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          {sig.product} · {sig.issue_type}
+          {sig.product}
         </p>
-        <h1 className="mt-1 font-display text-3xl leading-tight">{sig.title}</h1>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-3xl leading-tight">{sig.title}</h1>
+          <CommitmentBadge type={sh.commitment_type} />
+        </div>
       </header>
 
       {showTimebox48 && (
@@ -241,7 +248,7 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
       {sh.fast_track ? (
         <FastTrack item={sh} />
-      ) : sig.issue_type === "Dependency Change" ? (
+      ) : sh.commitment_type === "Dependency" ? (
         <DependencyFastTrack item={sh} />
       ) : (
         <>
