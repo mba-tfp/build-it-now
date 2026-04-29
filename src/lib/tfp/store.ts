@@ -1378,7 +1378,7 @@ type State = {
   requestChanges: (id: string, approverId: string, notes: string) => void;
   approveFastTrack: (id: string, approverId: string) => void;
   pushToJira: (id: string) => string;
-  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind) => boolean;
+  addToSprint: (id: string, overrideReason?: string, overrideKind?: OverrideKind, displacedShapingIds?: string[]) => boolean;
   removeFromSprint: (id: string) => boolean;
   setDeliveryStatus: (id: string, next: DeliveryStatus) => void;
   setBlocked: (id: string, description: string) => void;
@@ -1861,7 +1861,7 @@ export const useTfpStore = create<State>()(
         return key;
       },
 
-      addToSprint: (id, overrideReason, overrideKind) => {
+      addToSprint: (id, overrideReason, overrideKind, displacedShapingIds = []) => {
         const item = get().shaping.find((s) => s.id === id);
         if (!item || !item.jira_key) return false;
         if (item.in_sprint) return true;
@@ -1898,7 +1898,8 @@ export const useTfpStore = create<State>()(
             reason: overrideReason,
             signal_id: item.signal_id,
             shaping_id: item.id,
-            displaced_pts: Math.max(0, newAlloc - usable),
+            displaced_shaping_ids: displacedShapingIds,
+            displaced_pts: displacedShapingIds.reduce((sum, displacedId) => sum + (get().shaping.find((s) => s.id === displacedId)?.tech_estimate_pts ?? 0), Math.max(0, newAlloc - usable)),
             shahid_visible: true,
           });
         }
