@@ -336,6 +336,7 @@ function TriagePanel({
   const sig = useTfpStore((s) => s.signals.find((x) => x.id === signalId))!;
   const users = useTfpStore((s) => s.users);
   const updateSignal = useTfpStore((s) => s.updateSignal);
+  const reopenSignal = useTfpStore((s) => s.reopenSignal);
   const setSignalAttachments = useTfpStore((s) => s.setSignalAttachments);
   const currentUserId = useTfpStore((s) => s.currentUserId);
 
@@ -353,16 +354,26 @@ function TriagePanel({
     else toast.error(res.error ?? "Couldn't save");
   }
   const owner = users.find((u) => u.id === sig.created_by);
-  const [mode, setMode] = useState<"none" | "hold" | "reject">("none");
+  const [mode, setMode] = useState<"none" | "hold" | "reject" | "reopen">("none");
   const [reason, setReason] = useState("");
+  const [formError, setFormError] = useState("");
+  const minReviewDate = new Date().toISOString().slice(0, 10);
+  const defaultReviewDate = () => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const [holdDate, setHoldDate] = useState(
-    new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    defaultReviewDate(),
   );
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<Signal>>({});
   const [commitmentType, setCommitmentType] = useState<CommitmentType | "">(suggestion.issue_type === "Incident" ? "Incident" : "");
   const [labelsText, setLabelsText] = useState(sig.labels.join(", "));
+
+  const openMode = (next: typeof mode) => {
+    setReason("");
+    setFormError("");
+    setMode(next);
+    if (next === "hold") setHoldDate(defaultReviewDate());
+  };
 
   const startEdit = () => {
     setDraft({
