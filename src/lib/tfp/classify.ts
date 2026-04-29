@@ -46,7 +46,7 @@ export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
   const d = new Date(from);
   switch (tier) {
     case "P0":
-      d.setHours(d.getHours() + 4);
+      d.setHours(d.getHours() + 48);
       return d;
     case "P1":
       d.setHours(d.getHours() + 168);
