@@ -225,8 +225,9 @@ export function TriageQueuePage({ initialOpenId }: { initialOpenId?: string }) {
           onClose={() => setOpenId(null)}
           onProceed={(commitmentType) => {
             triageDecision(open.id, "Proceed", undefined, undefined, commitmentType);
+            const created = useTfpStore.getState().signals.find((signal) => signal.id === open.id)?.shaping_item_id;
             setOpenId(null);
-            navigate({ to: "/shaping" });
+            navigate({ to: "/shaping", search: created ? { item: created } : undefined });
           }}
           onHold={(reason, until) => {
             triageDecision(open.id, "Hold", reason, until);
