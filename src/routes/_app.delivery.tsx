@@ -512,22 +512,52 @@ function CapacityBar({
 
 function SprintBoard({
   rows,
+  reviews,
+  sprintName,
+  closeBlocker,
   users,
   expandedCriteria,
   setExpandedCriteria,
   onViewBrief,
   onLogBlocker,
+  onEnsureReview,
+  onCompleteReview,
+  onLogFollowOn,
+  onCarryForward,
+  onCloseSprint,
 }: {
   rows: Row[];
+  reviews: Review[];
+  sprintName: string;
+  closeBlocker: string;
   users: User[];
   expandedCriteria: Record<string, boolean>;
   setExpandedCriteria: Dispatch<SetStateAction<Record<string, boolean>>>;
   onViewBrief: (row: Row) => void;
   onLogBlocker: (row: Row) => void;
+  onEnsureReview: (shapingId: string) => Review | null;
+  onCompleteReview: (id: string, data: { outcome_rating: OutcomeRating; what_worked: string; what_didnt: string; notes: string }) => void;
+  onLogFollowOn: (row: Row, text: string) => void;
+  onCarryForward: (row: Row) => void;
+  onCloseSprint: () => void;
 }) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
+        <div>
+          <h2 className="font-display text-lg">{sprintName}</h2>
+          <p className="text-xs text-muted-foreground">Close is gated by resolved work and completed outcome reviews.</p>
+        </div>
+        <button
+          disabled={!!closeBlocker}
+          title={closeBlocker || "Ready to close sprint"}
+          onClick={onCloseSprint}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Close sprint
+        </button>
+      </div>
       <BlockedRail rows={blocked} onLogBlocker={onLogBlocker} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_COLUMNS.map((status) => {
@@ -543,6 +573,7 @@ function SprintBoard({
                   <BoardCard
                     key={row.sh.id}
                     row={row}
+                    review={completedReview(reviews, row.sh.id)}
                     users={users}
                     expanded={!!expandedCriteria[row.sh.id]}
                     onToggleMore={() =>
@@ -552,6 +583,10 @@ function SprintBoard({
                       }))
                     }
                     onViewBrief={() => onViewBrief(row)}
+                    onEnsureReview={() => onEnsureReview(row.sh.id)}
+                    onCompleteReview={onCompleteReview}
+                    onLogFollowOn={(text) => onLogFollowOn(row, text)}
+                    onCarryForward={() => onCarryForward(row)}
                   />
                 ))}
               </div>
