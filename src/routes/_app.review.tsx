@@ -550,7 +550,7 @@ function FollowOnComposer({
             onChange={(e) => setSource(e.target.value as Source)}
             className="rounded-md border border-input bg-surface px-2 py-1 text-xs"
           >
-            {(["Leadership", "Clinic", "Internal", "Dev Team"] as Source[]).map((s) => (
+            {(["Leadership", "Clinic", "Internal"] as Source[]).map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

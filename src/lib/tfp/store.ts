@@ -74,7 +74,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Inbox",
     section: "Workflow",
     body_markdown:
-      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests origin and P1/P2/P3 priority — override only when you have a strong reason.",
+      "# Inbox\n\nThe single entry point for all incoming work. Capture customer, leadership, clinic, and internal signals here, then decide whether each item should proceed, wait, or be rejected.\n\n## Tips\n- Add a clear description (≥20 chars).\n- Pick a primary product; secondary products can be added when the signal cuts across multiple areas.\n- Auto-classification suggests origin and P1/P2/P3 priority — P0 is only for explicit intake escalation.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -84,7 +84,7 @@ const SEED_HELP: HelpArticle[] = [
     title: "Review incoming work",
     section: "Workflow",
     body_markdown:
-      "# Review incoming work\n\nClick a signal in Inbox to decide: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, P1/P2/P3 priority, origin, and owner can be edited inline.\n\n## Risky changes\nUnusual status changes ask for a reason and record the override in the background.",
+      "# Review incoming work\n\nClick a signal in Inbox to decide: Proceed, Hold, or Reject.\n\n## Inline edits\nStatus, priority tier, origin, and owner can be edited inline.\n\n## Risky changes\nUnusual status changes ask for a reason and record the override in the background.",
     updated_at: "2026-04-22T00:00:00.000Z",
     updated_by: "u-bazil",
   },
@@ -1449,6 +1449,7 @@ type State = {
   monitoringAlerts: MonitoringAlert[];
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
+  customLabels: string[];
   // Round 5
   flags: FeatureFlags;
   helpArticles: HelpArticle[];
@@ -1628,6 +1629,8 @@ type State = {
   completeOnboardingItem: (userId: string, itemId: string) => void;
   completeOnboarding: (userId: string) => void;
   resetOnboarding: (userId: string) => void;
+  addCustomLabel: (label: string) => void;
+  removeCustomLabel: (label: string) => void;
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
   setDemoMode: (enabled: boolean) => void;
@@ -1674,6 +1677,7 @@ function latestDemoState(currentUserId = "u-bazil"): Partial<State> {
     monitoringAlerts: seedMonitoring,
     techDebtReviews: seedTechDebtReviews,
     clinicFeedbackLog: [],
+    customLabels: [],
     flags: DEFAULT_FLAGS,
     helpArticles: SEED_HELP,
     workflows: [],
@@ -1702,6 +1706,7 @@ export const useTfpStore = create<State>()(
       monitoringAlerts: seedMonitoring,
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
+      customLabels: [],
       flags: DEFAULT_FLAGS,
       helpArticles: SEED_HELP,
       workflows: [],
@@ -1748,7 +1753,7 @@ export const useTfpStore = create<State>()(
       createSignal: (data) => {
         const c = classifySignal({ source: data.source, description: data.description });
         const origin = data.origin_override ?? data.issue_type_override ?? c.origin;
-        const tier = data.tier_override ?? c.tier;
+        const tier = data.tier_override ?? data.priority ?? c.tier;
         const created = new Date();
         const sig: Signal = {
           id: "sig-" + uid(),
@@ -3385,6 +3390,16 @@ export const useTfpStore = create<State>()(
         });
       },
 
+      addCustomLabel: (label) => {
+        const clean = label.trim();
+        if (!clean) return;
+        if (get().customLabels.some((existing) => existing.toLowerCase() === clean.toLowerCase())) return;
+        set({ customLabels: [...get().customLabels, clean] });
+      },
+      removeCustomLabel: (label) => {
+        set({ customLabels: get().customLabels.filter((existing) => existing !== label) });
+      },
+
       setFlag: (key, value) => {
         set({ flags: { ...get().flags, [key]: value } });
       },
@@ -3462,11 +3477,16 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 10,
+      version: 11,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
         const demo = latestDemoState(p.currentUserId ?? "u-bazil");
+        const signals = (p.signals?.length ? p.signals : demo.signals ?? []).map((signal) => ({
+          ...signal,
+          source: (signal.source as string) === "Dev Team" ? "Internal" : signal.source,
+          additional_sources: signal.additional_sources?.map((source) => (source as string) === "Dev Team" ? "Internal" : source),
+        })) as Signal[];
         const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
           // Back-fill: anything already pushed to Jira and in a delivery column is in the sprint.
@@ -3477,7 +3497,9 @@ export const useTfpStore = create<State>()(
           ...demo,
           currentUserId: p.currentUserId ?? demo.currentUserId,
           users: p.users?.length ? p.users : demo.users,
+          signals,
           shaping,
+          customLabels: p.customLabels ?? [],
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
           workflows: p.workflows ?? demo.workflows,

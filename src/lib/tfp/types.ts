@@ -15,7 +15,7 @@ export type User = {
   onboarding_progress: Record<string, boolean>;
 };
 
-export type Source = "Leadership" | "Clinic" | "Internal" | "Dev Team";
+export type Source = "Leadership" | "Clinic" | "Internal";
 export type Product =
   | "Otto-Onboard"
   | "Otto Notes"
@@ -40,7 +40,7 @@ export type DependencySystem =
   | "Olive EngagedMD"
   | "Tia Health"
   | "EngagedMD";
-export type Tier = "P1" | "P2" | "P3";
+export type Tier = "P0" | "P1" | "P2" | "P3";
 export type SignalStatus = "New" | "In Review" | "Proceed" | "Hold" | "Rejected";
 
 export type Attachment = {
@@ -363,7 +363,7 @@ export type SprintRetro = {
   attachments?: Attachment[];
 };
 
-export type NotificationPriority = "P1" | "P2" | "P3" | "P4";
+export type NotificationPriority = "P0" | "P1" | "P2" | "P3" | "P4";
 export type NotificationTrigger =
   | "leadership_signal"
   | "incident"

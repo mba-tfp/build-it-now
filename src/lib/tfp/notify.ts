@@ -50,7 +50,8 @@ export function buildNotification(args: {
 }
 
 export const PRIORITY_TONE: Record<NotificationPriority, string> = {
-  P1: "bg-destructive/10 text-destructive border-destructive/30",
+  P0: "bg-destructive/15 text-destructive border-destructive/40",
+  P1: "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)] border-[var(--color-status-hold)]/30",
   P2: "bg-[var(--color-status-hold)]/10 text-[var(--color-status-hold)] border-[var(--color-status-hold)]/30",
   P3: "bg-[var(--color-status-new)]/10 text-[var(--color-status-new)] border-[var(--color-status-new)]/30",
   P4: "bg-muted text-muted-foreground border-border",

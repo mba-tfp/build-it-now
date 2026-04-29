@@ -19,6 +19,7 @@ import { SortMenu, useSortMenu } from "@/components/tfp/SortMenu";
 import { sortRows } from "@/components/tfp/SortableHeader";
 import { ScrollTable } from "@/components/tfp/ScrollTable";
 import { AttachmentsField } from "@/components/tfp/AttachmentsField";
+import { LabelSuggestions } from "@/components/tfp/LabelSuggestions";
 import { CommitmentBadge, LabelsList } from "@/components/tfp/Badge";
 import type { Attachment } from "@/lib/tfp/types";
 import { toast } from "sonner";
@@ -580,11 +581,14 @@ function DependencyFastTrack({ item }: { item: ShapingItem }) {
 
 function DefineBrief({ item }: { item: ShapingItem }) {
   const updateShaping = useTfpStore((s) => s.updateShaping);
+  const updateSignal = useTfpStore((s) => s.updateSignal);
+  const sig = useTfpStore((s) => s.signals.find((signal) => signal.id === item.signal_id));
   const setShapingAttachments = useTfpStore((s) => s.setShapingAttachments);
   const pushNotification = useTfpStore((s) => s.pushNotification);
   const currentUserId = useTfpStore((s) => s.currentUserId);
   const demoModeEnabled = useTfpStore((s) => s.flags.demoModeEnabled);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [labelsText, setLabelsText] = useState(sig?.labels.join(", ") ?? "");
   const techLeads = USERS.filter((u) => u.role === "Tech Lead");
   const [selectedTechLead, setSelectedTechLead] = useState(item.tech_reviewer_id ?? "");
   const requiredFields = [
@@ -645,6 +649,25 @@ function DefineBrief({ item }: { item: ShapingItem }) {
           <Field label="Proposed approach (how do we solve this at a high level?)" value={item.solution_approach} onChange={(v) => updateShaping(item.id, { solution_approach: v })} rows={4} min={30} required />
           <Field label="Open questions (what needs to be answered before building?)" value={item.solution_questions} onChange={(v) => updateShaping(item.id, { solution_questions: v })} rows={3} />
           <Field label="Out of scope (what are we explicitly not solving?)" value={item.problem_out_of_scope} onChange={(v) => updateShaping(item.id, { problem_out_of_scope: v })} rows={3} />
+          {sig && (
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Labels</p>
+              <input
+                value={labelsText}
+                onChange={(e) => {
+                  setLabelsText(e.target.value);
+                  updateSignal(sig.id, { labels: e.target.value.split(",").map((label) => label.trim()).filter(Boolean) });
+                }}
+                placeholder="e.g. PHIPA, patient-facing"
+                className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <LabelSuggestions selected={sig.labels} onAdd={(label) => {
+                const next = sig.labels.includes(label) ? sig.labels : [...sig.labels, label];
+                setLabelsText(next.join(", "));
+                updateSignal(sig.id, { labels: next });
+              }} />
+            </div>
+          )}
           <div className="md:col-span-2 rounded-md border border-border bg-surface-2 p-3">
             <p className="mb-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">Supporting attachments</p>
             <AttachmentsField attachments={item.attachments ?? []} onChange={(next: Attachment[]) => setShapingAttachments(item.id, next)} currentUserId={currentUserId} compact />

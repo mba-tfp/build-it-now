@@ -25,6 +25,7 @@ export type Classification = {
 };
 
 export function classifySignal(input: { source: Source | "Monitoring"; description: string }): Classification {
+  // P0 is reserved for explicit human selection at intake; the classifier never returns it.
   if (matches(input.description || "", INCIDENT_KEYWORDS)) {
     return { origin: "Incident", issue_type: "Incident", tier: "P1", labels: [], reason: "Incident language detected." };
   }
@@ -44,14 +45,17 @@ export function classifySignal(input: { source: Source | "Monitoring"; descripti
 export function slaDueAt(tier: Tier, from: Date = new Date()): Date {
   const d = new Date(from);
   switch (tier) {
+    case "P0":
+      d.setHours(d.getHours() + 48);
+      return d;
     case "P1":
-      d.setHours(d.getHours() + 24);
+      d.setHours(d.getHours() + 168);
       return d;
     case "P2":
-      d.setDate(d.getDate() + 7);
+      d.setHours(d.getHours() + 336);
       return d;
     case "P3":
-      d.setDate(d.getDate() + 30);
+      d.setHours(d.getHours() + 720);
       return d;
   }
 }
