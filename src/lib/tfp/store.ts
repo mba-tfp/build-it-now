@@ -2063,9 +2063,10 @@ export const useTfpStore = create<State>()(
             }));
         }
         if (nowDone && !wasDone && !alreadyHasReview) {
+          const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
           get().pushNotification({
             trigger: "review_overdue",
-            title: `Outcome review needed: ${item.title}`,
+            title: `Outcome review needed: ${signalTitle}`,
             body: `${item.jira_key} moved to Done. Rate the outcome to close the loop.`,
             link_to: "/delivery",
             for_user_id: item.pm_owner_id,
@@ -2339,9 +2340,10 @@ export const useTfpStore = create<State>()(
           };
           set({ reviews: [review, ...reviews] });
           if (!wasDone) {
+            const signalTitle = get().signals.find((s) => s.id === item.signal_id)?.title ?? item.jira_key ?? "item";
             get().pushNotification({
               trigger: "review_overdue",
-              title: `Outcome review needed: ${item.title}`,
+              title: `Outcome review needed: ${signalTitle}`,
               body: `${item.jira_key ?? "Jira item"} moved to Done. Rate the outcome to close the loop.`,
               link_to: "/delivery",
               for_user_id: item.pm_owner_id,
