@@ -533,6 +533,7 @@ function SprintBoard({
   rows,
   reviews,
   sprintName,
+  committedKeys,
   closeBlocker,
   users,
   expandedCriteria,
@@ -548,6 +549,7 @@ function SprintBoard({
   rows: Row[];
   reviews: Review[];
   sprintName: string;
+  committedKeys: string[];
   closeBlocker: string;
   users: User[];
   expandedCriteria: Record<string, boolean>;
@@ -567,6 +569,7 @@ function SprintBoard({
         <div>
           <h2 className="font-display text-lg">{sprintName}</h2>
           <p className="text-xs text-muted-foreground">Close is gated by resolved work and completed outcome reviews.</p>
+          {committedKeys.length > 0 && <p className="mt-1 text-xs text-[var(--color-status-proceed)]">Created Jira keys: {committedKeys.join(", ")}</p>}
         </div>
         <button
           disabled={!!closeBlocker}
