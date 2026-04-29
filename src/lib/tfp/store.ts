@@ -64,6 +64,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   multiSelectIntake: true,
   auditVerbose: false,
   adminPanelEnabled: true,
+  demoModeEnabled: false,
 };
 
 const SEED_HELP: HelpArticle[] = [
