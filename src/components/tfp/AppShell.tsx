@@ -179,7 +179,7 @@ export function AppShell() {
         [item.delivery_assignee_id, "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
           title: "Item stale",
-          body: `${item.jira_key ?? "Sprint item"} has not moved in 2+ days.`,
+          body: `${item.jira_key ?? "Sprint item"} has not moved recently.`,
           link_to: "/delivery",
           for_user_id: userId,
           entity_id: item.id,
@@ -194,7 +194,7 @@ export function AppShell() {
         [item.delivery_assignee_id, "u-shahid", "u-karim"].filter(Boolean).forEach((userId) => fireOnce(item.id, "blocked_over_1d", {
           trigger: "blocked_over_1d",
           title: "Blocker escalated",
-          body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked for 48+ hours.`,
+          body: item.blocker_description || `${item.jira_key ?? "Sprint item"} has been blocked past its escalation threshold.`,
           link_to: "/delivery",
           for_user_id: userId,
           entity_id: item.id,
