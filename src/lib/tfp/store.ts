@@ -2604,10 +2604,15 @@ export const useTfpStore = create<State>()(
 
       // ============ Wave 5: stubs (full implementations pending follow-up) ============
       approveFastTrack: (id, approverId) => {
-        get().approveShaping(id, approverId, "Fast-track approved");
-        get().pushToJira(id);
-        // Fast-track skips backlog by design — auto-add to active sprint (subject to lock).
-        get().addToSprint(id);
+        const now = new Date().toISOString();
+        set({
+          shaping: get().shaping.map((s) =>
+            s.id === id
+              ? { ...s, approver_id: approverId, approval_decision: "Approved", approval_notes: "Fast-track approved", approved_at: now, shaping_status: "Ready for Sprint", updated_at: now }
+              : s,
+          ),
+        });
+        get().audit_log({ entity_type: "shaping", entity_id: id, action: "Fast-track approved for sprint planning" });
       },
       offboardClinic: (clinicId, reason) => {
         const me = get().currentUserId;
