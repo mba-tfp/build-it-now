@@ -259,7 +259,8 @@ function buildSeedSignal(args: {
     description: args.description,
     source: args.source,
     product: args.product,
-    issue_type: c.issue_type,
+    origin: c.origin,
+    issue_type: c.origin,
     tier: c.tier,
     status: args.status ?? "New",
     owner_id: args.owner ?? null,
@@ -1626,7 +1627,7 @@ export const useTfpStore = create<State>()(
 
       createSignal: (data) => {
         const c = classifySignal({ source: data.source, description: data.description });
-        const issue_type = data.issue_type_override ?? c.issue_type;
+        const origin = data.issue_type_override ?? c.origin;
         const tier = data.tier_override ?? c.tier;
         const created = new Date();
         const sig: Signal = {
@@ -1635,7 +1636,8 @@ export const useTfpStore = create<State>()(
           description: data.description,
           source: data.source,
           product: data.product,
-          issue_type,
+          origin,
+          issue_type: origin,
           tier,
           status: "New",
           owner_id: null,
