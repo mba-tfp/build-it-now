@@ -234,19 +234,17 @@ const TESTS: TestStep[] = [
     name: "Create a test signal",
     description: "Verifies a new Internal Platform signal is created in New status.",
     run: (ctx) => {
-      const signal = useTfpStore
-        .getState()
-        .createSignal({
-          title: "E2E test signal",
-          description: "Self-test signal created by automated check.",
-          source: "Internal",
-          product: "Platform",
-          priority: "P2",
-          tier_override: "P2",
-          displacement_flag: false,
-          displacement_note: null,
-          labels: [TEST_LABEL],
-        });
+      const signal = useTfpStore.getState().createSignal({
+        title: "E2E test signal",
+        description: "Self-test signal created by automated check.",
+        source: "Internal",
+        product: "Platform",
+        priority: "P2",
+        tier_override: "P2",
+        displacement_flag: false,
+        displacement_note: null,
+        labels: [TEST_LABEL],
+      });
       ctx.signalId = signal.id;
       expect(getSignal(signal.id).status === "New", "Signal was not created with status New");
     },
@@ -294,22 +292,18 @@ const TESTS: TestStep[] = [
       "Verifies Waseem is assigned and the item enters Tech Review, with role-routed notification.",
     run: (ctx) => {
       expect(ctx.shapingId, "Missing shaping id");
-      useTfpStore
-        .getState()
-        .updateShaping(ctx.shapingId, {
-          tech_reviewer_id: "u-waseem",
-          shaping_status: "In Tech Review",
-        });
-      useTfpStore
-        .getState()
-        .pushNotification({
-          trigger: "tech_review_ready",
-          title: "E2E test tech review assigned",
-          body: "E2E test",
-          link_to: "/shaping",
-          for_user_id: "u-waseem",
-          entity_id: ctx.shapingId,
-        });
+      useTfpStore.getState().updateShaping(ctx.shapingId, {
+        tech_reviewer_id: "u-waseem",
+        shaping_status: "In Tech Review",
+      });
+      useTfpStore.getState().pushNotification({
+        trigger: "tech_review_ready",
+        title: "E2E test tech review assigned",
+        body: "E2E test",
+        link_to: "/shaping",
+        for_user_id: "u-waseem",
+        entity_id: ctx.shapingId,
+      });
       const shaping = getShaping(ctx.shapingId);
       expect(
         shaping.tech_reviewer_id === "u-waseem" && shaping.shaping_status === "In Tech Review",
@@ -323,15 +317,13 @@ const TESTS: TestStep[] = [
     description: "Verifies tech notes, estimate, sign-off timestamp, and Ready for Sprint status.",
     run: (ctx) => {
       expect(ctx.shapingId, "Missing shaping id");
-      useTfpStore
-        .getState()
-        .updateShaping(ctx.shapingId, {
-          tech_review_notes: "E2E tech review completed.",
-          tech_estimate_pts: 5,
-          tech_concerns: "",
-          tech_signed_off_at: new Date().toISOString(),
-          shaping_status: "Ready for Sprint",
-        });
+      useTfpStore.getState().updateShaping(ctx.shapingId, {
+        tech_review_notes: "E2E tech review completed.",
+        tech_estimate_pts: 5,
+        tech_concerns: "",
+        tech_signed_off_at: new Date().toISOString(),
+        shaping_status: "Ready for Sprint",
+      });
       expect(
         getShaping(ctx.shapingId).shaping_status === "Ready for Sprint",
         "Item is not Ready for Sprint",
@@ -397,16 +389,14 @@ const TESTS: TestStep[] = [
     description: "Verifies the outcome review can be marked Completed with a Met rating.",
     run: (ctx) => {
       expect(ctx.reviewId, "Missing review id");
-      useTfpStore
-        .getState()
-        .updateReview(ctx.reviewId, {
-          status: "Completed",
-          outcome_rating: "Met",
-          what_worked: "Test passed",
-          what_didnt: "",
-          notes: "Test passed",
-          completed_at: new Date().toISOString(),
-        });
+      useTfpStore.getState().updateReview(ctx.reviewId, {
+        status: "Completed",
+        outcome_rating: "Met",
+        what_worked: "Test passed",
+        what_didnt: "",
+        notes: "Test passed",
+        completed_at: new Date().toISOString(),
+      });
       expect(getReview(ctx.reviewId).status === "Completed", "Review status is not Completed");
     },
   },
@@ -462,19 +452,17 @@ const TESTS: TestStep[] = [
     name: "Verify signal reopen path",
     description: "Verifies a rejected signal can be reopened into In Review with a reason.",
     run: (ctx) => {
-      const signal = useTfpStore
-        .getState()
-        .createSignal({
-          title: "E2E test reopen signal",
-          description: "Self-test reopen signal created by automated check.",
-          source: "Internal",
-          product: "Platform",
-          priority: "P2",
-          tier_override: "P2",
-          displacement_flag: false,
-          displacement_note: null,
-          labels: [TEST_LABEL],
-        });
+      const signal = useTfpStore.getState().createSignal({
+        title: "E2E test reopen signal",
+        description: "Self-test reopen signal created by automated check.",
+        source: "Internal",
+        product: "Platform",
+        priority: "P2",
+        tier_override: "P2",
+        displacement_flag: false,
+        displacement_note: null,
+        labels: [TEST_LABEL],
+      });
       ctx.secondSignalId = signal.id;
       useTfpStore
         .getState()
