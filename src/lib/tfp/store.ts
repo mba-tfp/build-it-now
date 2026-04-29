@@ -2440,7 +2440,24 @@ export const useTfpStore = create<State>()(
         get().audit_log({ entity_type: "shaping", entity_id: id, action: "Dev-complete gate signed off · auto-advanced to Done" });
         // Auto-create a review if none exists yet.
         const reviews = get().reviews;
-        if (!reviews.some((r) => r.shaping_id === id)) {
+        if (demoMode && reviews.some((r) => r.shaping_id === id)) {
+          set({
+            reviews: reviews.map((review) =>
+              review.shaping_id === id
+                ? {
+                    ...review,
+                    status: "Completed",
+                    completed_at: now,
+                    outcome_rating: "Met",
+                    what_worked: review.what_worked || "Auto-completed in demo mode.",
+                    what_didnt: review.what_didnt || "Auto-completed in demo mode.",
+                    notes: review.notes || "Auto-completed in demo mode.",
+                    updated_at: now,
+                  }
+                : review,
+            ),
+          });
+        } else if (!reviews.some((r) => r.shaping_id === id)) {
           const review: Review = {
             id: "rv-" + uid(),
             shaping_id: id,
