@@ -2430,7 +2430,7 @@ export const useTfpStore = create<State>()(
             get().pushNotification({
               trigger: "blocker_signoff",
               title: `${item.jira_key} marked Blocked`,
-              body: "Investigate and clear blocker; auto-escalates after 24h.",
+              body: "Investigate and clear blocker; auto-escalates by priority tier.",
               link_to: "/delivery",
               for_user_id: userId,
               entity_id: id,
