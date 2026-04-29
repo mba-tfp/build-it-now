@@ -3486,6 +3486,7 @@ export const useTfpStore = create<State>()(
           ...signal,
           source: (signal.source as string) === "Dev Team" ? "Internal" : signal.source,
           additional_sources: signal.additional_sources?.map((source) => (source as string) === "Dev Team" ? "Internal" : source),
+          sla_due_at: slaDueAt(signal.tier, new Date(signal.created_at)).toISOString(),
         })) as Signal[];
         const shaping = (demo.shaping ?? []).map((s) => ({
           ...s,
