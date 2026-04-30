@@ -1,4 +1,4 @@
-import type { Notification, NotificationPriority, NotificationTrigger, Tier } from "./types";
+import type { Notification, NotificationPriority, NotificationTrigger, Role, Tier } from "./types";
 
 let _nidCounter = 0;
 const nid = () => {
