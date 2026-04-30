@@ -47,7 +47,7 @@ function ageLabel(iso: string): string {
   return `${d}d`;
 }
 
-function HomePage() {
+export function HomePage() {
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
