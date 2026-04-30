@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
 import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/notify";
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
-import { procreaFlag } from "./_app.clinics";
+import { complianceMissingRows, complianceRequiredItems, isComplianceRequired, procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
