@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
+import { USERS, capacityState, daysSince, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/tfp/types";
 
@@ -72,6 +72,9 @@ export function HomePage() {
     (i) => i.delivery_status !== "Blocked" && i.delivery_status !== "Done" && daysSince(i.updated_at) >= 2,
   ).length;
   const onTrack = sprintItems.length - blocked - atRisk;
+
+  const sprintCapacity = sprintItemCapacity(sprint);
+  const cap = capacityState(sprintItems.length, sprintCapacity);
 
   const sprintStart = new Date(sprint.start_date).getTime();
   const sprintEnd = new Date(sprint.end_date).getTime();
