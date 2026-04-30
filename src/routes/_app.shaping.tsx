@@ -9,9 +9,9 @@ import {
   useTfpStore,
 } from "@/lib/tfp/store";
 import type {
-  DecisionType,
   ShapingItem,
 } from "@/lib/tfp/types";
+import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
