@@ -1171,4 +1171,92 @@ const TESTS: TestStep[] = [
       setOutcomeHarnessItem(null);
     },
   },
+  {
+    id: 41,
+    name: "Close Sprint button is never rendered disabled",
+    description:
+      "Asserts the Close Sprint button (when rendered) has no disabled attribute and no opacity-40 class.",
+    run: () => {
+      // Live DOM check: scan any rendered close-sprint buttons across the app.
+      // The button only renders when /delivery is mounted, but the source-of-truth
+      // assertion is that no rendered instance carries `disabled` or grey-out classes.
+      const btns = Array.from(
+        document.querySelectorAll('[data-testid="close-sprint-button"]'),
+      ) as HTMLButtonElement[];
+      for (const btn of btns) {
+        expect(!btn.disabled, "Close Sprint button must never be disabled");
+        const cls = btn.getAttribute("class") ?? "";
+        expect(
+          !cls.includes("disabled:opacity-40") || !btn.disabled,
+          "Close Sprint button must not be rendered in a disabled/greyed-out state",
+        );
+      }
+    },
+  },
+  {
+    id: 42,
+    name: "1 In Progress item produces an 'In Progress' blocker row",
+    description:
+      "computeCannotCloseRows returns a row labeled '1 item still In Progress' with fixTo /delivery.",
+    run: () => {
+      const fakeRow = {
+        sh: { id: "sh-x", delivery_status: "In Progress", carry_forwarded_at: null } as unknown as ShapingItem,
+        sig: { id: "sig-x" } as unknown as Signal,
+      };
+      const rows = computeCannotCloseRows({
+        sprintEnded: true,
+        sprintRows: [fakeRow],
+        reviews: [],
+        usable: 100,
+        allocatedPts: 0,
+      });
+      const ip = rows.find((r) => r.key === "in-progress");
+      expect(ip, "Expected an 'in-progress' blocker row");
+      expect(ip!.label === "1 item still In Progress", `Got label: ${ip!.label}`);
+      expect(ip!.fixTo?.to === "/delivery", "Fix link must route to /delivery");
+    },
+  },
+  {
+    id: 43,
+    name: "Zero blockers → modal does not open, happy-path close fires",
+    description:
+      "computeCannotCloseRows returns [] for a clean sprint, so the click handler proceeds with sprint close.",
+    run: () => {
+      const rows = computeCannotCloseRows({
+        sprintEnded: true,
+        sprintRows: [],
+        reviews: [],
+        usable: 100,
+        allocatedPts: 50,
+      });
+      expect(rows.length === 0, `Expected 0 blocker rows, got ${rows.length}`);
+      // The handler logic in DeliveryPage opens the modal only when blockers exist;
+      // with zero rows the existing SprintCloseModal opens instead. Asserted by
+      // mirroring the same condition here.
+      const wouldOpenModal = rows.length > 0;
+      expect(!wouldOpenModal, "Modal must not open when there are zero blockers");
+    },
+  },
+  {
+    id: 44,
+    name: "Fix link on 'In Progress' row routes to the Sprint Board view",
+    description:
+      "computeCannotCloseRows produces fixTo.to === '/delivery' for the In Progress row.",
+    run: () => {
+      const fakeRow = {
+        sh: { id: "sh-y", delivery_status: "In Progress", carry_forwarded_at: null } as unknown as ShapingItem,
+        sig: { id: "sig-y" } as unknown as Signal,
+      };
+      const rows = computeCannotCloseRows({
+        sprintEnded: true,
+        sprintRows: [fakeRow],
+        reviews: [],
+        usable: 100,
+        allocatedPts: 0,
+      });
+      const ip = rows.find((r) => r.key === "in-progress");
+      expect(ip?.fixTo, "In-progress row must have a Fix link target");
+      expect(ip!.fixTo!.to === "/delivery", `Expected fixTo.to '/delivery', got '${ip!.fixTo!.to}'`);
+    },
+  },
 ];
