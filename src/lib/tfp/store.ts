@@ -3509,7 +3509,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 14,
+      version: 15,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
@@ -3526,12 +3526,20 @@ export const useTfpStore = create<State>()(
           in_sprint:
             typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
         }));
+        // Backfill item_capacity on persisted sprint(s) so legacy state never has nulls.
+        const sprint = { ...(p.sprint ?? demo.sprint!), item_capacity: (p.sprint?.item_capacity ?? demo.sprint?.item_capacity ?? 20) };
+        const sprints = (p.sprints?.length ? p.sprints : demo.sprints ?? []).map((sp) => ({
+          ...sp,
+          item_capacity: sp.item_capacity ?? 20,
+        }));
         return {
           ...demo,
           currentUserId: p.currentUserId ?? demo.currentUserId,
           users: p.users?.length ? p.users : demo.users,
           signals,
           shaping,
+          sprint,
+          sprints,
           customLabels: p.customLabels ?? [],
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
