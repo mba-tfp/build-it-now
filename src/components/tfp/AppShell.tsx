@@ -394,17 +394,22 @@ export function AppShell() {
 
 function NotificationsBell() {
   const currentUserId = useTfpStore((s) => s.currentUserId);
+  const users = useTfpStore((s) => s.users);
   const notifications = useTfpStore((s) => s.notifications);
   const markRead = useTfpStore((s) => s.markNotificationRead);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
 
-  const visibleNotifications = useMemo(
-    () => notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId),
-    [currentUserId, notifications],
-  );
+  const currentRole =
+    (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))?.role ?? "PM";
+
+  const visibleNotifications = useMemo(() => {
+    const forMe = notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId);
+    return filterNotificationsForRole(forMe, currentRole);
+  }, [currentUserId, currentRole, notifications]);
   const unread = visibleNotifications.filter((n) => !n.read).length;
+  const emptyMessage = ROLE_EMPTY_BELL_MESSAGE[currentRole] ?? "No notifications.";
 
   // Toast on new notifications (fired during session, not on initial mount)
   useEffect(() => {
