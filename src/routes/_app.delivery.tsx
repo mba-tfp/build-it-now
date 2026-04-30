@@ -9,6 +9,7 @@ import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
+import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 
 const searchSchema = z.object({
   tab: z.string().optional(),
@@ -937,6 +938,7 @@ function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
             {briefField("Signed off date", row.sh.tech_signed_off_at ? fmtDateTime(row.sh.tech_signed_off_at) : "—")}
           </BriefSection>
         </dl>
+        <InlineDecisions signalId={row.sig.id} shapingItemId={row.sh.id} />
       </aside>
     </div>
   );
