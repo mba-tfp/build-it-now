@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
-import type { GoLiveChecklist, Review, ShapingItem, Signal } from "@/lib/tfp/types";
+import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/notify";
+import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
 
