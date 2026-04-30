@@ -185,6 +185,7 @@ const seedSprint: Sprint = {
   golive_deduction_pts: 0,
   carryforward_estimate_pts: 4,
   allocated_pts: 38,
+  item_capacity: 20,
 };
 
 function blankShaping(
@@ -1644,6 +1645,8 @@ type State = {
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
   setDemoMode: (enabled: boolean) => void;
+  /** Update item-count capacity on the active sprint. Clamps to >= 1. */
+  updateSprintItemCapacity: (value: number) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
   upsertHelpArticle: (
@@ -3428,6 +3431,13 @@ export const useTfpStore = create<State>()(
       setDemoMode: (enabled) => {
         set({ flags: { ...get().flags, demoModeEnabled: enabled } });
       },
+      updateSprintItemCapacity: (value) => {
+        const next = Math.max(1, Math.floor(Number.isFinite(value) ? value : 20));
+        set((s) => ({
+          sprint: { ...s.sprint, item_capacity: next },
+          sprints: s.sprints.map((sp) => (sp.id === s.sprint.id ? { ...sp, item_capacity: next } : sp)),
+        }));
+      },
       upsertUser: (user) => {
         const exists = get().users.find((u) => u.id === user.id);
         set({
@@ -3499,7 +3509,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 14,
+      version: 15,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
@@ -3516,12 +3526,20 @@ export const useTfpStore = create<State>()(
           in_sprint:
             typeof s.in_sprint === "boolean" ? s.in_sprint : !!(s.jira_key && s.delivery_status),
         }));
+        // Backfill item_capacity on persisted sprint(s) so legacy state never has nulls.
+        const sprint = { ...(p.sprint ?? demo.sprint!), item_capacity: (p.sprint?.item_capacity ?? demo.sprint?.item_capacity ?? 20) };
+        const sprints = (p.sprints?.length ? p.sprints : demo.sprints ?? []).map((sp) => ({
+          ...sp,
+          item_capacity: sp.item_capacity ?? 20,
+        }));
         return {
           ...demo,
           currentUserId: p.currentUserId ?? demo.currentUserId,
           users: p.users?.length ? p.users : demo.users,
           signals,
           shaping,
+          sprint,
+          sprints,
           customLabels: p.customLabels ?? [],
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
@@ -3584,4 +3602,22 @@ export function usableCapacity(sp: Sprint): number {
 
 export function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+/**
+ * Compute item-count capacity state. Color thresholds:
+ *   green  < 80 %
+ *   yellow 80 – 99 %
+ *   red    >= 100 %
+ */
+export function capacityState(used: number, capacity: number): import("./types").CapacityState {
+  const cap = Math.max(1, capacity || 0);
+  const pct = (used / cap) * 100;
+  const color: import("./types").CapacityColor = pct >= 100 ? "red" : pct >= 80 ? "yellow" : "green";
+  return { used, capacity: cap, pct, color };
+}
+
+/** Resolve the effective item capacity for a sprint, falling back to the legacy default of 20. */
+export function sprintItemCapacity(sp: { item_capacity?: number } | null | undefined): number {
+  return sp?.item_capacity != null ? Math.max(1, sp.item_capacity) : 20;
 }

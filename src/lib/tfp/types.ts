@@ -223,10 +223,15 @@ export type Sprint = {
   golive_deduction_pts: number;
   carryforward_estimate_pts: number;
   allocated_pts: number;
+  /** Item-count capacity (distinct from points). Defaults to 20 for legacy/seed sprints. */
+  item_capacity?: number;
   notes?: string;
   close_summary?: string;
   closed_at?: string | null;
 };
+
+export type CapacityColor = "green" | "yellow" | "red";
+export type CapacityState = { used: number; capacity: number; pct: number; color: CapacityColor };
 
 // ============ Wave 4 additions ============
 

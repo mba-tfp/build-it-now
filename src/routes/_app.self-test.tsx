@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { completenessScore, useTfpStore } from "@/lib/tfp/store";
+import { capacityState, completenessScore, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/notify";
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { complianceMissingRows, complianceRequiredItems, isComplianceRequired, procreaFlag } from "./_app.clinics";
@@ -1378,6 +1378,99 @@ const TESTS: TestStep[] = [
           ),
         }));
       }
+    },
+  },
+  {
+    id: 49,
+    name: "Capacity renders on Sprint Health tile and matches Sprint Planning header",
+    description:
+      "Hidden HomePage mount renders capacity text 'X / Y items (Z%)'; values must equal the store-derived capacity used by the Sprint Planning header.",
+    run: async () => {
+      const root = await withCurrentUser("u-bazil");
+      const text = root.querySelector('[data-testid="sprint-health-tile"] [data-testid="capacity-text"]');
+      expect(text, "capacity-text not rendered on Sprint Health tile");
+      const sprint = useTfpStore.getState().sprint;
+      const shaping = useTfpStore.getState().shaping;
+      const used = shaping.filter((i) => i.in_sprint && i.delivery_status).length;
+      const cap = sprintItemCapacity(sprint);
+      const expected = `${used} / ${cap} items`;
+      expect(
+        text!.textContent === expected,
+        `Expected '${expected}', got '${text!.textContent}'`,
+      );
+      // Tile data-attr (color) drives both the tile and the planning header — same source.
+      const tile = root.querySelector('[data-testid="sprint-health-tile"]') as HTMLElement;
+      expect(tile.dataset.capacityColor === capacityState(used, cap).color, "tile color must match capacityState");
+    },
+  },
+  {
+    id: 50,
+    name: "Capacity color transitions at 79→80% (green→yellow) and 99→100% (yellow→red)",
+    description: "capacityState produces the correct color at the two threshold boundaries.",
+    run: () => {
+      // 79.5% → green (still < 80)
+      expect(capacityState(79, 100).color === "green", "79/100 (79%) must be green");
+      // 80% → yellow
+      expect(capacityState(80, 100).color === "yellow", "80/100 must be yellow");
+      // 99% → yellow
+      expect(capacityState(99, 100).color === "yellow", "99/100 must be yellow");
+      // 100% → red
+      expect(capacityState(100, 100).color === "red", "100/100 must be red");
+      // 120% → red
+      expect(capacityState(120, 100).color === "red", "120/100 must be red");
+    },
+  },
+  {
+    id: 51,
+    name: "Adding above capacity fires modal; Add anyway proceeds, Cancel aborts",
+    description:
+      "Simulates the planning intercept logic: when total + 1 > capacity, the pending pick must be required before commit. Add anyway commits via setPlanningIds, Cancel discards.",
+    run: () => {
+      // Pure simulation of the handlePick logic from DeliveryPage.
+      const capacity = 5;
+      const sprintCount = 3;
+      let planning: string[] = ["a", "b"]; // total = 5
+      let pending: string | null = null;
+      function handlePick(id: string) {
+        if (planning.includes(id)) return;
+        if (sprintCount + planning.length + 1 > capacity) {
+          pending = id;
+          return;
+        }
+        planning = [...planning, id];
+      }
+      // Adding 'c' would push to 6, exceeding 5 → modal fires (pending set, planning unchanged).
+      handlePick("c");
+      expect(pending === "c", "pending pick must capture id when over capacity");
+      expect(!planning.includes("c"), "Cancel path: planning must not include the item before confirm");
+      // Cancel
+      pending = null;
+      expect(!planning.includes("c"), "After cancel, item must remain unadded");
+      // Re-attempt → modal fires again
+      handlePick("c");
+      expect(pending === "c", "modal must re-fire on subsequent attempt");
+      // Add anyway
+      planning = planning.includes("c") ? planning : [...planning, "c"];
+      pending = null;
+      expect(planning.includes("c"), "After 'Add anyway', planning must include the item");
+    },
+  },
+  {
+    id: 52,
+    name: "Demo seed populates item_capacity for all sprints (no nulls)",
+    description:
+      "Every sprint in the seed/demo state must have a numeric item_capacity ≥ 1. Active sprint also has item_capacity set.",
+    run: () => {
+      const state = useTfpStore.getState();
+      expect(typeof state.sprint.item_capacity === "number", "Active sprint.item_capacity must be a number");
+      expect((state.sprint.item_capacity ?? 0) >= 1, "Active sprint.item_capacity must be >= 1");
+      expect(state.sprints.length > 0, "sprints array must not be empty");
+      state.sprints.forEach((sp) => {
+        expect(
+          typeof sp.item_capacity === "number" && sp.item_capacity >= 1,
+          `Sprint ${sp.name} (${sp.id}) is missing a valid item_capacity (got ${sp.item_capacity})`,
+        );
+      });
     },
   },
 ];

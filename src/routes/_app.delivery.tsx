@@ -5,12 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
+import { USERS, capacityState, daysSince, sprintItemCapacity, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, GoLiveChecklist, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
+import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 import { complianceMissingRows } from "./_app.clinics";
 
 const searchSchema = z.object({
@@ -187,6 +188,8 @@ function DeliveryPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [cannotCloseOpen, setCannotCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  /** Pending pick awaiting user confirmation when adding pushes the sprint above item capacity. */
+  const [pendingOverCapPick, setPendingOverCapPick] = useState<string | null>(null);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
   const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
 
@@ -346,6 +349,29 @@ function DeliveryPage() {
     toast.success("Follow-on signal logged in Inbox");
   }
 
+  const itemCap = sprintItemCapacity(sprint);
+  // Capacity tracks the *predicted total sprint size*: items already in the sprint
+  // plus items currently selected in planning. The over-capacity warning fires when
+  // adding the next item would push that total above `itemCap`.
+  const planningTotalIfAdded = sprintRows.length + planningRows.length + 1;
+  const planningCap = capacityState(sprintRows.length + planningRows.length, itemCap);
+
+  function handlePick(id: string) {
+    if (planningIds.includes(id)) return;
+    if (planningTotalIfAdded > itemCap) {
+      setPendingOverCapPick(id);
+      return;
+    }
+    setPlanningIds((current) => [...current, id]);
+  }
+
+  function confirmOverCapPick() {
+    if (!pendingOverCapPick) return;
+    const id = pendingOverCapPick;
+    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
+    setPendingOverCapPick(null);
+  }
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -406,11 +432,12 @@ function DeliveryPage() {
             setSprintGoal={setSprintGoal}
             usedPoints={usedPoints}
             usable={usable}
-            onPick={(id) => setPlanningIds((current) => [...current, id])}
+            onPick={handlePick}
             onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
             onConfirm={confirmSprint}
             committedKeys={committedKeys}
             sprint={sprint}
+            itemCap={planningCap}
           />
         </DeliverySection>
 
@@ -423,7 +450,7 @@ function DeliveryPage() {
           <BacklogTab
             rows={planningBacklog}
             onMove={movePriority}
-            onAddToPlanning={(id) => setPlanningIds((current) => current.includes(id) ? current : [...current, id])}
+            onAddToPlanning={handlePick}
           />
         </DeliverySection>
       </div>
@@ -464,6 +491,57 @@ function DeliveryPage() {
           }}
         />
       )}
+      {pendingOverCapPick && (
+        <SprintAtCapacityModal
+          predictedCount={planningTotalIfAdded}
+          capacity={itemCap}
+          onCancel={() => setPendingOverCapPick(null)}
+          onConfirm={confirmOverCapPick}
+        />
+      )}
+    </div>
+  );
+}
+
+function SprintAtCapacityModal({
+  predictedCount,
+  capacity,
+  onCancel,
+  onConfirm,
+}: {
+  predictedCount: number;
+  capacity: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      data-testid="sprint-at-capacity-modal"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    >
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-lg">
+        <h2 className="font-display text-lg">Sprint at capacity</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Adding this item puts the sprint at <span className="font-medium text-foreground">{predictedCount}</span> items,
+          over the <span className="font-medium text-foreground">{capacity}</span>-item capacity. Proceed?
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            data-testid="sprint-at-capacity-cancel"
+            onClick={onCancel}
+            className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
+          >
+            Cancel
+          </button>
+          <button
+            data-testid="sprint-at-capacity-confirm"
+            onClick={onConfirm}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Add anyway
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -620,9 +698,15 @@ function PlanningTab(props: {
     uncertainty_buffer_pts: number;
     carryforward_estimate_pts: number;
   };
+  itemCap: import("@/lib/tfp/types").CapacityState;
 }) {
   const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
   const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
+  const updateSprintItemCapacity = useTfpStore((s) => s.updateSprintItemCapacity);
+  const [capDraft, setCapDraft] = useState(String(props.itemCap.capacity));
+  useEffect(() => {
+    setCapDraft(String(props.itemCap.capacity));
+  }, [props.itemCap.capacity]);
   if (props.committedKeys.length > 0) {
     return (
       <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
@@ -650,7 +734,39 @@ function PlanningTab(props: {
       </section>
 
       <section className="rounded-md border border-border bg-surface p-4">
-        <h2 className="font-display text-lg">Active Sprint</h2>
+        <div
+          data-testid="sprint-planning-header"
+          data-capacity-color={props.itemCap.color}
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
+          <h2 className="font-display text-lg">Active Sprint</h2>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Item capacity
+            <input
+              data-testid="sprint-item-capacity-input"
+              type="number"
+              min={1}
+              value={capDraft}
+              onChange={(e) => setCapDraft(e.target.value)}
+              onBlur={() => {
+                const next = Math.max(1, parseInt(capDraft, 10) || 0);
+                if (next !== props.itemCap.capacity) updateSprintItemCapacity(next);
+                setCapDraft(String(next));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-right text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        </div>
+        <CapacityMeter
+          used={props.itemCap.used}
+          capacity={props.itemCap.capacity}
+          pct={props.itemCap.pct}
+          color={props.itemCap.color}
+          className="mt-3"
+        />
         <label className="mt-4 block text-sm font-medium">Sprint Goal</label>
         <input
           value={props.sprintGoal}

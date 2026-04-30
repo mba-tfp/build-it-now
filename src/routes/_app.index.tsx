@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
+import { USERS, capacityState, daysSince, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/tfp/types";
+import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 
 export const Route = createFileRoute("/_app/")({
   component: HomePage,
@@ -72,6 +73,9 @@ export function HomePage() {
     (i) => i.delivery_status !== "Blocked" && i.delivery_status !== "Done" && daysSince(i.updated_at) >= 2,
   ).length;
   const onTrack = sprintItems.length - blocked - atRisk;
+
+  const sprintCapacity = sprintItemCapacity(sprint);
+  const cap = capacityState(sprintItems.length, sprintCapacity);
 
   const sprintStart = new Date(sprint.start_date).getTime();
   const sprintEnd = new Date(sprint.end_date).getTime();
@@ -264,7 +268,11 @@ export function HomePage() {
       {/* 3. Two-tile primary surface */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Sprint Health */}
-        <section data-testid="sprint-health-tile" className="tfp-card relative p-5">
+        <section
+          data-testid="sprint-health-tile"
+          data-capacity-color={cap.color}
+          className="tfp-card relative p-5"
+        >
           {demoMode && (
             <span className="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               Demo data
@@ -279,6 +287,12 @@ export function HomePage() {
             <HealthCount color="yellow" count={atRisk} label="at risk" />
             <HealthCount color="red" count={blocked} label="blocked" />
           </div>
+          <CapacityMeter
+            used={cap.used}
+            capacity={cap.capacity}
+            pct={cap.pct}
+            color={cap.color}
+          />
           <Link
             to="/delivery"
             search={{ tab: "board" }}
