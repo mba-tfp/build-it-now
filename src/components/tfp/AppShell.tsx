@@ -644,9 +644,10 @@ function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; t
       </span>
     );
   }
+  const linkProps = { to: crumb.to } as unknown as React.ComponentProps<typeof Link>;
   return (
     <Link
-      to={crumb.to as string}
+      {...linkProps}
       data-testid={testId}
       title={crumb.fullTitle}
       className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
