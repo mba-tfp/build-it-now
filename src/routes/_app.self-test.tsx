@@ -10,6 +10,7 @@ import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
+import { computeCannotCloseRows } from "./_app.delivery";
 import type { Decision } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/self-test")({
