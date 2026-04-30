@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { USERS, capacityState, daysSince, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
 import type { Signal } from "@/lib/tfp/types";
+import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 
 export const Route = createFileRoute("/_app/")({
   component: HomePage,
