@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { USERS, daysSince, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
-import type { ShapingItem, Signal, Review } from "@/lib/tfp/types";
+import type { Signal } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/")({
   component: HomePage,
