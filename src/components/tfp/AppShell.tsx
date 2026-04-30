@@ -553,7 +553,7 @@ function truncateTitle(title: string, max = 40): string {
   return title.slice(0, max - 1).trimEnd() + "…";
 }
 
-type Crumb = { label: string; to?: string; fullTitle?: string };
+export type Crumb = { label: string; to?: string; fullTitle?: string };
 
 export function buildCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
