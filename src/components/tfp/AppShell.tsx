@@ -437,7 +437,7 @@ function NotificationsBell() {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative" ref={ref} data-testid="notifications-bell" data-role={currentRole} data-unread-count={unread} data-visible-count={visibleNotifications.length}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="relative grid h-9 w-9 place-items-center rounded-md border border-input bg-surface text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -445,7 +445,7 @@ function NotificationsBell() {
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 grid h-4 min-w-[1rem] place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+          <span data-testid="notifications-badge" className="absolute -right-1 -top-1 grid h-4 min-w-[1rem] place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -463,7 +463,7 @@ function NotificationsBell() {
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
             {visibleNotifications.length === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">No notifications.</p>
+              <p className="p-6 text-center text-sm text-muted-foreground" data-testid="notifications-empty">{emptyMessage}</p>
             )}
             {visibleNotifications.slice(0, 30).map((n) => (
               <Link
