@@ -166,6 +166,7 @@ function DeliveryPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const reviews = useTfpStore((s) => s.reviews);
   const users = useTfpStore((s) => s.users);
+  const goLives = useTfpStore((s) => s.goLives);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
