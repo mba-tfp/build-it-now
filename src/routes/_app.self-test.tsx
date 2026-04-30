@@ -266,6 +266,31 @@ function SelfTestDecisionsHarness() {
   return <InlineDecisions signalId={item.signal_id} shapingItemId={item.id} />;
 }
 
+/** Mirror harness for StartOutcomeReview used by tests 37-40. */
+const outcomeHarnessSubs = new Set<() => void>();
+let outcomeHarnessItemId: string | null = null;
+function setOutcomeHarnessItem(id: string | null) {
+  outcomeHarnessItemId = id;
+  outcomeHarnessSubs.forEach((fn) => fn());
+}
+function useOutcomeHarnessItemId(): string | null {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    outcomeHarnessSubs.add(fn);
+    return () => {
+      outcomeHarnessSubs.delete(fn);
+    };
+  }, []);
+  return outcomeHarnessItemId;
+}
+function SelfTestOutcomeHarness() {
+  const itemId = useOutcomeHarnessItemId();
+  const item = useTfpStore((s) => s.shaping.find((x) => x.id === itemId));
+  if (!itemId || !item) return null;
+  return <StartOutcomeReview shapingId={item.id} signalId={item.signal_id} />;
+}
+
 function TestRow({ step, state }: { step: TestStep; state: RowState }) {
   return (
     <div className="border-b border-border p-4 last:border-b-0">
