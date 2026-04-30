@@ -422,6 +422,44 @@ export function procreaFlag(clinic: GoLiveChecklist, item: string) {
   return null;
 }
 
+/**
+ * Returns the set of checklist items that require a compliance note before
+ * they can be marked complete. Currently scoped to Procrea QC item 12 (PHIPA
+ * + French requirements). The pattern is per-(clinic, item) so future Quebec
+ * clinics or any PHIPA-sensitive clinic can reuse the same enforcement.
+ */
+export function complianceRequiredItems(clinic: GoLiveChecklist): Set<string> {
+  const out = new Set<string>();
+  if (clinicName(clinic).toLowerCase().includes("procrea qc")) {
+    PHASES.flatMap((p) => p.items)
+      .filter((item) => item.startsWith("12."))
+      .forEach((item) => out.add(item));
+  }
+  return out;
+}
+
+export function isComplianceRequired(clinic: GoLiveChecklist, item: string): boolean {
+  return complianceRequiredItems(clinic).has(item);
+}
+
+/**
+ * Returns clinic items that are checked off but missing a compliance note —
+ * these are sprint-close blockers per Prompt P (PHIPA audit trail).
+ */
+export function complianceMissingRows(goLives: GoLiveChecklist[]): Array<{ clinicId: string; clinicName: string; item: string }> {
+  const rows: Array<{ clinicId: string; clinicName: string; item: string }> = [];
+  for (const clinic of goLives) {
+    const required = complianceRequiredItems(clinic);
+    for (const item of required) {
+      const state = clinic.criteria[item];
+      if (state?.done && !(state.note ?? "").trim()) {
+        rows.push({ clinicId: clinic.id, clinicName: clinicName(clinic), item });
+      }
+    }
+  }
+  return rows;
+}
+
 function isNotApplicable(note: string | undefined) {
   return Boolean(note?.includes("[Not applicable]"));
 }
