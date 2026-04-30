@@ -53,7 +53,7 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
 ];
 
 function DeliveryPage() {
-  const { tab } = Route.useSearch();
+  const { tab, openItem } = Route.useSearch();
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
