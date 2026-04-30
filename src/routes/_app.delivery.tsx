@@ -491,6 +491,57 @@ function DeliveryPage() {
           }}
         />
       )}
+      {pendingOverCapPick && (
+        <SprintAtCapacityModal
+          predictedCount={planningTotalIfAdded}
+          capacity={itemCap}
+          onCancel={() => setPendingOverCapPick(null)}
+          onConfirm={confirmOverCapPick}
+        />
+      )}
+    </div>
+  );
+}
+
+function SprintAtCapacityModal({
+  predictedCount,
+  capacity,
+  onCancel,
+  onConfirm,
+}: {
+  predictedCount: number;
+  capacity: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      data-testid="sprint-at-capacity-modal"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    >
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-lg">
+        <h2 className="font-display text-lg">Sprint at capacity</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Adding this item puts the sprint at <span className="font-medium text-foreground">{predictedCount}</span> items,
+          over the <span className="font-medium text-foreground">{capacity}</span>-item capacity. Proceed?
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            data-testid="sprint-at-capacity-cancel"
+            onClick={onCancel}
+            className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
+          >
+            Cancel
+          </button>
+          <button
+            data-testid="sprint-at-capacity-confirm"
+            onClick={onConfirm}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Add anyway
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
