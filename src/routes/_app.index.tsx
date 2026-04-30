@@ -267,7 +267,11 @@ export function HomePage() {
       {/* 3. Two-tile primary surface */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Sprint Health */}
-        <section data-testid="sprint-health-tile" className="tfp-card relative p-5">
+        <section
+          data-testid="sprint-health-tile"
+          data-capacity-color={cap.color}
+          className="tfp-card relative p-5"
+        >
           {demoMode && (
             <span className="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               Demo data
@@ -282,6 +286,12 @@ export function HomePage() {
             <HealthCount color="yellow" count={atRisk} label="at risk" />
             <HealthCount color="red" count={blocked} label="blocked" />
           </div>
+          <CapacityMeter
+            used={cap.used}
+            capacity={cap.capacity}
+            pct={cap.pct}
+            color={cap.color}
+          />
           <Link
             to="/delivery"
             search={{ tab: "board" }}
