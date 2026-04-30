@@ -752,10 +752,10 @@ function SprintBoard({
           {committedKeys.length > 0 && <p className="mt-1 text-xs text-[var(--color-status-proceed)]">Created Jira keys: {committedKeys.join(", ")}</p>}
         </div>
         <button
-          disabled={!!closeBlocker}
+          data-testid="close-sprint-button"
           title={closeBlocker || "Ready to close sprint"}
           onClick={onCloseSprint}
-          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Close sprint
         </button>
