@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
 import type { GoLiveChecklist, Review, ShapingItem, Signal } from "@/lib/tfp/types";
 import { procreaFlag } from "./_app.clinics";
+import { HomePage } from "./_app.index";
 
 export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
@@ -24,6 +25,7 @@ type TestContext = {
   secondSignalId?: string;
   notificationBaseline: number;
   originalDemoMode?: boolean;
+  originalUserId?: string;
 };
 type RowState = { status: TestStatus; error?: string };
 
@@ -59,6 +61,7 @@ function SelfTestPage() {
     const ctx: TestContext = {
       notificationBaseline: useTfpStore.getState().notifications.length,
       originalDemoMode: useTfpStore.getState().flags.demoModeEnabled,
+      originalUserId: useTfpStore.getState().currentUserId,
     };
     useTfpStore.getState().setDemoMode(false);
     for (const step of TESTS) {
@@ -77,6 +80,7 @@ function SelfTestPage() {
       }
     }
     useTfpStore.getState().setDemoMode(Boolean(ctx.originalDemoMode));
+    if (ctx.originalUserId) useTfpStore.getState().setCurrentUser(ctx.originalUserId);
     setRunning(false);
   }
 
@@ -175,8 +179,39 @@ function SelfTestPage() {
       <p className="mt-4 text-sm font-medium">
         {passed} of {TESTS.length} passed.
       </p>
+
+      {/* Hidden mount of HomePage so DOM-based tests can inspect it without navigation */}
+      <div
+        id="self-test-home-preview"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: -99999,
+          top: 0,
+          width: 1280,
+          height: 800,
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <HomePage />
+      </div>
     </div>
   );
+}
+
+/** Wait one paint so the hidden HomePage re-renders after a store update. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+async function withCurrentUser(userId: string): Promise<HTMLElement> {
+  useTfpStore.getState().setCurrentUser(userId);
+  await nextFrame();
+  const root = document.getElementById("self-test-home-preview");
+  if (!root) throw new Error("Hidden home preview not mounted");
+  return root;
 }
 
 function TestRow({ step, state }: { step: TestStep; state: RowState }) {
@@ -472,6 +507,102 @@ const TESTS: TestStep[] = [
         .reopenSignal(signal.id, "E2E test reopen reason long enough");
       expect(result.ok, result.error ?? "Reopen failed");
       expect(getSignal(signal.id).status === "In Review", "Signal did not reopen to In Review");
+    },
+  },
+  {
+    id: 15,
+    name: "Home renders Sprint Health with three colored counts",
+    description: "Verifies green, yellow, and red dots are present on the Sprint Health tile.",
+    run: async () => {
+      const root = await withCurrentUser("u-bazil");
+      const tile = root.querySelector('[data-testid="sprint-health-tile"]');
+      expect(tile, "Sprint Health tile not found");
+      const dots = tile!.querySelectorAll('[data-testid="sprint-health-dot"]');
+      expect(dots.length === 3, `Expected exactly 3 health dots, found ${dots.length}`);
+      const colors = Array.from(dots).map((d) => d.getAttribute("data-color"));
+      expect(
+        colors.includes("green") && colors.includes("yellow") && colors.includes("red"),
+        `Expected green/yellow/red dots, got ${colors.join(",")}`,
+      );
+    },
+  },
+  {
+    id: 16,
+    name: "Home renders Decisions Needed tile",
+    description: "Verifies the Decisions Needed tile shows at least one item or the empty-state copy.",
+    run: async () => {
+      const root = await withCurrentUser("u-bazil");
+      const tile = root.querySelector('[data-testid="decisions-tile"][data-variant="decisions"]');
+      expect(tile, "Decisions Needed tile not found for Bazil");
+      const items = tile!.querySelectorAll("li");
+      const text = (tile!.textContent ?? "").trim();
+      expect(
+        items.length >= 1 || text.includes("Nothing waiting. Sprint health below."),
+        "Decisions tile has no items and no empty-state copy",
+      );
+    },
+  },
+  {
+    id: 17,
+    name: "Throughput strip renders four segments and three arrows",
+    description: "Verifies the throughput strip layout: 4 segments separated by 3 arrows.",
+    run: async () => {
+      const root = await withCurrentUser("u-bazil");
+      const strip = root.querySelector('[data-testid="throughput-strip"]');
+      expect(strip, "Throughput strip not found");
+      const segments = strip!.querySelectorAll('[data-testid="throughput-segment"]');
+      const arrows = strip!.querySelectorAll('[data-testid="throughput-arrow"]');
+      expect(segments.length === 4, `Expected 4 throughput segments, found ${segments.length}`);
+      expect(arrows.length === 3, `Expected 3 arrow separators, found ${arrows.length}`);
+    },
+  },
+  {
+    id: 18,
+    name: "Top strip text matches exactly",
+    description: "Verifies the top strip says: 'TFP Operating Model. Capture signals from clinics, ship outcomes to production.'",
+    run: async () => {
+      const root = await withCurrentUser("u-bazil");
+      const strip = root.querySelector('[data-testid="top-strip"]');
+      expect(strip, "Top strip not found");
+      const text = (strip!.textContent ?? "").trim();
+      expect(
+        text === "TFP Operating Model. Capture signals from clinics, ship outcomes to production.",
+        `Top strip text mismatch: ${JSON.stringify(text)}`,
+      );
+    },
+  },
+  {
+    id: 19,
+    name: "Switching to Waseem shows Tech Reviews Waiting tile",
+    description: "Verifies the right tile becomes 'Tech Reviews Waiting' when viewing as Waseem.",
+    run: async () => {
+      const root = await withCurrentUser("u-waseem");
+      const tile = root.querySelector('[data-testid="decisions-tile"]');
+      expect(tile, "Right tile not found for Waseem");
+      const variant = tile!.getAttribute("data-variant");
+      expect(variant === "tech-reviews", `Expected tech-reviews variant, got ${variant}`);
+      expect(
+        (tile!.textContent ?? "").includes("Tech Reviews Waiting"),
+        "Tile title does not say 'Tech Reviews Waiting'",
+      );
+    },
+  },
+  {
+    id: 20,
+    name: "Switching to Shahid shows Outcomes Shipped tile and hides Resume bar",
+    description: "Verifies Shahid sees 'Outcomes Shipped This Sprint' and no Resume bar.",
+    run: async () => {
+      const root = await withCurrentUser("u-shahid");
+      const tile = root.querySelector('[data-testid="decisions-tile"]');
+      expect(tile, "Right tile not found for Shahid");
+      const variant = tile!.getAttribute("data-variant");
+      expect(variant === "outcomes-shipped", `Expected outcomes-shipped variant, got ${variant}`);
+      expect(
+        (tile!.textContent ?? "").includes("Outcomes Shipped This Sprint"),
+        "Tile title does not say 'Outcomes Shipped This Sprint'",
+      );
+      const resume = root.querySelector('[data-testid="resume-bar"]');
+      expect(!resume, "Resume bar should be hidden for Shahid");
     },
   },
 ];
