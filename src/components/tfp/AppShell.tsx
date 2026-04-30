@@ -309,6 +309,19 @@ export function AppShell() {
         <SidebarInset>
           <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/85 px-4 py-2.5 backdrop-blur">
             <SidebarTrigger />
+            <Link
+              to="/"
+              data-testid="header-home-link"
+              className="group flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-accent/40"
+              title="Back to home"
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground transition group-hover:bg-primary/90">
+                <Activity className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </span>
+              <span className="font-display text-[14px] tracking-tight text-foreground transition group-hover:text-primary">
+                TFP Workflow
+              </span>
+            </Link>
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => setSearchOpen(true)}
