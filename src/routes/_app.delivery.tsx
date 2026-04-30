@@ -117,6 +117,94 @@ function DeliveryPage() {
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
+  // Granular blocker rows for the "Cannot close sprint" modal. Each row is purely
+  // informational — the underlying close rule (`closeBlocker`) is unchanged.
+  const blockerRows = useMemo<CannotCloseRow[]>(() => {
+    const rows: CannotCloseRow[] = [];
+    if (!sprintEnded) {
+      rows.push({ key: "sprint-not-ended", label: "Sprint end date has not passed yet", fixTo: null });
+    }
+    const inProgress = sprintRows.filter(({ sh }) => sh.delivery_status === "In Progress" && !sh.carry_forwarded_at).length;
+    if (inProgress > 0) {
+      rows.push({
+        key: "in-progress",
+        label: `${inProgress} item${inProgress === 1 ? "" : "s"} still In Progress`,
+        fixTo: { to: "/delivery", search: {} },
+      });
+    }
+    const inQa = sprintRows.filter(({ sh }) => sh.delivery_status === "In QA" && !sh.carry_forwarded_at).length;
+    if (inQa > 0) {
+      rows.push({
+        key: "in-qa",
+        label: `${inQa} item${inQa === 1 ? "" : "s"} still In QA`,
+        fixTo: { to: "/delivery", search: {} },
+      });
+    }
+    const todo = sprintRows.filter(({ sh }) => sh.delivery_status === "To Do" && !sh.carry_forwarded_at).length;
+    if (todo > 0) {
+      rows.push({
+        key: "todo",
+        label: `${todo} item${todo === 1 ? "" : "s"} still To Do`,
+        fixTo: { to: "/delivery", search: {} },
+      });
+    }
+    const blockedNotCarried = sprintRows.filter(({ sh }) => sh.delivery_status === "Blocked" && !sh.carry_forwarded_at).length;
+    if (blockedNotCarried > 0) {
+      rows.push({
+        key: "blocked",
+        label: `${blockedNotCarried} item${blockedNotCarried === 1 ? "" : "s"} Blocked`,
+        fixTo: { to: "/delivery", search: {} },
+      });
+    }
+    // Done items with no review at all
+    const reviewsPending = sprintRows.filter(
+      ({ sh }) => sh.delivery_status === "Done" && !reviews.some((r) => r.shaping_id === sh.id),
+    ).length;
+    if (reviewsPending > 0) {
+      rows.push({
+        key: "reviews-pending",
+        label: `${reviewsPending} outcome review${reviewsPending === 1 ? "" : "s"} pending`,
+        fixTo: { to: "/governance", search: { tab: "lookback" } },
+      });
+    }
+    // Done items with a review row that has no outcome_rating
+    const missingResult = sprintRows.filter(({ sh }) => {
+      if (sh.delivery_status !== "Done") return false;
+      const r = reviews.find((rr) => rr.shaping_id === sh.id);
+      return !!r && !r.outcome_rating;
+    });
+    if (missingResult.length > 0) {
+      rows.push({
+        key: "missing-result",
+        label: `${missingResult.length} outcome review${missingResult.length === 1 ? "" : "s"} missing result`,
+        fixTo: { to: "/governance", search: { tab: "lookback" } },
+      });
+    }
+    // Capacity overrun without override (informational; uses existing usable capacity)
+    const sprintUsedPts = sprintRows.reduce((sum, r) => sum + (r.sh.tech_estimate_pts ?? 0), 0);
+    if (usable > 0 && sprintUsedPts > usable && !sprint.scope_override_reason) {
+      rows.push({
+        key: "capacity",
+        label: "Sprint capacity exceeded 100% with no override",
+        fixTo: { to: "/delivery", search: {} },
+      });
+    }
+    return rows;
+  }, [sprintEnded, sprintRows, reviews, usable, sprint.scope_override_reason]);
+
+  const hasBlockers = blockerRows.length > 0 || !!closeBlocker;
+
+  function handleCloseSprintClick() {
+    // Edge case: rule string is set but no granular rows resolved — treat as blocked
+    // and surface a single generic row so the modal still informs the user. If the
+    // edge truly has zero rows AND no rule string, fall through to the happy path.
+    if (!hasBlockers) {
+      setCloseOpen(true);
+      return;
+    }
+    setCannotCloseOpen(true);
+  }
+
   // Auto-open the brief slideover when an `openItem` query param is present.
   useEffect(() => {
     if (!openItem) return;
