@@ -413,6 +413,12 @@ function DeliveryPage() {
           }}
         />
       )}
+      {cannotCloseOpen && (
+        <CannotCloseSprintModal
+          rows={blockerRows}
+          onClose={() => setCannotCloseOpen(false)}
+        />
+      )}
       {overrideOpen && (
         <ScopeOverrideModal
           rows={sprintRows}
