@@ -972,6 +972,77 @@ function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: str
   );
 }
 
+function CannotCloseSprintModal({
+  rows,
+  onClose,
+}: {
+  rows: CannotCloseRow[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      data-testid="cannot-close-sprint-modal"
+      className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-[var(--color-status-hold)]" />
+          <div>
+            <h2 className="font-display text-lg">Cannot close sprint</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The following items are blocking sprint close. Resolve each before trying again.
+            </p>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-2">
+          {rows.map((row) => (
+            <li
+              key={row.key}
+              data-testid="cannot-close-row"
+              data-row-key={row.key}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+            >
+              <span>{row.label}</span>
+              {row.fixTo ? (
+                <Link
+                  data-testid="cannot-close-fix-link"
+                  data-row-key={row.key}
+                  to={row.fixTo.to}
+                  // @ts-expect-error - search shape varies per route; runtime accepts the object.
+                  search={row.fixTo.search}
+                  onClick={onClose}
+                  className="rounded-md border border-input px-2 py-1 text-xs font-medium text-primary hover:bg-accent/40"
+                >
+                  Fix
+                </Link>
+              ) : (
+                <span className="rounded-md border border-input px-2 py-1 text-xs text-muted-foreground">
+                  Wait
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-5 text-xs text-muted-foreground">
+          Resolve the items above, then try Close Sprint again.
+        </p>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScopeOverrideModal({ rows, onCancel, onConfirm }: { rows: Row[]; onCancel: () => void; onConfirm: (data: { reason: string; displacedIds: string[] }) => void }) {
   const [reason, setReason] = useState("");
   const [displacedIds, setDisplacedIds] = useState<string[]>([]);
