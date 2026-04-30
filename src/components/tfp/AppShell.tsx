@@ -644,15 +644,16 @@ function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; t
       </span>
     );
   }
-  const linkProps = { to: crumb.to } as unknown as React.ComponentProps<typeof Link>;
+  // crumb.to is a runtime-built path string; cast to satisfy TanStack's typed `to` prop.
+  const LinkAny = Link as unknown as (props: { to: string; children?: unknown; className?: string; title?: string; "data-testid"?: string }) => JSX.Element;
   return (
-    <Link
-      {...linkProps}
+    <LinkAny
+      to={crumb.to}
       data-testid={testId}
       title={crumb.fullTitle}
       className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
     >
       {crumb.label}
-    </Link>
+    </LinkAny>
   );
 }
