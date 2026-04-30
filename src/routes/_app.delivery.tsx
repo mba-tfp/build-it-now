@@ -185,9 +185,9 @@ function DeliveryPage() {
         fixTo: { to: "/governance", search: { tab: "lookback" } },
       });
     }
-    // Capacity overrun without override (informational; uses existing usable capacity)
-    const sprintUsedPts = sprintRows.reduce((sum, r) => sum + (r.sh.tech_estimate_pts ?? 0), 0);
-    if (usable > 0 && sprintUsedPts > usable && !sprint.scope_override_reason) {
+    // Capacity overrun (informational). Treated as a blocker only when allocated
+    // points exceed usable capacity. Override acknowledgement is governed elsewhere.
+    if (usable > 0 && sprint.allocated_pts > usable) {
       rows.push({
         key: "capacity",
         label: "Sprint capacity exceeded 100% with no override",
@@ -195,7 +195,7 @@ function DeliveryPage() {
       });
     }
     return rows;
-  }, [sprintEnded, sprintRows, reviews, usable, sprint.scope_override_reason]);
+  }, [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts]);
 
   const hasBlockers = blockerRows.length > 0 || !!closeBlocker;
 
