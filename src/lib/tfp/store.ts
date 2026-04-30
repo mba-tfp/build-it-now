@@ -3595,3 +3595,21 @@ export function usableCapacity(sp: Sprint): number {
 export function daysSince(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
+
+/**
+ * Compute item-count capacity state. Color thresholds:
+ *   green  < 80 %
+ *   yellow 80 – 99 %
+ *   red    >= 100 %
+ */
+export function capacityState(used: number, capacity: number): import("./types").CapacityState {
+  const cap = Math.max(1, capacity || 0);
+  const pct = (used / cap) * 100;
+  const color: import("./types").CapacityColor = pct >= 100 ? "red" : pct >= 80 ? "yellow" : "green";
+  return { used, capacity: cap, pct, color };
+}
+
+/** Resolve the effective item capacity for a sprint, falling back to the legacy default of 20. */
+export function sprintItemCapacity(sp: { item_capacity?: number } | null | undefined): number {
+  return sp?.item_capacity != null ? Math.max(1, sp.item_capacity) : 20;
+}
