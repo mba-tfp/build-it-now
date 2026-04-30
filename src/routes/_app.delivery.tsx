@@ -23,6 +23,11 @@ export const Route = createFileRoute("/_app/delivery")({
 });
 
 type Row = { sh: ShapingItem; sig: Signal };
+type CannotCloseRow = {
+  key: string;
+  label: string;
+  fixTo: { to: string; search: Record<string, string> } | null;
+};
 type DeliverySectionKey = "board" | "planning" | "backlog";
 
 const DELIVERY_SECTIONS_STORAGE_KEY = "tfp-delivery-sections-v1";
