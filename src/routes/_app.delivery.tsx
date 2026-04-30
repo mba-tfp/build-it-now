@@ -5,12 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
+import { USERS, capacityState, daysSince, sprintItemCapacity, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, GoLiveChecklist, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
+import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 import { complianceMissingRows } from "./_app.clinics";
 
 const searchSchema = z.object({
@@ -187,6 +188,8 @@ function DeliveryPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [cannotCloseOpen, setCannotCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  /** Pending pick awaiting user confirmation when adding pushes the sprint above item capacity. */
+  const [pendingOverCapPick, setPendingOverCapPick] = useState<string | null>(null);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
   const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
 
