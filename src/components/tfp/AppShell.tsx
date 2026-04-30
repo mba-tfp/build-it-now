@@ -645,7 +645,7 @@ function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; t
     );
   }
   // crumb.to is a runtime-built path string; cast to satisfy TanStack's typed `to` prop.
-  const LinkAny = Link as unknown as (props: { to: string; children?: unknown; className?: string; title?: string; "data-testid"?: string }) => JSX.Element;
+  const LinkAny = Link as unknown as (props: { to: string; children?: unknown; className?: string; title?: string; "data-testid"?: string }) => unknown as never;
   return (
     <LinkAny
       to={crumb.to}
