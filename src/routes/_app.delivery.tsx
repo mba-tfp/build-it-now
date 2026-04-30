@@ -1012,8 +1012,7 @@ function CannotCloseSprintModal({
                   data-testid="cannot-close-fix-link"
                   data-row-key={row.key}
                   to={row.fixTo.to}
-                  // @ts-expect-error - search shape varies per route; runtime accepts the object.
-                  search={row.fixTo.search}
+                  search={row.fixTo.search as never}
                   onClick={onClose}
                   className="rounded-md border border-input px-2 py-1 text-xs font-medium text-primary hover:bg-accent/40"
                 >
