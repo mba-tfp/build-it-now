@@ -313,7 +313,7 @@ function ShapingWorkspace({ itemId, onBack }: { itemId: string; onBack: () => vo
 
           {displayStep(sh.current_step) === 1 && <DefineBrief item={sh} />}
           {displayStep(sh.current_step) === 2 && <TechReview item={sh} />}
-          <InlineDecisions item={sh} />
+          <InlineDecisions signalId={sh.signal_id} shapingItemId={sh.id} />
         </>
       )}
     </div>
