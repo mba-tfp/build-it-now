@@ -44,12 +44,14 @@ export function computeCannotCloseRows({
   reviews,
   usable,
   allocatedPts,
+  goLives,
 }: {
   sprintEnded: boolean;
   sprintRows: Row[];
   reviews: Review[];
   usable: number;
   allocatedPts: number;
+  goLives?: GoLiveChecklist[];
 }): CannotCloseRow[] {
   const rows: CannotCloseRow[] = [];
   if (!sprintEnded) {
