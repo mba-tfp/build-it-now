@@ -3487,7 +3487,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 13,
+      version: 14,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;

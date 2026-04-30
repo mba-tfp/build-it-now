@@ -330,12 +330,23 @@ export type CommsItem = {
 
 export type DecisionType = "Architectural" | "Product" | "Process" | "Vendor";
 export type DecisionStatus = "Open" | "Decided" | "Superseded";
+export type DecisionStage =
+  | "triage"
+  | "shaping"
+  | "tech-review"
+  | "in-progress"
+  | "in-qa"
+  | "done"
+  | "outcome-complete"
+  | "sprint-closed";
 
 export type Decision = {
   id: string;
   title: string;
   type: DecisionType;
   status: DecisionStatus;
+  /** Lifecycle stage of the linked item at the time the decision was logged. Optional for legacy records. */
+  stage?: DecisionStage;
   context: string;
   options_considered: string;
   decision: string;
