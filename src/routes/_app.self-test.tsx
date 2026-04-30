@@ -62,6 +62,7 @@ function SelfTestPage() {
     const ctx: TestContext = {
       notificationBaseline: useTfpStore.getState().notifications.length,
       originalDemoMode: useTfpStore.getState().flags.demoModeEnabled,
+      originalUserId: useTfpStore.getState().currentUserId,
     };
     useTfpStore.getState().setDemoMode(false);
     for (const step of TESTS) {
@@ -80,6 +81,7 @@ function SelfTestPage() {
       }
     }
     useTfpStore.getState().setDemoMode(Boolean(ctx.originalDemoMode));
+    if (ctx.originalUserId) useTfpStore.getState().setCurrentUser(ctx.originalUserId);
     setRunning(false);
   }
 
