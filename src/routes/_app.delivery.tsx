@@ -349,6 +349,29 @@ function DeliveryPage() {
     toast.success("Follow-on signal logged in Inbox");
   }
 
+  const itemCap = sprintItemCapacity(sprint);
+  // Capacity tracks the *predicted total sprint size*: items already in the sprint
+  // plus items currently selected in planning. The over-capacity warning fires when
+  // adding the next item would push that total above `itemCap`.
+  const planningTotalIfAdded = sprintRows.length + planningRows.length + 1;
+  const planningCap = capacityState(sprintRows.length + planningRows.length, itemCap);
+
+  function handlePick(id: string) {
+    if (planningIds.includes(id)) return;
+    if (planningTotalIfAdded > itemCap) {
+      setPendingOverCapPick(id);
+      return;
+    }
+    setPlanningIds((current) => [...current, id]);
+  }
+
+  function confirmOverCapPick() {
+    if (!pendingOverCapPick) return;
+    const id = pendingOverCapPick;
+    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
+    setPendingOverCapPick(null);
+  }
+
   return (
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
