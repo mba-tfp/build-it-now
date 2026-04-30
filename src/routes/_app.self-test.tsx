@@ -247,6 +247,8 @@ function SelfTestDecisionsHarness() {
   if (!itemId || !item) return null;
   return <InlineDecisions signalId={item.signal_id} shapingItemId={item.id} />;
 }
+
+function TestRow({ step, state }: { step: TestStep; state: RowState }) {
   return (
     <div className="border-b border-border p-4 last:border-b-0">
       <div className="flex items-start gap-3">
