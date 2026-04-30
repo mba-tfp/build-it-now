@@ -237,12 +237,29 @@ async function withCurrentUser(userId: string): Promise<HTMLElement> {
 }
 
 /**
- * Harness that mounts InlineDecisions for the shaping item flagged via
- * `__selfTestDecisionsItemId` in the store. Tests 33-36 update that flag
- * (alongside the underlying shaping/sprint state) and then await a frame.
+ * Harness that mounts InlineDecisions for a shaping item id supplied via
+ * a tiny external subscribable store. Tests 33-36 set the id, await a frame,
+ * then inspect the rendered DOM.
  */
+const decisionsHarnessSubs = new Set<() => void>();
+let decisionsHarnessItemId: string | null = null;
+function setDecisionsHarnessItem(id: string | null) {
+  decisionsHarnessItemId = id;
+  decisionsHarnessSubs.forEach((fn) => fn());
+}
+function useDecisionsHarnessItemId(): string | null {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    decisionsHarnessSubs.add(fn);
+    return () => {
+      decisionsHarnessSubs.delete(fn);
+    };
+  }, []);
+  return decisionsHarnessItemId;
+}
 function SelfTestDecisionsHarness() {
-  const itemId = useTfpStore((s) => s.__selfTestDecisionsItemId);
+  const itemId = useDecisionsHarnessItemId();
   const item = useTfpStore((s) => s.shaping.find((x) => x.id === itemId));
   if (!itemId || !item) return null;
   return <InlineDecisions signalId={item.signal_id} shapingItemId={item.id} />;
