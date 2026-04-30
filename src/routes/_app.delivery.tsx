@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +23,100 @@ export const Route = createFileRoute("/_app/delivery")({
 });
 
 type Row = { sh: ShapingItem; sig: Signal };
+export type CannotCloseRow = {
+  key: string;
+  label: string;
+  fixTo: { to: string; search: Record<string, string> } | null;
+};
+
+/**
+ * Pure helper that computes the granular blocker rows shown in the
+ * "Cannot close sprint" modal. Exported so /self-test can assert against it
+ * without mounting the full DeliveryPage.
+ *
+ * NOTE: This does NOT change the existing close rule (`closeBlocker`).
+ * It only translates the same conditions into actionable rows.
+ */
+export function computeCannotCloseRows({
+  sprintEnded,
+  sprintRows,
+  reviews,
+  usable,
+  allocatedPts,
+}: {
+  sprintEnded: boolean;
+  sprintRows: Row[];
+  reviews: Review[];
+  usable: number;
+  allocatedPts: number;
+}): CannotCloseRow[] {
+  const rows: CannotCloseRow[] = [];
+  if (!sprintEnded) {
+    rows.push({ key: "sprint-not-ended", label: "Sprint end date has not passed yet", fixTo: null });
+  }
+  const inProgress = sprintRows.filter(({ sh }) => sh.delivery_status === "In Progress" && !sh.carry_forwarded_at).length;
+  if (inProgress > 0) {
+    rows.push({
+      key: "in-progress",
+      label: `${inProgress} item${inProgress === 1 ? "" : "s"} still In Progress`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const inQa = sprintRows.filter(({ sh }) => sh.delivery_status === "In QA" && !sh.carry_forwarded_at).length;
+  if (inQa > 0) {
+    rows.push({
+      key: "in-qa",
+      label: `${inQa} item${inQa === 1 ? "" : "s"} still In QA`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const todo = sprintRows.filter(({ sh }) => sh.delivery_status === "To Do" && !sh.carry_forwarded_at).length;
+  if (todo > 0) {
+    rows.push({
+      key: "todo",
+      label: `${todo} item${todo === 1 ? "" : "s"} still To Do`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const blockedNotCarried = sprintRows.filter(({ sh }) => sh.delivery_status === "Blocked" && !sh.carry_forwarded_at).length;
+  if (blockedNotCarried > 0) {
+    rows.push({
+      key: "blocked",
+      label: `${blockedNotCarried} item${blockedNotCarried === 1 ? "" : "s"} Blocked`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const reviewsPending = sprintRows.filter(
+    ({ sh }) => sh.delivery_status === "Done" && !reviews.some((r) => r.shaping_id === sh.id),
+  ).length;
+  if (reviewsPending > 0) {
+    rows.push({
+      key: "reviews-pending",
+      label: `${reviewsPending} outcome review${reviewsPending === 1 ? "" : "s"} pending`,
+      fixTo: { to: "/governance", search: { tab: "lookback" } },
+    });
+  }
+  const missingResult = sprintRows.filter(({ sh }) => {
+    if (sh.delivery_status !== "Done") return false;
+    const r = reviews.find((rr) => rr.shaping_id === sh.id);
+    return !!r && !r.outcome_rating;
+  });
+  if (missingResult.length > 0) {
+    rows.push({
+      key: "missing-result",
+      label: `${missingResult.length} outcome review${missingResult.length === 1 ? "" : "s"} missing result`,
+      fixTo: { to: "/governance", search: { tab: "lookback" } },
+    });
+  }
+  if (usable > 0 && allocatedPts > usable) {
+    rows.push({
+      key: "capacity",
+      label: "Sprint capacity exceeded 100% with no override",
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  return rows;
+}
 type DeliverySectionKey = "board" | "planning" | "backlog";
 
 const DELIVERY_SECTIONS_STORAGE_KEY = "tfp-delivery-sections-v1";
@@ -77,6 +171,7 @@ function DeliveryPage() {
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [cannotCloseOpen, setCannotCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
   const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
@@ -115,6 +210,26 @@ function DeliveryPage() {
   const unresolvedCount = sprintRows.filter(({ sh }) => sh.delivery_status !== "Done" && !sh.carry_forwarded_at).length;
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
+
+  // Granular blocker rows for the "Cannot close sprint" modal. Each row is purely
+  // informational — the underlying close rule (`closeBlocker`) is unchanged.
+  const blockerRows = useMemo<CannotCloseRow[]>(
+    () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts }),
+    [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts],
+  );
+
+  const hasBlockers = blockerRows.length > 0 || !!closeBlocker;
+
+  function handleCloseSprintClick() {
+    // Edge case: rule string is set but no granular rows resolved — treat as blocked
+    // and surface a single generic row so the modal still informs the user. If the
+    // edge truly has zero rows AND no rule string, fall through to the happy path.
+    if (!hasBlockers) {
+      setCloseOpen(true);
+      return;
+    }
+    setCannotCloseOpen(true);
+  }
 
   // Auto-open the brief slideover when an `openItem` query param is present.
   useEffect(() => {
@@ -260,7 +375,7 @@ function DeliveryPage() {
               updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
               toast.success("Marked carry-forward");
             }}
-            onCloseSprint={() => setCloseOpen(true)}
+            onCloseSprint={handleCloseSprintClick}
           />
         </DeliverySection>
 
@@ -317,6 +432,12 @@ function DeliveryPage() {
             setCloseOpen(false);
             toast.success("Sprint closed");
           }}
+        />
+      )}
+      {cannotCloseOpen && (
+        <CannotCloseSprintModal
+          rows={blockerRows}
+          onClose={() => setCannotCloseOpen(false)}
         />
       )}
       {overrideOpen && (
@@ -658,10 +779,10 @@ function SprintBoard({
           {committedKeys.length > 0 && <p className="mt-1 text-xs text-[var(--color-status-proceed)]">Created Jira keys: {committedKeys.join(", ")}</p>}
         </div>
         <button
-          disabled={!!closeBlocker}
+          data-testid="close-sprint-button"
           title={closeBlocker || "Ready to close sprint"}
           onClick={onCloseSprint}
-          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Close sprint
         </button>
@@ -866,6 +987,76 @@ function SprintCloseModal({ sprintName, onCancel, onConfirm }: { sprintName: str
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">Cancel</button>
           <button disabled={!ready} onClick={() => onConfirm({ summary: summary.trim(), what_worked: worked.trim(), what_didnt: didnt.trim(), one_change: change.trim(), primary_theme: theme })} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">Confirm close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CannotCloseSprintModal({
+  rows,
+  onClose,
+}: {
+  rows: CannotCloseRow[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      data-testid="cannot-close-sprint-modal"
+      className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-[var(--color-status-hold)]" />
+          <div>
+            <h2 className="font-display text-lg">Cannot close sprint</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The following items are blocking sprint close. Resolve each before trying again.
+            </p>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-2">
+          {rows.map((row) => (
+            <li
+              key={row.key}
+              data-testid="cannot-close-row"
+              data-row-key={row.key}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+            >
+              <span>{row.label}</span>
+              {row.fixTo ? (
+                <Link
+                  data-testid="cannot-close-fix-link"
+                  data-row-key={row.key}
+                  to={row.fixTo.to}
+                  search={row.fixTo.search as never}
+                  onClick={onClose}
+                  className="rounded-md border border-input px-2 py-1 text-xs font-medium text-primary hover:bg-accent/40"
+                >
+                  Fix
+                </Link>
+              ) : (
+                <span className="rounded-md border border-input px-2 py-1 text-xs text-muted-foreground">
+                  Wait
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-5 text-xs text-muted-foreground">
+          Resolve the items above, then try Close Sprint again.
+        </p>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
