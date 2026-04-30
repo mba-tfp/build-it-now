@@ -918,6 +918,7 @@ function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
         <button onClick={onClose} className="mb-5 inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent/40">
           ← Back
         </button>
+        <StartOutcomeReview shapingId={row.sh.id} signalId={row.sig.id} />
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           Shaping brief
         </p>
