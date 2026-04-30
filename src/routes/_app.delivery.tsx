@@ -10,9 +10,11 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 
 const searchSchema = z.object({
   tab: z.string().optional(),
+  openItem: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_app/delivery")({
