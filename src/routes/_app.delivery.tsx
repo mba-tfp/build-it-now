@@ -118,6 +118,16 @@ export function computeCannotCloseRows({
       fixTo: { to: "/delivery", search: {} },
     });
   }
+  if (goLives && goLives.length > 0) {
+    const missing = complianceMissingRows(goLives);
+    if (missing.length > 0) {
+      rows.push({
+        key: "compliance-missing",
+        label: `${missing.length} Procrea QC item${missing.length === 1 ? "" : "s"} have compliance notes missing`,
+        fixTo: { to: "/clinics", search: {} },
+      });
+    }
+  }
   return rows;
 }
 type DeliverySectionKey = "board" | "planning" | "backlog";
