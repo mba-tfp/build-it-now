@@ -646,7 +646,7 @@ function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; t
   }
   return (
     <Link
-      to={crumb.to}
+      to={crumb.to as string}
       data-testid={testId}
       title={crumb.fullTitle}
       className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
