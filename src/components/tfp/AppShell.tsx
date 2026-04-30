@@ -555,7 +555,7 @@ function truncateTitle(title: string, max = 40): string {
 
 type Crumb = { label: string; to?: string; fullTitle?: string };
 
-function buildCrumbs(pathname: string): Crumb[] {
+export function buildCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return [];
   const crumbs: Crumb[] = [{ label: "Home", to: "/" }];
