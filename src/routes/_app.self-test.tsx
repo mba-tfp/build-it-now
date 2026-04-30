@@ -180,8 +180,39 @@ function SelfTestPage() {
       <p className="mt-4 text-sm font-medium">
         {passed} of {TESTS.length} passed.
       </p>
+
+      {/* Hidden mount of HomePage so DOM-based tests can inspect it without navigation */}
+      <div
+        id="self-test-home-preview"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: -99999,
+          top: 0,
+          width: 1280,
+          height: 800,
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <HomePage />
+      </div>
     </div>
   );
+}
+
+/** Wait one paint so the hidden HomePage re-renders after a store update. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+async function withCurrentUser(userId: string): Promise<HTMLElement> {
+  useTfpStore.getState().setCurrentUser(userId);
+  await nextFrame();
+  const root = document.getElementById("self-test-home-preview");
+  if (!root) throw new Error("Hidden home preview not mounted");
+  return root;
 }
 
 function TestRow({ step, state }: { step: TestStep; state: RowState }) {
