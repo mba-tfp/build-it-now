@@ -432,11 +432,12 @@ function DeliveryPage() {
             setSprintGoal={setSprintGoal}
             usedPoints={usedPoints}
             usable={usable}
-            onPick={(id) => setPlanningIds((current) => [...current, id])}
+            onPick={handlePick}
             onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
             onConfirm={confirmSprint}
             committedKeys={committedKeys}
             sprint={sprint}
+            itemCap={planningCap}
           />
         </DeliverySection>
 
@@ -449,7 +450,7 @@ function DeliveryPage() {
           <BacklogTab
             rows={planningBacklog}
             onMove={movePriority}
-            onAddToPlanning={(id) => setPlanningIds((current) => current.includes(id) ? current : [...current, id])}
+            onAddToPlanning={handlePick}
           />
         </DeliverySection>
       </div>
