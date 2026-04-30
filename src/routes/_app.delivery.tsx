@@ -698,9 +698,15 @@ function PlanningTab(props: {
     uncertainty_buffer_pts: number;
     carryforward_estimate_pts: number;
   };
+  itemCap: import("@/lib/tfp/types").CapacityState;
 }) {
   const usedPct = props.usable > 0 ? (props.usedPoints / props.usable) * 100 : 0;
   const canConfirm = props.planningRows.length > 0 && props.sprintGoal.trim().length > 0;
+  const updateSprintItemCapacity = useTfpStore((s) => s.updateSprintItemCapacity);
+  const [capDraft, setCapDraft] = useState(String(props.itemCap.capacity));
+  useEffect(() => {
+    setCapDraft(String(props.itemCap.capacity));
+  }, [props.itemCap.capacity]);
   if (props.committedKeys.length > 0) {
     return (
       <div className="rounded-md border border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/5 p-8 text-[var(--color-status-proceed)]">
@@ -728,7 +734,39 @@ function PlanningTab(props: {
       </section>
 
       <section className="rounded-md border border-border bg-surface p-4">
-        <h2 className="font-display text-lg">Active Sprint</h2>
+        <div
+          data-testid="sprint-planning-header"
+          data-capacity-color={props.itemCap.color}
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
+          <h2 className="font-display text-lg">Active Sprint</h2>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Item capacity
+            <input
+              data-testid="sprint-item-capacity-input"
+              type="number"
+              min={1}
+              value={capDraft}
+              onChange={(e) => setCapDraft(e.target.value)}
+              onBlur={() => {
+                const next = Math.max(1, parseInt(capDraft, 10) || 0);
+                if (next !== props.itemCap.capacity) updateSprintItemCapacity(next);
+                setCapDraft(String(next));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="w-16 rounded-md border border-input bg-surface px-2 py-1 text-right text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        </div>
+        <CapacityMeter
+          used={props.itemCap.used}
+          capacity={props.itemCap.capacity}
+          pct={props.itemCap.pct}
+          color={props.itemCap.color}
+          className="mt-3"
+        />
         <label className="mt-4 block text-sm font-medium">Sprint Goal</label>
         <input
           value={props.sprintGoal}
