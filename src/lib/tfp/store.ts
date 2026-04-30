@@ -185,6 +185,7 @@ const seedSprint: Sprint = {
   golive_deduction_pts: 0,
   carryforward_estimate_pts: 4,
   allocated_pts: 38,
+  item_capacity: 20,
 };
 
 function blankShaping(
@@ -1644,6 +1645,8 @@ type State = {
   // Round 5: feature flags / users / help / workflows
   setFlag: (key: keyof FeatureFlags, value: boolean) => void;
   setDemoMode: (enabled: boolean) => void;
+  /** Update item-count capacity on the active sprint. Clamps to >= 1. */
+  updateSprintItemCapacity: (value: number) => void;
   upsertUser: (user: User) => void;
   removeUser: (userId: string) => void;
   upsertHelpArticle: (
@@ -3427,6 +3430,13 @@ export const useTfpStore = create<State>()(
       },
       setDemoMode: (enabled) => {
         set({ flags: { ...get().flags, demoModeEnabled: enabled } });
+      },
+      updateSprintItemCapacity: (value) => {
+        const next = Math.max(1, Math.floor(Number.isFinite(value) ? value : 20));
+        set((s) => ({
+          sprint: { ...s.sprint, item_capacity: next },
+          sprints: s.sprints.map((sp) => (sp.id === s.sprint.id ? { ...sp, item_capacity: next } : sp)),
+        }));
       },
       upsertUser: (user) => {
         const exists = get().users.find((u) => u.id === user.id);
