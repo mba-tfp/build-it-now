@@ -116,7 +116,14 @@ function DeliveryPage() {
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
-  if (tab) return <Navigate to="/delivery" search={{}} replace />;
+  if (tab) return <Navigate to="/delivery" search={openItem ? { openItem } : {}} replace />;
+
+  // Auto-open the brief slideover when an `openItem` query param is present.
+  useEffect(() => {
+    if (!openItem) return;
+    const row = sprintRows.find((r) => r.sh.id === openItem);
+    if (row) setBriefFor(row);
+  }, [openItem, sprintRows]);
 
   function toggleSection(section: DeliverySectionKey) {
     setOpenSections((current) => ({ ...current, [section]: !current[section] }));
