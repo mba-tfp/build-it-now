@@ -7,6 +7,7 @@ import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/no
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
+import { buildCrumbs } from "@/components/tfp/AppShell";
 
 export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
