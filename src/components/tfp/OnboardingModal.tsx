@@ -15,7 +15,8 @@ const CHECKLIST: Item[] = [
 ];
 
 export function OnboardingModal({ onClose }: { onClose: () => void }) {
-  const me = USERS.find((u) => u.id === useTfpStore((s) => s.currentUserId))!;
+  const currentUserId = useTfpStore((s) => s.currentUserId);
+  const me = USERS.find((u) => u.id === currentUserId)!;
   const user = useTfpStore((s) => s.users.find((u) => u.id === me.id)) ?? me;
   const completeItem = useTfpStore((s) => s.completeOnboardingItem);
   const completeAll = useTfpStore((s) => s.completeOnboarding);
