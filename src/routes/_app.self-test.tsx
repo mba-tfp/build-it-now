@@ -220,6 +220,24 @@ function SelfTestPage() {
       >
         <SelfTestDecisionsHarness />
       </div>
+
+      {/* Hidden mount for the StartOutcomeReview component used by tests 37-40 */}
+      <div
+        id="self-test-outcome-preview"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: -99999,
+          top: 0,
+          width: 800,
+          height: 600,
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <SelfTestOutcomeHarness />
+      </div>
     </div>
   );
 }
