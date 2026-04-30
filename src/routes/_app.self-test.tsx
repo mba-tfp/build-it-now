@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
