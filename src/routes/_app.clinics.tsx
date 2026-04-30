@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { CheckCircle2, Flag, Lock, Plus, Radio, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, Flag, Lock, Plus, Radio, ShieldAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { daysSince, useTfpStore } from "@/lib/tfp/store";
 import { fmtDate } from "@/lib/tfp/format";
