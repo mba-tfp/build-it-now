@@ -8,6 +8,8 @@ import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal }
 import { procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
+import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import type { Decision } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
