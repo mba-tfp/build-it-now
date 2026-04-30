@@ -86,3 +86,160 @@ export const TRIGGER_LABEL: Record<NotificationTrigger, string> = {
   timebox_breach: "Timebox breach",
   clinic_feedback: "Clinic feedback",
 };
+
+// ============= Role-based notification filtering =============
+//
+// The bell tray must show only notifications relevant to the current
+// "Viewing as" role. We infer a small set of categories from the existing
+// trigger + priority + title payload, then map each role to the categories
+// it cares about. To extend the system, add a new category to
+// `NotificationCategory` and update `categorizeNotification` and
+// `ROLE_VISIBLE_CATEGORIES` together.
+
+export type NotificationCategory =
+  | "signal_new_p0"           // P0 signal raised (any source)
+  | "signal_new"              // non-P0 new signal / triage event
+  | "signal_triage"           // triage / SLA / hold events on existing signal
+  | "shaping_update"          // shaping field updates, stuck shaping
+  | "tech_review_request"     // tech review requested / reassigned
+  | "tech_review_complete"    // tech review signed off (ready for sprint)
+  | "sprint_item_movement"    // item moved between delivery columns / blocked
+  | "sprint_health_red"       // sprint goal at risk / red health
+  | "sprint_health_yellow"    // capacity over 90% / yellow
+  | "sprint_close"            // sprint closed / retro escalation
+  | "outcome_review_due"      // outcome review needed
+  | "outcome_review_done"     // outcome review completed
+  | "decision_logged"         // override / decision logged
+  | "clinic_escalation"       // clinic feedback / go-live unconfirmed
+  | "comms"                   // comms approval
+  | "custom_label"            // custom label added by other user
+  | "other";
+
+const TITLE_INCLUDES = (n: Notification, ...needles: string[]) => {
+  const t = (n.title + " " + n.body).toLowerCase();
+  return needles.some((needle) => t.includes(needle.toLowerCase()));
+};
+
+export function categorizeNotification(n: Notification): NotificationCategory {
+  // P0 signals — highest precedence regardless of trigger
+  if (n.priority === "P0" && (n.trigger === "monitoring_alert" || n.trigger === "incident" || n.trigger === "fast_track_review" || TITLE_INCLUDES(n, "p0 signal", "signal captured", "new signal"))) {
+    return "signal_new_p0";
+  }
+
+  switch (n.trigger) {
+    case "fast_track_review":
+      return n.priority === "P0" ? "signal_new_p0" : "signal_triage";
+    case "monitoring_alert":
+    case "incident":
+      return n.priority === "P0" ? "signal_new_p0" : "signal_new";
+    case "leadership_signal":
+      return "signal_new";
+    case "sla_breach":
+      return "signal_triage";
+    case "shaping_stuck":
+      return "shaping_update";
+    case "tech_review_ready":
+      // Title "ready for tech review" = request; "Tech review complete" = sign-off
+      if (TITLE_INCLUDES(n, "complete", "signed off", "ready for sprint")) return "tech_review_complete";
+      return "tech_review_request";
+    case "blocked_over_1d":
+    case "blocker_signoff":
+      return "sprint_item_movement";
+    case "scope_change":
+      if (TITLE_INCLUDES(n, "at risk", "red")) return "sprint_health_red";
+      return "sprint_health_yellow";
+    case "retro_escalation":
+      if (TITLE_INCLUDES(n, "closed")) return "sprint_close";
+      return "sprint_close";
+    case "review_overdue":
+      if (TITLE_INCLUDES(n, "completed", "rated")) return "outcome_review_done";
+      return "outcome_review_due";
+    case "override_logged":
+      return "decision_logged";
+    case "clinic_feedback":
+    case "golive_unconfirmed":
+      return "clinic_escalation";
+    case "comms_approval":
+      return "comms";
+    case "timebox_breach":
+      return "sprint_item_movement";
+    default:
+      return "other";
+  }
+}
+
+const ROLE_VISIBLE_CATEGORIES: Record<Role, ReadonlySet<NotificationCategory>> = {
+  // Bazil & other PMs see everything except pure internal noise.
+  PM: new Set<NotificationCategory>([
+    "signal_new_p0", "signal_new", "signal_triage", "shaping_update",
+    "tech_review_request", "tech_review_complete", "sprint_item_movement",
+    "sprint_health_red", "sprint_health_yellow", "sprint_close",
+    "outcome_review_due", "outcome_review_done", "decision_logged",
+    "clinic_escalation", "comms", "custom_label", "other",
+  ]),
+  "Senior PM": new Set<NotificationCategory>([
+    "signal_new_p0", "signal_new", "signal_triage", "shaping_update",
+    "tech_review_request", "tech_review_complete", "sprint_item_movement",
+    "sprint_health_red", "sprint_health_yellow", "sprint_close",
+    "outcome_review_due", "outcome_review_done", "decision_logged",
+    "clinic_escalation", "comms", "custom_label", "other",
+  ]),
+  "Associate PM": new Set<NotificationCategory>([
+    "signal_new_p0", "signal_new", "signal_triage", "shaping_update",
+    "tech_review_request", "tech_review_complete", "sprint_item_movement",
+    "sprint_health_red", "sprint_health_yellow", "sprint_close",
+    "outcome_review_due", "outcome_review_done", "decision_logged",
+    "clinic_escalation", "comms", "custom_label", "other",
+  ]),
+  // Waseem (Tech Lead) — narrow surface focused on technical work.
+  "Tech Lead": new Set<NotificationCategory>([
+    "signal_new_p0",
+    "tech_review_request",
+    "tech_review_complete",
+    "sprint_health_red",
+    "clinic_escalation",
+  ]),
+  // Developers see what Tech Leads see, by default.
+  Developer: new Set<NotificationCategory>([
+    "signal_new_p0",
+    "tech_review_request",
+    "tech_review_complete",
+    "sprint_health_red",
+    "clinic_escalation",
+  ]),
+  // QA Scrum Master — keeps eyes on movement + sprint close.
+  "QA Scrum Master": new Set<NotificationCategory>([
+    "signal_new_p0", "sprint_item_movement", "sprint_health_red",
+    "sprint_health_yellow", "sprint_close", "outcome_review_due",
+    "clinic_escalation",
+  ]),
+  // Shahid (Leadership) — leadership-only surface.
+  Leadership: new Set<NotificationCategory>([
+    "signal_new_p0",
+    "sprint_health_red",
+    "sprint_close",
+    "outcome_review_done",
+    "decision_logged",
+    "clinic_escalation",
+  ]),
+};
+
+export function isNotificationVisibleToRole(n: Notification, role: Role): boolean {
+  const categories = ROLE_VISIBLE_CATEGORIES[role];
+  if (!categories) return true;
+  return categories.has(categorizeNotification(n));
+}
+
+export function filterNotificationsForRole(list: Notification[], role: Role): Notification[] {
+  return list.filter((n) => isNotificationVisibleToRole(n, role));
+}
+
+export const ROLE_EMPTY_BELL_MESSAGE: Record<Role, string> = {
+  PM: "No new updates. Check sprint health on home.",
+  "Senior PM": "No new updates. Check sprint health on home.",
+  "Associate PM": "No new updates. Check sprint health on home.",
+  "Tech Lead": "No tech reviews waiting. Open delivery to see your items in flight.",
+  Developer: "No tech reviews waiting. Open delivery to see your items in flight.",
+  "QA Scrum Master": "No new updates. Check sprint health on home.",
+  Leadership: "No leadership-level updates. All sprints healthy.",
+};
