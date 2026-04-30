@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
 import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/notify";
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
-import { procreaFlag } from "./_app.clinics";
+import { complianceMissingRows, complianceRequiredItems, isComplianceRequired, procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
@@ -1257,6 +1257,127 @@ const TESTS: TestStep[] = [
       const ip = rows.find((r) => r.key === "in-progress");
       expect(ip?.fixTo, "In-progress row must have a Fix link target");
       expect(ip!.fixTo!.to === "/delivery", `Expected fixTo.to '/delivery', got '${ip!.fixTo!.to}'`);
+    },
+  },
+  {
+    id: 45,
+    name: "Procrea QC item 12 is flagged compliance_required",
+    description:
+      "complianceRequiredItems(procreaQc) contains item 12 and isComplianceRequired returns true.",
+    run: () => {
+      const procrea = useTfpStore.getState().goLives.find((g) => g.release_name.toLowerCase().includes("procrea qc"));
+      expect(procrea, "Procrea QC clinic seed not found");
+      const required = complianceRequiredItems(procrea!);
+      const item12 = Array.from(required).find((s) => s.startsWith("12."));
+      expect(item12, "Item 12 not flagged as compliance_required for Procrea QC");
+      expect(isComplianceRequired(procrea!, item12!), "isComplianceRequired must return true for item 12");
+      // procreaFlag should also still mention French/Law 25 for item 12
+      expect(procreaFlag(procrea!, item12!), "procreaFlag must return guidance for item 12");
+    },
+  },
+  {
+    id: 46,
+    name: "Empty compliance note blocks check-off and surfaces inline error",
+    description:
+      "toggleGoLiveCriterion in non-demo mode + complianceMissingRows reflect the missing-note state for item 12.",
+    run: () => {
+      const procrea = useTfpStore.getState().goLives.find((g) => g.release_name.toLowerCase().includes("procrea qc"));
+      expect(procrea, "Procrea QC clinic seed not found");
+      const item12 = Array.from(complianceRequiredItems(procrea!)).find((s) => s.startsWith("12."))!;
+      // Snapshot original state so we can restore after the test.
+      const original = procrea!.criteria[item12];
+      // Reset note + done to a clean baseline.
+      useTfpStore.setState((state) => ({
+        goLives: state.goLives.map((g) =>
+          g.id === procrea!.id
+            ? { ...g, criteria: { ...g.criteria, [item12]: { done: false, note: "", checked_by: null, checked_at: null } } }
+            : g,
+        ),
+      }));
+      // In non-demo mode, force the criterion to done with no note (simulating
+      // a code path that skips UI enforcement). The compliance-missing blocker
+      // row must surface this so sprint close cannot proceed silently.
+      useTfpStore.getState().setDemoMode(false);
+      useTfpStore.getState().toggleGoLiveCriterion(procrea!.id, item12, true);
+      const after = useTfpStore.getState().goLives.find((g) => g.id === procrea!.id)!;
+      const missing = complianceMissingRows([after]);
+      expect(
+        missing.some((m) => m.clinicId === procrea!.id && m.item === item12),
+        "complianceMissingRows must include item 12 when the note is empty after check-off",
+      );
+      // Restore original state.
+      useTfpStore.setState((state) => ({
+        goLives: state.goLives.map((g) =>
+          g.id === procrea!.id ? { ...g, criteria: { ...g.criteria, [item12]: original } } : g,
+        ),
+      }));
+    },
+  },
+  {
+    id: 47,
+    name: "Filling the compliance note allows check-off (UTF-8 French preserved)",
+    description:
+      "After storing a French-accented compliance note, the criterion can be marked done and the note round-trips intact.",
+    run: () => {
+      const procrea = useTfpStore.getState().goLives.find((g) => g.release_name.toLowerCase().includes("procrea qc"));
+      expect(procrea, "Procrea QC clinic seed not found");
+      const item12 = Array.from(complianceRequiredItems(procrea!)).find((s) => s.startsWith("12."))!;
+      const original = procrea!.criteria[item12];
+      const frenchNote = "Vérifié par l'équipe — conformité Loi 25 confirmée (français OK).";
+      useTfpStore.getState().toggleGoLiveCriterion(procrea!.id, item12, true, frenchNote);
+      const after = useTfpStore.getState().goLives.find((g) => g.id === procrea!.id)!;
+      const state = after.criteria[item12];
+      expect(state.done === true, "Item 12 must be done after providing a compliance note");
+      expect(state.note === frenchNote, `Compliance note must round-trip exactly. Got: ${state.note}`);
+      const missing = complianceMissingRows([after]);
+      expect(
+        !missing.some((m) => m.clinicId === procrea!.id && m.item === item12),
+        "complianceMissingRows must NOT include item 12 once a note is present",
+      );
+      // Restore.
+      useTfpStore.setState((state) => ({
+        goLives: state.goLives.map((g) =>
+          g.id === procrea!.id ? { ...g, criteria: { ...g.criteria, [item12]: original } } : g,
+        ),
+      }));
+    },
+  },
+  {
+    id: 48,
+    name: "Demo mode auto-fills compliance note (never blank)",
+    description:
+      "In demo mode, toggling item 12 done without an explicit note populates a placeholder string instead of leaving it blank.",
+    run: () => {
+      const procrea = useTfpStore.getState().goLives.find((g) => g.release_name.toLowerCase().includes("procrea qc"));
+      expect(procrea, "Procrea QC clinic seed not found");
+      const item12 = Array.from(complianceRequiredItems(procrea!)).find((s) => s.startsWith("12."))!;
+      const original = procrea!.criteria[item12];
+      // Reset baseline.
+      useTfpStore.setState((state) => ({
+        goLives: state.goLives.map((g) =>
+          g.id === procrea!.id
+            ? { ...g, criteria: { ...g.criteria, [item12]: { done: false, note: "", checked_by: null, checked_at: null } } }
+            : g,
+        ),
+      }));
+      useTfpStore.getState().setDemoMode(true);
+      try {
+        useTfpStore.getState().toggleGoLiveCriterion(procrea!.id, item12, true);
+        const after = useTfpStore.getState().goLives.find((g) => g.id === procrea!.id)!;
+        const state = after.criteria[item12];
+        expect(state.done === true, "Item 12 must be done in demo auto-complete");
+        expect(
+          (state.note ?? "").trim().length > 0,
+          "Demo-mode auto-complete must populate a non-empty compliance note (not skip it)",
+        );
+      } finally {
+        useTfpStore.getState().setDemoMode(false);
+        useTfpStore.setState((state) => ({
+          goLives: state.goLives.map((g) =>
+            g.id === procrea!.id ? { ...g, criteria: { ...g.criteria, [item12]: original } } : g,
+          ),
+        }));
+      }
     },
   },
 ];

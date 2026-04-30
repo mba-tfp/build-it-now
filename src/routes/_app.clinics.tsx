@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { CheckCircle2, Flag, Lock, Plus, Radio, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, Flag, Lock, Plus, Radio, ShieldAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { daysSince, useTfpStore } from "@/lib/tfp/store";
 import { fmtDate } from "@/lib/tfp/format";
@@ -88,6 +88,8 @@ function ClinicsPage() {
 
   const selected = selectedId ? goLives.find((clinic) => clinic.id === selectedId) ?? null : null;
   const clinics = useMemo(() => [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime()), [goLives]);
+  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({});
+  const noteRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function handleWarRoom(clinic: GoLiveChecklist) {
     const activating = !clinic.war_room;
@@ -108,13 +110,27 @@ function ClinicsPage() {
   }
 
   function toggleItem(clinic: GoLiveChecklist, item: string, done: boolean) {
-    const flag = procreaFlag(clinic, item);
     const noteKey = `${clinic.id}:${item}`;
-    if (done && flag && !notes[noteKey]?.trim() && !clinic.criteria[item]?.note.trim()) {
-      toast.error("Compliance note required", { description: flag });
+    const required = isComplianceRequired(clinic, item);
+    const stored = clinic.criteria[item]?.note ?? "";
+    const draft = notes[noteKey] ?? "";
+    const effectiveNote = (draft.trim() ? draft : stored).trim();
+    if (done && required && !effectiveNote) {
+      setComplianceErrors((current) => ({
+        ...current,
+        [noteKey]: "Compliance note required before marking this item complete. (PHIPA + French requirements.)",
+      }));
+      // focus the note input on next tick
+      setTimeout(() => noteRefs.current[noteKey]?.focus(), 0);
       return;
     }
-    toggleCriterion(clinic.id, item, done, notes[noteKey]?.trim());
+    setComplianceErrors((current) => {
+      if (!current[noteKey]) return current;
+      const next = { ...current };
+      delete next[noteKey];
+      return next;
+    });
+    toggleCriterion(clinic.id, item, done, draft.trim() || undefined);
     setNotes((current) => ({ ...current, [noteKey]: "" }));
   }
 
@@ -220,17 +236,77 @@ function ClinicsPage() {
                       const state = selected.criteria[item] ?? { done: false, note: "", checked_by: null, checked_at: null };
                       const disabled = isNotApplicable(state.note);
                       const flag = procreaFlag(selected, item);
+                      const required = isComplianceRequired(selected, item);
                       const noteKey = `${selected.id}:${item}`;
+                      const draftNote = notes[noteKey] ?? "";
+                      const storedNote = state.note ?? "";
+                      const clearedAfterCheck =
+                        state.done && required && !storedNote.trim() && !draftNote.trim();
+                      const inlineError = complianceErrors[noteKey];
                       return (
-                        <div key={item} className={cn("rounded-md border border-border bg-background p-3", disabled && "opacity-55")}>
+                        <div
+                          key={item}
+                          data-testid={required ? `phipa-item-${item}` : undefined}
+                          className={cn("rounded-md border border-border bg-background p-3", disabled && "opacity-55")}
+                        >
                           <label className="flex items-start gap-3">
-                            <input type="checkbox" checked={state.done} disabled={locked || disabled} onChange={(event) => toggleItem(selected, item, event.target.checked)} className="mt-1 h-4 w-4" />
+                            <input
+                              type="checkbox"
+                              checked={state.done}
+                              disabled={locked || disabled}
+                              onChange={(event) => toggleItem(selected, item, event.target.checked)}
+                              data-testid={required ? `phipa-checkbox-${item}` : undefined}
+                              className="mt-1 h-4 w-4"
+                            />
                             <div className="flex-1">
-                              <p className={cn("text-sm font-medium", state.done && "line-through text-muted-foreground")}>{item}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className={cn("text-sm font-medium", state.done && "line-through text-muted-foreground")}>{item}</p>
+                                {required && (
+                                  <span
+                                    data-testid="phipa-badge"
+                                    className="inline-flex items-center gap-1 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive"
+                                  >
+                                    <ShieldAlert className="h-3 w-3" />
+                                    PHIPA
+                                  </span>
+                                )}
+                              </div>
                               {disabled && <p className="mt-1 text-xs text-muted-foreground">Not applicable for this clinic.</p>}
                               {flag && <p className="mt-2 rounded-md border border-[var(--color-status-hold)]/30 bg-[var(--color-status-hold)]/10 px-2 py-1 text-xs text-[var(--color-status-hold)]"><Flag className="mr-1 inline h-3 w-3" />{flag}</p>}
-                              {(flag || state.note) && !disabled && (
-                                <input value={notes[noteKey] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [noteKey]: event.target.value }))} placeholder={state.note || "Compliance note…"} className="mt-2 w-full rounded-md border border-input bg-surface px-2 py-1.5 text-xs" />
+                              {inlineError && (
+                                <p
+                                  data-testid={`compliance-error-${item}`}
+                                  className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive"
+                                >
+                                  {inlineError}
+                                </p>
+                              )}
+                              {clearedAfterCheck && !inlineError && (
+                                <p
+                                  data-testid={`compliance-cleared-${item}`}
+                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-[var(--color-status-hold)]/40 bg-[var(--color-status-hold)]/10 px-2 py-1 text-xs font-medium text-[var(--color-status-hold)]"
+                                >
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Compliance note was cleared. Re-add a note or uncheck this item before sprint close.
+                                </p>
+                              )}
+                              {(flag || required || state.note) && !disabled && (
+                                <>
+                                  {required && (
+                                    <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                                      Compliance note (required)
+                                    </p>
+                                  )}
+                                  <input
+                                    ref={(el) => { noteRefs.current[noteKey] = el; }}
+                                    value={draftNote}
+                                    lang="fr"
+                                    onChange={(event) => setNotes((current) => ({ ...current, [noteKey]: event.target.value }))}
+                                    placeholder={storedNote || (required ? "Compliance note (required)…" : "Compliance note…")}
+                                    data-testid={required ? `compliance-input-${item}` : undefined}
+                                    className="mt-1 w-full rounded-md border border-input bg-surface px-2 py-1.5 text-xs"
+                                  />
+                                </>
                               )}
                               {state.note && <p className="mt-1 text-xs text-muted-foreground">Note: {state.note}</p>}
                             </div>
@@ -344,6 +420,44 @@ export function procreaFlag(clinic: GoLiveChecklist, item: string) {
   if (item.startsWith("12.")) return "French language review required + Law 25 (Quebec) compliance sign-off needed before closing.";
   if (item.startsWith("16")) return "French language review required for all integration documentation.";
   return null;
+}
+
+/**
+ * Returns the set of checklist items that require a compliance note before
+ * they can be marked complete. Currently scoped to Procrea QC item 12 (PHIPA
+ * + French requirements). The pattern is per-(clinic, item) so future Quebec
+ * clinics or any PHIPA-sensitive clinic can reuse the same enforcement.
+ */
+export function complianceRequiredItems(clinic: GoLiveChecklist): Set<string> {
+  const out = new Set<string>();
+  if (clinicName(clinic).toLowerCase().includes("procrea qc")) {
+    PHASES.flatMap((p) => p.items)
+      .filter((item) => item.startsWith("12."))
+      .forEach((item) => out.add(item));
+  }
+  return out;
+}
+
+export function isComplianceRequired(clinic: GoLiveChecklist, item: string): boolean {
+  return complianceRequiredItems(clinic).has(item);
+}
+
+/**
+ * Returns clinic items that are checked off but missing a compliance note —
+ * these are sprint-close blockers per Prompt P (PHIPA audit trail).
+ */
+export function complianceMissingRows(goLives: GoLiveChecklist[]): Array<{ clinicId: string; clinicName: string; item: string }> {
+  const rows: Array<{ clinicId: string; clinicName: string; item: string }> = [];
+  for (const clinic of goLives) {
+    const required = complianceRequiredItems(clinic);
+    for (const item of required) {
+      const state = clinic.criteria[item];
+      if (state?.done && !(state.note ?? "").trim()) {
+        rows.push({ clinicId: clinic.id, clinicName: clinicName(clinic), item });
+      }
+    }
+  }
+  return rows;
 }
 
 function isNotApplicable(note: string | undefined) {

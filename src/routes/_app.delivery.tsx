@@ -7,10 +7,11 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, GripVertic
 import { toast } from "sonner";
 import { USERS, daysSince, usableCapacity, useTfpStore } from "@/lib/tfp/store";
 import { fmtDateTime } from "@/lib/tfp/format";
-import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
+import type { DeliveryStatus, GoLiveChecklist, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
+import { complianceMissingRows } from "./_app.clinics";
 
 const searchSchema = z.object({
   tab: z.string().optional(),
@@ -43,12 +44,14 @@ export function computeCannotCloseRows({
   reviews,
   usable,
   allocatedPts,
+  goLives,
 }: {
   sprintEnded: boolean;
   sprintRows: Row[];
   reviews: Review[];
   usable: number;
   allocatedPts: number;
+  goLives?: GoLiveChecklist[];
 }): CannotCloseRow[] {
   const rows: CannotCloseRow[] = [];
   if (!sprintEnded) {
@@ -115,6 +118,16 @@ export function computeCannotCloseRows({
       fixTo: { to: "/delivery", search: {} },
     });
   }
+  if (goLives && goLives.length > 0) {
+    const missing = complianceMissingRows(goLives);
+    if (missing.length > 0) {
+      rows.push({
+        key: "compliance-missing",
+        label: `${missing.length} Procrea QC item${missing.length === 1 ? "" : "s"} have compliance notes missing`,
+        fixTo: { to: "/clinics", search: {} },
+      });
+    }
+  }
   return rows;
 }
 type DeliverySectionKey = "board" | "planning" | "backlog";
@@ -153,6 +166,7 @@ function DeliveryPage() {
   const sprint = useTfpStore((s) => s.sprint);
   const reviews = useTfpStore((s) => s.reviews);
   const users = useTfpStore((s) => s.users);
+  const goLives = useTfpStore((s) => s.goLives);
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
@@ -214,8 +228,8 @@ function DeliveryPage() {
   // Granular blocker rows for the "Cannot close sprint" modal. Each row is purely
   // informational — the underlying close rule (`closeBlocker`) is unchanged.
   const blockerRows = useMemo<CannotCloseRow[]>(
-    () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts }),
-    [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts],
+    () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts, goLives }),
+    [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts, goLives],
   );
 
   const hasBlockers = blockerRows.length > 0 || !!closeBlocker;

@@ -2985,25 +2985,37 @@ export const useTfpStore = create<State>()(
 
       toggleGoLiveCriterion: (id, criterion, done, note) => {
         const me = get().currentUserId;
+        const demoMode = get().flags.demoModeEnabled;
         set({
-          goLives: get().goLives.map((g) =>
-            g.id === id
-              ? {
-                  ...g,
-                  criteria: {
-                    ...g.criteria,
-                    [criterion]: {
-                      ...g.criteria[criterion],
-                      done,
-                      note: note ?? g.criteria[criterion].note,
-                      checked_by: done ? me : null,
-                      checked_at: done ? new Date().toISOString() : null,
-                    },
-                  },
-                  updated_at: new Date().toISOString(),
-                }
-              : g,
-          ),
+          goLives: get().goLives.map((g) => {
+            if (g.id !== id) return g;
+            const existing = g.criteria[criterion] ?? { done: false, note: "", checked_by: null, checked_at: null };
+            // Demo-mode safeguard: if a Procrea-QC compliance-required item is
+            // being auto-completed without a note, populate a placeholder so the
+            // PHIPA audit trail is never empty. Do not modify behavior outside
+            // demo mode — UI enforcement is the primary path.
+            const isProcreaQc = g.release_name.toLowerCase().includes("procrea qc");
+            const isCompliance = isProcreaQc && criterion.startsWith("12.");
+            const incomingNote = note ?? existing.note;
+            const finalNote =
+              done && isCompliance && demoMode && !(incomingNote ?? "").trim()
+                ? "Demo: compliance verified by Bazil."
+                : incomingNote;
+            return {
+              ...g,
+              criteria: {
+                ...g.criteria,
+                [criterion]: {
+                  ...existing,
+                  done,
+                  note: finalNote,
+                  checked_by: done ? me : null,
+                  checked_at: done ? new Date().toISOString() : null,
+                },
+              },
+              updated_at: new Date().toISOString(),
+            };
+          }),
         });
       },
 
