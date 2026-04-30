@@ -77,6 +77,7 @@ function DeliveryPage() {
   const [briefFor, setBriefFor] = useState<Row | null>(null);
   const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [cannotCloseOpen, setCannotCloseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
   const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
