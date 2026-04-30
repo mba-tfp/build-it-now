@@ -228,8 +228,8 @@ function DeliveryPage() {
   // Granular blocker rows for the "Cannot close sprint" modal. Each row is purely
   // informational — the underlying close rule (`closeBlocker`) is unchanged.
   const blockerRows = useMemo<CannotCloseRow[]>(
-    () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts }),
-    [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts],
+    () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts, goLives }),
+    [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts, goLives],
   );
 
   const hasBlockers = blockerRows.length > 0 || !!closeBlocker;
