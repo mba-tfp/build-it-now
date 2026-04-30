@@ -644,16 +644,17 @@ function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; t
       </span>
     );
   }
-  // crumb.to is a runtime-built path string; cast to satisfy TanStack's typed `to` prop.
-  const LinkAny = Link as unknown as (props: { to: string; children?: unknown; className?: string; title?: string; "data-testid"?: string }) => unknown as never;
+  // crumb.to is a runtime-built path string. Cast through `any` to satisfy
+  // TanStack's strictly-typed `to` prop without losing the rest of the call site.
+  const to = crumb.to as never;
   return (
-    <LinkAny
-      to={crumb.to}
+    <Link
+      to={to}
       data-testid={testId}
       title={crumb.fullTitle}
       className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
     >
       {crumb.label}
-    </LinkAny>
+    </Link>
   );
 }
