@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
 import type {
@@ -122,9 +122,13 @@ export function ReviewsPage() {
           </div>
           <div className="space-y-1.5">
             {eligible.map(({ sh, sig }) => (
-              <div
+              <Link
                 key={sh.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                to="/delivery"
+                search={{ openItem: sh.id }}
+                data-testid="outcome-pending-row"
+                data-shaping-id={sh.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm hover:border-primary/40 hover:bg-muted/40"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -135,13 +139,17 @@ export function ReviewsPage() {
                     {sig!.product} · Done · {sh.tech_estimate_pts ?? "—"} pts
                   </div>
                 </div>
-                <button
-                  onClick={() => handleStart(sh.id)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-95"
+                <span
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleStart(sh.id);
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-95"
                 >
                   <PlayCircle className="h-3.5 w-3.5" /> Start review
-                </button>
-              </div>
+                </span>
+              </Link>
             ))}
           </div>
         </div>

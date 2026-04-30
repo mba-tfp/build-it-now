@@ -10,9 +10,11 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 
 const searchSchema = z.object({
   tab: z.string().optional(),
+  openItem: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_app/delivery")({
@@ -51,7 +53,7 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
 ];
 
 function DeliveryPage() {
-  const { tab } = Route.useSearch();
+  const { tab, openItem } = Route.useSearch();
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
   const sprint = useTfpStore((s) => s.sprint);
@@ -114,7 +116,15 @@ function DeliveryPage() {
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
-  if (tab) return <Navigate to="/delivery" search={{}} replace />;
+  // Auto-open the brief slideover when an `openItem` query param is present.
+  useEffect(() => {
+    if (!openItem) return;
+    const row = sprintRows.find((r) => r.sh.id === openItem);
+    if (row) setBriefFor(row);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openItem, shaping, signals]);
+
+  if (tab) return <Navigate to="/delivery" search={openItem ? { openItem } : {}} replace />;
 
   function toggleSection(section: DeliverySectionKey) {
     setOpenSections((current) => ({ ...current, [section]: !current[section] }));
@@ -908,6 +918,7 @@ function BriefSlideover({ row, onClose }: { row: Row; onClose: () => void }) {
         <button onClick={onClose} className="mb-5 inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent/40">
           ← Back
         </button>
+        <StartOutcomeReview shapingId={row.sh.id} signalId={row.sig.id} />
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           Shaping brief
         </p>
