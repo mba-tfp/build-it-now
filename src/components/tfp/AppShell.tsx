@@ -389,6 +389,7 @@ export function AppShell() {
           )}
 
           <main className="mx-auto w-full max-w-[1500px] px-6 pb-8 pt-4">
+            <Breadcrumbs />
             <Outlet />
           </main>
 
