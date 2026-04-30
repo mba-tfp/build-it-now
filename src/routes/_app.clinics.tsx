@@ -88,6 +88,8 @@ function ClinicsPage() {
 
   const selected = selectedId ? goLives.find((clinic) => clinic.id === selectedId) ?? null : null;
   const clinics = useMemo(() => [...goLives].sort((a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime()), [goLives]);
+  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({});
+  const noteRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function handleWarRoom(clinic: GoLiveChecklist) {
     const activating = !clinic.war_room;
@@ -108,13 +110,27 @@ function ClinicsPage() {
   }
 
   function toggleItem(clinic: GoLiveChecklist, item: string, done: boolean) {
-    const flag = procreaFlag(clinic, item);
     const noteKey = `${clinic.id}:${item}`;
-    if (done && flag && !notes[noteKey]?.trim() && !clinic.criteria[item]?.note.trim()) {
-      toast.error("Compliance note required", { description: flag });
+    const required = isComplianceRequired(clinic, item);
+    const stored = clinic.criteria[item]?.note ?? "";
+    const draft = notes[noteKey] ?? "";
+    const effectiveNote = (draft.trim() ? draft : stored).trim();
+    if (done && required && !effectiveNote) {
+      setComplianceErrors((current) => ({
+        ...current,
+        [noteKey]: "Compliance note required before marking this item complete. (PHIPA + French requirements.)",
+      }));
+      // focus the note input on next tick
+      setTimeout(() => noteRefs.current[noteKey]?.focus(), 0);
       return;
     }
-    toggleCriterion(clinic.id, item, done, notes[noteKey]?.trim());
+    setComplianceErrors((current) => {
+      if (!current[noteKey]) return current;
+      const next = { ...current };
+      delete next[noteKey];
+      return next;
+    });
+    toggleCriterion(clinic.id, item, done, draft.trim() || undefined);
     setNotes((current) => ({ ...current, [noteKey]: "" }));
   }
 
