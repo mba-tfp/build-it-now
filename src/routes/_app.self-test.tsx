@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Loader2, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { completenessScore, useTfpStore } from "@/lib/tfp/store";
-import type { GoLiveChecklist, Review, ShapingItem, Signal } from "@/lib/tfp/types";
+import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/notify";
+import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
 
@@ -603,6 +604,135 @@ const TESTS: TestStep[] = [
       );
       const resume = root.querySelector('[data-testid="resume-bar"]');
       expect(!resume, "Resume bar should be hidden for Shahid");
+    },
+  },
+  {
+    id: 21,
+    name: "Bazil's bell tray contains new-signal events",
+    description: "Verifies a 'new signal captured' notification is visible to Bazil (PM).",
+    run: () => {
+      const note: Notification = {
+        id: "n-test-21",
+        ts: new Date().toISOString(),
+        trigger: "monitoring_alert",
+        priority: "P2",
+        title: "New signal captured: E2E test signal",
+        body: "E2E test — new signal arrived at intake.",
+        for_user_id: null,
+        link_to: "/inbox",
+        read: false,
+        entity_id: null,
+      };
+      const visible = filterNotificationsForRole([note], "PM" as Role);
+      expect(visible.length === 1, "Bazil (PM) should see new-signal events");
+    },
+  },
+  {
+    id: 22,
+    name: "Waseem's bell tray hides non-P0 new signals",
+    description: "Verifies non-P0 'new signal captured' notifications are NOT visible to Waseem (Tech Lead).",
+    run: () => {
+      const note: Notification = {
+        id: "n-test-22",
+        ts: new Date().toISOString(),
+        trigger: "monitoring_alert",
+        priority: "P2",
+        title: "New signal captured: routine clinic ask",
+        body: "E2E test — non-P0 signal.",
+        for_user_id: null,
+        link_to: "/inbox",
+        read: false,
+        entity_id: null,
+      };
+      const visible = filterNotificationsForRole([note], "Tech Lead" as Role);
+      expect(visible.length === 0, "Tech Lead should NOT see non-P0 new signals");
+    },
+  },
+  {
+    id: 23,
+    name: "Tech review assigned to Waseem appears in his bell tray",
+    description: "Verifies a tech_review_ready notification routed to Waseem is visible.",
+    run: () => {
+      const note: Notification = {
+        id: "n-test-23",
+        ts: new Date().toISOString(),
+        trigger: "tech_review_ready",
+        priority: "P3",
+        title: "Heartland configuration ready for tech review",
+        body: "E2E test — assigned to Waseem.",
+        for_user_id: "u-waseem",
+        link_to: "/shaping",
+        read: false,
+        entity_id: null,
+      };
+      const visible = filterNotificationsForRole([note], "Tech Lead" as Role);
+      expect(visible.length === 1, "Tech Lead should see tech-review-request notifications");
+      expect(
+        categorizeNotification(note) === "tech_review_request",
+        "Tech review notification should categorize as tech_review_request",
+      );
+    },
+  },
+  {
+    id: 24,
+    name: "Shahid's bell tray hides shaping field updates",
+    description: "Verifies shaping_stuck / shaping update notifications are NOT visible to Shahid (Leadership).",
+    run: () => {
+      const note: Notification = {
+        id: "n-test-24",
+        ts: new Date().toISOString(),
+        trigger: "shaping_stuck",
+        priority: "P3",
+        title: "Shaping field updated: scope refinement",
+        body: "E2E test — shaping update.",
+        for_user_id: null,
+        link_to: "/shaping",
+        read: false,
+        entity_id: null,
+      };
+      const visible = filterNotificationsForRole([note], "Leadership" as Role);
+      expect(visible.length === 0, "Leadership should NOT see shaping field updates");
+    },
+  },
+  {
+    id: 25,
+    name: "P0 signal raised appears in Shahid's bell tray",
+    description: "Verifies a P0 monitoring_alert / signal is visible to Shahid (Leadership).",
+    run: () => {
+      const note: Notification = {
+        id: "n-test-25",
+        ts: new Date().toISOString(),
+        trigger: "monitoring_alert",
+        priority: "P0",
+        title: "P0 signal: production outage",
+        body: "E2E test — P0 incident raised.",
+        for_user_id: null,
+        link_to: "/inbox",
+        read: false,
+        entity_id: null,
+      };
+      const visible = filterNotificationsForRole([note], "Leadership" as Role);
+      expect(visible.length === 1, "Leadership should see P0 signals");
+      expect(
+        categorizeNotification(note) === "signal_new_p0",
+        "P0 monitoring alert should categorize as signal_new_p0",
+      );
+    },
+  },
+  {
+    id: 26,
+    name: "Shahid's unread badge ≤ Bazil's on the live notification list",
+    description: "Verifies the role filter makes Shahid's visible-unread count a subset of Bazil's.",
+    run: () => {
+      const all = useTfpStore.getState().notifications;
+      const bazilForMe = all.filter((n) => n.for_user_id === null || n.for_user_id === "u-bazil");
+      const shahidForMe = all.filter((n) => n.for_user_id === null || n.for_user_id === "u-shahid");
+      const bazilCount = filterNotificationsForRole(bazilForMe, "PM" as Role).filter((n) => !n.read).length;
+      const shahidCount = filterNotificationsForRole(shahidForMe, "Leadership" as Role).filter((n) => !n.read).length;
+      expect(
+        shahidCount <= bazilCount,
+        `Expected Shahid unread (${shahidCount}) ≤ Bazil unread (${bazilCount})`,
+      );
     },
   },
 ];

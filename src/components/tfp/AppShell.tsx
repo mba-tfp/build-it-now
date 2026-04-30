@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
-import { PRIORITY_TONE, slaHoursForTier } from "@/lib/tfp/notify";
+import { PRIORITY_TONE, ROLE_EMPTY_BELL_MESSAGE, filterNotificationsForRole, slaHoursForTier } from "@/lib/tfp/notify";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import type { NotificationTrigger, Tier } from "@/lib/tfp/types";
@@ -394,17 +394,22 @@ export function AppShell() {
 
 function NotificationsBell() {
   const currentUserId = useTfpStore((s) => s.currentUserId);
+  const users = useTfpStore((s) => s.users);
   const notifications = useTfpStore((s) => s.notifications);
   const markRead = useTfpStore((s) => s.markNotificationRead);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastSeenIdRef = useRef<string | null>(null);
 
-  const visibleNotifications = useMemo(
-    () => notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId),
-    [currentUserId, notifications],
-  );
+  const currentRole =
+    (users.find((u) => u.id === currentUserId) ?? USERS.find((u) => u.id === currentUserId))?.role ?? "PM";
+
+  const visibleNotifications = useMemo(() => {
+    const forMe = notifications.filter((n) => n.for_user_id === null || n.for_user_id === currentUserId);
+    return filterNotificationsForRole(forMe, currentRole);
+  }, [currentUserId, currentRole, notifications]);
   const unread = visibleNotifications.filter((n) => !n.read).length;
+  const emptyMessage = ROLE_EMPTY_BELL_MESSAGE[currentRole] ?? "No notifications.";
 
   // Toast on new notifications (fired during session, not on initial mount)
   useEffect(() => {
@@ -432,7 +437,7 @@ function NotificationsBell() {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative" ref={ref} data-testid="notifications-bell" data-role={currentRole} data-unread-count={unread} data-visible-count={visibleNotifications.length}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="relative grid h-9 w-9 place-items-center rounded-md border border-input bg-surface text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -440,7 +445,7 @@ function NotificationsBell() {
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 grid h-4 min-w-[1rem] place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+          <span data-testid="notifications-badge" className="absolute -right-1 -top-1 grid h-4 min-w-[1rem] place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -458,7 +463,7 @@ function NotificationsBell() {
           </div>
           <div className="max-h-[60vh] overflow-y-auto">
             {visibleNotifications.length === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">No notifications.</p>
+              <p className="p-6 text-center text-sm text-muted-foreground" data-testid="notifications-empty">{emptyMessage}</p>
             )}
             {visibleNotifications.slice(0, 30).map((n) => (
               <Link
