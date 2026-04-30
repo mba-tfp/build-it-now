@@ -23,11 +23,100 @@ export const Route = createFileRoute("/_app/delivery")({
 });
 
 type Row = { sh: ShapingItem; sig: Signal };
-type CannotCloseRow = {
+export type CannotCloseRow = {
   key: string;
   label: string;
   fixTo: { to: string; search: Record<string, string> } | null;
 };
+
+/**
+ * Pure helper that computes the granular blocker rows shown in the
+ * "Cannot close sprint" modal. Exported so /self-test can assert against it
+ * without mounting the full DeliveryPage.
+ *
+ * NOTE: This does NOT change the existing close rule (`closeBlocker`).
+ * It only translates the same conditions into actionable rows.
+ */
+export function computeCannotCloseRows({
+  sprintEnded,
+  sprintRows,
+  reviews,
+  usable,
+  allocatedPts,
+}: {
+  sprintEnded: boolean;
+  sprintRows: Row[];
+  reviews: Review[];
+  usable: number;
+  allocatedPts: number;
+}): CannotCloseRow[] {
+  const rows: CannotCloseRow[] = [];
+  if (!sprintEnded) {
+    rows.push({ key: "sprint-not-ended", label: "Sprint end date has not passed yet", fixTo: null });
+  }
+  const inProgress = sprintRows.filter(({ sh }) => sh.delivery_status === "In Progress" && !sh.carry_forwarded_at).length;
+  if (inProgress > 0) {
+    rows.push({
+      key: "in-progress",
+      label: `${inProgress} item${inProgress === 1 ? "" : "s"} still In Progress`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const inQa = sprintRows.filter(({ sh }) => sh.delivery_status === "In QA" && !sh.carry_forwarded_at).length;
+  if (inQa > 0) {
+    rows.push({
+      key: "in-qa",
+      label: `${inQa} item${inQa === 1 ? "" : "s"} still In QA`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const todo = sprintRows.filter(({ sh }) => sh.delivery_status === "To Do" && !sh.carry_forwarded_at).length;
+  if (todo > 0) {
+    rows.push({
+      key: "todo",
+      label: `${todo} item${todo === 1 ? "" : "s"} still To Do`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const blockedNotCarried = sprintRows.filter(({ sh }) => sh.delivery_status === "Blocked" && !sh.carry_forwarded_at).length;
+  if (blockedNotCarried > 0) {
+    rows.push({
+      key: "blocked",
+      label: `${blockedNotCarried} item${blockedNotCarried === 1 ? "" : "s"} Blocked`,
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  const reviewsPending = sprintRows.filter(
+    ({ sh }) => sh.delivery_status === "Done" && !reviews.some((r) => r.shaping_id === sh.id),
+  ).length;
+  if (reviewsPending > 0) {
+    rows.push({
+      key: "reviews-pending",
+      label: `${reviewsPending} outcome review${reviewsPending === 1 ? "" : "s"} pending`,
+      fixTo: { to: "/governance", search: { tab: "lookback" } },
+    });
+  }
+  const missingResult = sprintRows.filter(({ sh }) => {
+    if (sh.delivery_status !== "Done") return false;
+    const r = reviews.find((rr) => rr.shaping_id === sh.id);
+    return !!r && !r.outcome_rating;
+  });
+  if (missingResult.length > 0) {
+    rows.push({
+      key: "missing-result",
+      label: `${missingResult.length} outcome review${missingResult.length === 1 ? "" : "s"} missing result`,
+      fixTo: { to: "/governance", search: { tab: "lookback" } },
+    });
+  }
+  if (usable > 0 && allocatedPts > usable) {
+    rows.push({
+      key: "capacity",
+      label: "Sprint capacity exceeded 100% with no override",
+      fixTo: { to: "/delivery", search: {} },
+    });
+  }
+  return rows;
+}
 type DeliverySectionKey = "board" | "planning" | "backlog";
 
 const DELIVERY_SECTIONS_STORAGE_KEY = "tfp-delivery-sections-v1";
