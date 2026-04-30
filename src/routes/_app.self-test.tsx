@@ -7,6 +7,7 @@ import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/no
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
+import { buildCrumbs } from "@/components/tfp/AppShell";
 
 export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
@@ -733,6 +734,84 @@ const TESTS: TestStep[] = [
         shahidCount <= bazilCount,
         `Expected Shahid unread (${shahidCount}) ≤ Bazil unread (${bazilCount})`,
       );
+    },
+  },
+  {
+    id: 27,
+    name: "Header app title is a clickable link to /",
+    description: "Verifies the header app title element exists and links to '/'.",
+    run: () => {
+      const link = document.querySelector('[data-testid="header-home-link"]') as HTMLAnchorElement | null;
+      expect(link, "Header home link not found");
+      const href = link!.getAttribute("href");
+      expect(href === "/", `Header home link href should be '/', got '${href}'`);
+    },
+  },
+  {
+    id: 28,
+    name: "Header app title is reachable from any non-home route",
+    description: "Verifies the header home link is rendered while on /self-test (a non-home route).",
+    run: () => {
+      expect(window.location.pathname !== "/", "Self-test route is not '/'");
+      const link = document.querySelector('[data-testid="header-home-link"]');
+      expect(link, "Header home link must be present on non-home routes");
+    },
+  },
+  {
+    id: 29,
+    name: "Breadcrumbs are hidden on / and visible on non-home routes",
+    description: "Verifies buildCrumbs returns nothing for '/' and a non-empty list for non-home paths.",
+    run: () => {
+      expect(buildCrumbs("/").length === 0, "Breadcrumbs should be empty on '/'");
+      const triage = buildCrumbs("/triage");
+      expect(triage.length >= 2, "Breadcrumbs on /triage should have at least 2 segments");
+      // Live DOM check on the current /self-test route
+      const live = document.querySelector('[data-testid="breadcrumbs"]');
+      expect(live, "Breadcrumbs element must render on non-home routes");
+    },
+  },
+  {
+    id: 30,
+    name: "Breadcrumb on /triage/{id} shows three segments ending with item label",
+    description: "Verifies a 3-segment breadcrumb: Home / Triage / [item].",
+    run: () => {
+      const crumbs = buildCrumbs("/triage/sig-123");
+      expect(crumbs.length === 3, `Expected 3 crumbs, got ${crumbs.length}`);
+      expect(crumbs[0].label === "Home", `First crumb should be 'Home', got '${crumbs[0].label}'`);
+      expect(crumbs[1].label === "Triage", `Second crumb should be 'Triage', got '${crumbs[1].label}'`);
+      expect(crumbs[2].label.length > 0, "Third crumb (item label) should be non-empty");
+    },
+  },
+  {
+    id: 31,
+    name: "First breadcrumb segment is always Home and links to /",
+    description: "Verifies buildCrumbs always starts with a Home crumb pointing to /.",
+    run: () => {
+      const paths = ["/triage", "/shaping", "/delivery", "/clinics", "/leadership", "/self-test"];
+      for (const p of paths) {
+        const crumbs = buildCrumbs(p);
+        expect(crumbs[0]?.label === "Home", `First crumb on ${p} should be 'Home'`);
+        expect(crumbs[0]?.to === "/", `Home crumb on ${p} should link to '/'`);
+      }
+      // Live DOM check
+      const home = document.querySelector('[data-testid="breadcrumb-home"]') as HTMLAnchorElement | null;
+      expect(home, "Live breadcrumb-home element not found");
+      expect(home!.getAttribute("href") === "/", "Live breadcrumb Home should link to /");
+    },
+  },
+  {
+    id: 32,
+    name: "Current breadcrumb segment is not clickable and rendered muted",
+    description: "Verifies the last crumb has no `to` and the live element uses muted-foreground class.",
+    run: () => {
+      const crumbs = buildCrumbs("/delivery");
+      const last = crumbs[crumbs.length - 1];
+      expect(!last.to, "Last crumb should not have a `to` (not clickable)");
+      const liveCurrent = document.querySelector('[data-testid="breadcrumb-current"]');
+      expect(liveCurrent, "Live breadcrumb-current element not found");
+      expect(liveCurrent!.tagName.toLowerCase() !== "a", "Current breadcrumb must not be a link");
+      const cls = liveCurrent!.getAttribute("class") ?? "";
+      expect(cls.includes("text-muted-foreground"), `Current crumb should be muted, classes: ${cls}`);
     },
   },
 ];

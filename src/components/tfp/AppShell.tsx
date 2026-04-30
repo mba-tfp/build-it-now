@@ -309,6 +309,19 @@ export function AppShell() {
         <SidebarInset>
           <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/85 px-4 py-2.5 backdrop-blur">
             <SidebarTrigger />
+            <Link
+              to="/"
+              data-testid="header-home-link"
+              className="group flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-accent/40"
+              title="Back to home"
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground transition group-hover:bg-primary/90">
+                <Activity className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </span>
+              <span className="font-display text-[14px] tracking-tight text-foreground transition group-hover:text-primary">
+                TFP Workflow
+              </span>
+            </Link>
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => setSearchOpen(true)}
@@ -376,6 +389,7 @@ export function AppShell() {
           )}
 
           <main className="mx-auto w-full max-w-[1500px] px-6 pb-8 pt-4">
+            <Breadcrumbs />
             <Outlet />
           </main>
 
@@ -492,5 +506,155 @@ function NotificationsBell() {
         </div>
       )}
     </div>
+  );
+}
+
+// ============= Breadcrumbs =============
+
+const SEGMENT_LABELS: Record<string, string> = {
+  inbox: "Inbox",
+  intake: "Intake",
+  triage: "Triage",
+  shaping: "Shaping",
+  delivery: "Delivery",
+  "sprint-board": "Sprint Board",
+  backlog: "Backlog",
+  "sprint-planning": "Sprint Planning",
+  outcomes: "Outcomes",
+  review: "Reviews",
+  retros: "Retros",
+  clinics: "Clinics",
+  golive: "Go-Live",
+  leadership: "Leadership",
+  governance: "Governance",
+  comms: "Comms",
+  decisions: "Decisions",
+  overrides: "Overrides",
+  roadmap: "Roadmap",
+  health: "Health",
+  workflows: "Workflows",
+  admin: "Admin",
+  help: "Help",
+  signals: "Signals",
+  "tech-review": "Tech Review",
+  "self-test": "Self-Test",
+};
+
+function labelForSegment(segment: string): string {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  return segment
+    .split("-")
+    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
+function truncateTitle(title: string, max = 40): string {
+  if (title.length <= max) return title;
+  return title.slice(0, max - 1).trimEnd() + "…";
+}
+
+export type Crumb = { label: string; to?: string; fullTitle?: string };
+
+export function buildCrumbs(pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return [];
+  const crumbs: Crumb[] = [{ label: "Home", to: "/" }];
+  let acc = "";
+  segments.forEach((seg, idx) => {
+    acc += "/" + seg;
+    const isLast = idx === segments.length - 1;
+    const rawLabel = labelForSegment(decodeURIComponent(seg));
+    const truncated = truncateTitle(rawLabel);
+    crumbs.push({
+      label: truncated,
+      to: isLast ? undefined : acc,
+      fullTitle: rawLabel !== truncated ? rawLabel : undefined,
+    });
+  });
+  return crumbs;
+}
+
+function Breadcrumbs() {
+  const location = useLocation();
+  const [expanded, setExpanded] = useState(false);
+
+  if (location.pathname === "/") return null;
+  const crumbs = buildCrumbs(location.pathname);
+  if (crumbs.length === 0) return null;
+
+  // Mobile collapse: if more than 3 crumbs and not expanded, render Home / … / current
+  const isCollapsible = crumbs.length > 3;
+  const mobileCrumbs: Array<Crumb | { ellipsis: true }> = isCollapsible
+    ? [crumbs[0], { ellipsis: true }, crumbs[crumbs.length - 1]]
+    : crumbs;
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      data-testid="breadcrumbs"
+      className="mb-4 flex items-center gap-1.5 overflow-hidden text-[12px]"
+    >
+      {/* Desktop: full breadcrumbs */}
+      <ol className="hidden flex-wrap items-center gap-1.5 sm:flex">
+        {crumbs.map((c, i) => (
+          <li key={`d-${i}`} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-muted-foreground/60" aria-hidden>/</span>}
+            <CrumbItem crumb={c} isLast={i === crumbs.length - 1} testId={i === 0 ? "breadcrumb-home" : i === crumbs.length - 1 ? "breadcrumb-current" : undefined} />
+          </li>
+        ))}
+      </ol>
+      {/* Mobile: collapsed */}
+      <ol className="flex flex-wrap items-center gap-1.5 sm:hidden">
+        {(expanded || !isCollapsible ? crumbs : (mobileCrumbs as Array<Crumb | { ellipsis: true }>)).map((c, i, arr) => (
+          <li key={`m-${i}`} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-muted-foreground/60" aria-hidden>/</span>}
+            {"ellipsis" in c ? (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="rounded px-1 text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                aria-label="Expand breadcrumbs"
+              >
+                …
+              </button>
+            ) : (
+              <CrumbItem
+                crumb={c}
+                isLast={i === arr.length - 1}
+                testId={i === 0 ? "breadcrumb-home" : i === arr.length - 1 ? "breadcrumb-current" : undefined}
+              />
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; testId?: string }) {
+  if (isLast || !crumb.to) {
+    return (
+      <span
+        data-testid={testId}
+        title={crumb.fullTitle}
+        aria-current="page"
+        className="cursor-default text-muted-foreground"
+      >
+        {crumb.label}
+      </span>
+    );
+  }
+  // crumb.to is a runtime-built path string. Cast through `any` to satisfy
+  // TanStack's strictly-typed `to` prop without losing the rest of the call site.
+  const to = crumb.to as never;
+  return (
+    <Link
+      to={to}
+      data-testid={testId}
+      title={crumb.fullTitle}
+      className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
+    >
+      {crumb.label}
+    </Link>
   );
 }
