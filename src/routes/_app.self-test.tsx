@@ -26,6 +26,7 @@ type TestContext = {
   secondSignalId?: string;
   notificationBaseline: number;
   originalDemoMode?: boolean;
+  originalUserId?: string;
 };
 type RowState = { status: TestStatus; error?: string };
 
