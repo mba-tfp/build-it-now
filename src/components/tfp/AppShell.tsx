@@ -508,3 +508,150 @@ function NotificationsBell() {
     </div>
   );
 }
+
+// ============= Breadcrumbs =============
+
+const SEGMENT_LABELS: Record<string, string> = {
+  inbox: "Inbox",
+  intake: "Intake",
+  triage: "Triage",
+  shaping: "Shaping",
+  delivery: "Delivery",
+  "sprint-board": "Sprint Board",
+  backlog: "Backlog",
+  "sprint-planning": "Sprint Planning",
+  outcomes: "Outcomes",
+  review: "Reviews",
+  retros: "Retros",
+  clinics: "Clinics",
+  golive: "Go-Live",
+  leadership: "Leadership",
+  governance: "Governance",
+  comms: "Comms",
+  decisions: "Decisions",
+  overrides: "Overrides",
+  roadmap: "Roadmap",
+  health: "Health",
+  workflows: "Workflows",
+  admin: "Admin",
+  help: "Help",
+  signals: "Signals",
+  "tech-review": "Tech Review",
+  "self-test": "Self-Test",
+};
+
+function labelForSegment(segment: string): string {
+  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+  return segment
+    .split("-")
+    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
+function truncateTitle(title: string, max = 40): string {
+  if (title.length <= max) return title;
+  return title.slice(0, max - 1).trimEnd() + "…";
+}
+
+type Crumb = { label: string; to?: string; fullTitle?: string };
+
+function buildCrumbs(pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return [];
+  const crumbs: Crumb[] = [{ label: "Home", to: "/" }];
+  let acc = "";
+  segments.forEach((seg, idx) => {
+    acc += "/" + seg;
+    const isLast = idx === segments.length - 1;
+    const rawLabel = labelForSegment(decodeURIComponent(seg));
+    const truncated = truncateTitle(rawLabel);
+    crumbs.push({
+      label: truncated,
+      to: isLast ? undefined : acc,
+      fullTitle: rawLabel !== truncated ? rawLabel : undefined,
+    });
+  });
+  return crumbs;
+}
+
+function Breadcrumbs() {
+  const location = useLocation();
+  const [expanded, setExpanded] = useState(false);
+
+  if (location.pathname === "/") return null;
+  const crumbs = buildCrumbs(location.pathname);
+  if (crumbs.length === 0) return null;
+
+  // Mobile collapse: if more than 3 crumbs and not expanded, render Home / … / current
+  const isCollapsible = crumbs.length > 3;
+  const mobileCrumbs: Array<Crumb | { ellipsis: true }> = isCollapsible
+    ? [crumbs[0], { ellipsis: true }, crumbs[crumbs.length - 1]]
+    : crumbs;
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      data-testid="breadcrumbs"
+      className="mb-4 flex items-center gap-1.5 overflow-hidden text-[12px]"
+    >
+      {/* Desktop: full breadcrumbs */}
+      <ol className="hidden flex-wrap items-center gap-1.5 sm:flex">
+        {crumbs.map((c, i) => (
+          <li key={`d-${i}`} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-muted-foreground/60" aria-hidden>/</span>}
+            <CrumbItem crumb={c} isLast={i === crumbs.length - 1} testId={i === 0 ? "breadcrumb-home" : i === crumbs.length - 1 ? "breadcrumb-current" : undefined} />
+          </li>
+        ))}
+      </ol>
+      {/* Mobile: collapsed */}
+      <ol className="flex flex-wrap items-center gap-1.5 sm:hidden">
+        {(expanded || !isCollapsible ? crumbs : (mobileCrumbs as Array<Crumb | { ellipsis: true }>)).map((c, i, arr) => (
+          <li key={`m-${i}`} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-muted-foreground/60" aria-hidden>/</span>}
+            {"ellipsis" in c ? (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="rounded px-1 text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                aria-label="Expand breadcrumbs"
+              >
+                …
+              </button>
+            ) : (
+              <CrumbItem
+                crumb={c}
+                isLast={i === arr.length - 1}
+                testId={i === 0 ? "breadcrumb-home" : i === arr.length - 1 ? "breadcrumb-current" : undefined}
+              />
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function CrumbItem({ crumb, isLast, testId }: { crumb: Crumb; isLast: boolean; testId?: string }) {
+  if (isLast || !crumb.to) {
+    return (
+      <span
+        data-testid={testId}
+        title={crumb.fullTitle}
+        aria-current="page"
+        className="cursor-default text-muted-foreground"
+      >
+        {crumb.label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      to={crumb.to}
+      data-testid={testId}
+      title={crumb.fullTitle}
+      className="rounded px-0.5 text-foreground/80 hover:text-primary hover:underline"
+    >
+      {crumb.label}
+    </Link>
+  );
+}
