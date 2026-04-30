@@ -236,7 +236,17 @@ async function withCurrentUser(userId: string): Promise<HTMLElement> {
   return root;
 }
 
-function TestRow({ step, state }: { step: TestStep; state: RowState }) {
+/**
+ * Harness that mounts InlineDecisions for the shaping item flagged via
+ * `__selfTestDecisionsItemId` in the store. Tests 33-36 update that flag
+ * (alongside the underlying shaping/sprint state) and then await a frame.
+ */
+function SelfTestDecisionsHarness() {
+  const itemId = useTfpStore((s) => s.__selfTestDecisionsItemId);
+  const item = useTfpStore((s) => s.shaping.find((x) => x.id === itemId));
+  if (!itemId || !item) return null;
+  return <InlineDecisions signalId={item.signal_id} shapingItemId={item.id} />;
+}
   return (
     <div className="border-b border-border p-4 last:border-b-0">
       <div className="flex items-start gap-3">
