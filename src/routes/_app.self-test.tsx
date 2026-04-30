@@ -199,6 +199,24 @@ function SelfTestPage() {
       >
         <HomePage />
       </div>
+
+      {/* Hidden mount for the InlineDecisions component used by tests 33-36 */}
+      <div
+        id="self-test-decisions-preview"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: -99999,
+          top: 0,
+          width: 800,
+          height: 600,
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <SelfTestDecisionsHarness />
+      </div>
     </div>
   );
 }
