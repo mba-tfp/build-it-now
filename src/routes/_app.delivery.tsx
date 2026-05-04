@@ -769,7 +769,27 @@ function PlanningTab(props: {
         </div>
       </section>
 
-      <section className="rounded-md border border-border bg-surface p-4">
+      <section
+        data-testid="planning-active-dropzone"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("application/x-tfp-from-backlog")) {
+            e.preventDefault();
+            setOverPlanning(true);
+          }
+        }}
+        onDragLeave={() => setOverPlanning(false)}
+        onDrop={(e) => {
+          setOverPlanning(false);
+          if (!e.dataTransfer.types.includes("application/x-tfp-from-backlog")) return;
+          e.preventDefault();
+          const id = e.dataTransfer.getData("text/plain");
+          if (id) props.onPick(id);
+        }}
+        className={cn(
+          "rounded-md border bg-surface p-4 transition-colors",
+          overPlanning ? "border-primary bg-primary/5" : "border-border",
+        )}
+      >
         <div
           data-testid="sprint-planning-header"
           data-capacity-color={props.itemCap.color}
