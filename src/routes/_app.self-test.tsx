@@ -1810,4 +1810,87 @@ const TESTS: TestStep[] = [
       toast.dismiss();
     },
   },
+  {
+    id: 67,
+    name: "Log as new signal creates 'Follow-up: <title>' signal",
+    description: "logFollowOnSignalWithToast creates a new signal whose title is prefixed with 'Follow-up: '.",
+    run: async () => {
+      const { logFollowOnSignalWithToast } = await import("./_app.delivery");
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const src = useTfpStore.getState().signals[0];
+      const sig = logFollowOnSignalWithToast({
+        sourceTitle: src.title,
+        parentSignalId: src.id,
+        product: src.product,
+      });
+      const created = useTfpStore.getState().signals.find((s) => s.id === sig.id)!;
+      expect(created.title === `Follow-up: ${src.title}`, `Title was '${created.title}'`);
+      expect(created.source === "Internal", `Source must default to Internal, got ${created.source}`);
+      toast.dismiss();
+    },
+  },
+  {
+    id: 68,
+    name: "New follow-on signal has parent_signal_id linking to source",
+    description: "The created signal's parent_signal_id equals the source signal id (drives the 'Originated from' field).",
+    run: async () => {
+      const { logFollowOnSignalWithToast } = await import("./_app.delivery");
+      const src = useTfpStore.getState().signals[0];
+      const sig = logFollowOnSignalWithToast({
+        sourceTitle: src.title,
+        parentSignalId: src.id,
+        product: src.product,
+      });
+      const created = useTfpStore.getState().signals.find((s) => s.id === sig.id)!;
+      expect(created.parent_signal_id === src.id, `parent_signal_id should be ${src.id}, got ${created.parent_signal_id}`);
+      const { toast } = await import("sonner");
+      toast.dismiss();
+    },
+  },
+  {
+    id: 69,
+    name: "Toast appears with 'View signal →' link after logging",
+    description: "Sonner renders a toast containing the [data-testid=follow-on-toast-link] anchor with text 'View signal →'.",
+    run: async () => {
+      const { logFollowOnSignalWithToast } = await import("./_app.delivery");
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const src = useTfpStore.getState().signals[0];
+      logFollowOnSignalWithToast({
+        sourceTitle: src.title,
+        parentSignalId: src.id,
+        product: src.product,
+      });
+      await new Promise((r) => setTimeout(r, 60));
+      const link = document.querySelector('[data-testid="follow-on-toast-link"]') as HTMLAnchorElement | null;
+      expect(!!link, "Toast link must render");
+      expect((link!.textContent ?? "").includes("View signal"), `Link text was '${link!.textContent}'`);
+      toast.dismiss();
+    },
+  },
+  {
+    id: 70,
+    name: "Toast 'View signal →' link points at /inbox?tab=triage&signal=<id>",
+    description: "The link's href deep-links to the new signal's detail in the triage tab of /inbox.",
+    run: async () => {
+      const { logFollowOnSignalWithToast } = await import("./_app.delivery");
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const src = useTfpStore.getState().signals[0];
+      const sig = logFollowOnSignalWithToast({
+        sourceTitle: src.title,
+        parentSignalId: src.id,
+        product: src.product,
+      });
+      await new Promise((r) => setTimeout(r, 60));
+      const link = document.querySelector('[data-testid="follow-on-toast-link"]') as HTMLAnchorElement | null;
+      expect(!!link, "Toast link must render");
+      const href = link!.getAttribute("href") ?? "";
+      expect(href.includes("/inbox"), `href should route to /inbox, got '${href}'`);
+      expect(href.includes("tab=triage"), `href should include tab=triage, got '${href}'`);
+      expect(href.includes(`signal=${encodeURIComponent(sig.id)}`), `href should include signal=${sig.id}, got '${href}'`);
+      toast.dismiss();
+    },
+  },
 ];
