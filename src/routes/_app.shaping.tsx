@@ -99,6 +99,7 @@ function ShapingPage() {
 
   return (
     <div>
+      <PipelineHeader activeStage="shaping" />
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Shaping</p>
@@ -120,14 +121,7 @@ function ShapingPage() {
       </header>
 
       {cards.length === 0 ? (
-        <div className="tfp-card p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nothing in shaping yet. Mark an Inbox signal as <strong>Proceed</strong> to start.
-          </p>
-          <Link to="/inbox" className="mt-4 inline-block text-sm text-primary hover:underline">
-            Open Inbox →
-          </Link>
-        </div>
+        <EmptyZone variant="shaping" />
       ) : (
         <ScrollTable className="border border-border bg-surface/40 p-3">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
