@@ -356,6 +356,9 @@ export function HomePage() {
         </section>
       </div>
 
+      {/* 3b. Your Queue strip (Bazil + Waseem only) */}
+      <YourQueueStrip />
+
       {/* 4. Throughput strip */}
       <ThroughputStrip
         label={throughputLabel}
