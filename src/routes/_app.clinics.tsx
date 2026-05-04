@@ -189,9 +189,9 @@ function ClinicsPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Clinics</p>
-          <h1 className="mt-1 font-display text-3xl">Clinic Onboarding</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Customizable checklists for clinics and integration tracks.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Operations</p>
+          <h1 className="mt-1 font-display text-3xl">Operations</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Clinic onboarding and integration tracking.</p>
         </div>
       </header>
 
