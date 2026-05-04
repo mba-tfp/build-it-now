@@ -48,29 +48,17 @@ const blockedEscalationHoursForTier = (tier: Tier) => ({ P0: 24, P1: 48, P2: 72,
 
 function AppSidebar() {
   const location = useLocation();
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border flex items-start justify-start px-[10px] py-[10px]">
-        <Link to="/" className="flex items-center gap-2 px-2 py-1.5">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-            <Activity className="h-4 w-4" strokeWidth={2.25} />
-          </span>
-          {!collapsed && (
-            <div className="leading-tight">
-              <div className="font-display text-[15px] tracking-tight">TFP Workflow</div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                Signal → Delivery
-              </div>
-            </div>
-          )}
-        </Link>
+    <Sidebar collapsible="none" data-testid="app-sidebar" data-mode="icon-only" className="w-14 border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border flex items-center justify-center px-0 py-3">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground" title="TFP Workflow">
+          <Activity className="h-4 w-4" strokeWidth={2.25} />
+        </span>
       </SidebarHeader>
       <SidebarContent>
         {([{ label: "Pipeline", items: PIPELINE_NAV }] as const).map((group) => (
-          <SidebarGroup key={group.label}>
+          <SidebarGroup key={group.label} className="px-0">
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((n) => {
@@ -82,11 +70,24 @@ function AppSidebar() {
                     (n.to === "/clinics" && location.pathname === "/golive");
                   const Icon = n.icon;
                   return (
-                    <SidebarMenuItem key={n.to}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={n.label}>
-                        <Link to={n.to}>
+                    <SidebarMenuItem key={n.to} className="px-2">
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={{ children: n.label, side: "right", className: "max-w-[160px]" }}
+                        className={cn(
+                          "h-9 w-10 justify-center rounded-md p-0 relative",
+                          active && "border-l-[3px] border-primary bg-primary/10",
+                        )}
+                      >
+                        <Link
+                          to={n.to}
+                          data-testid={`sidebar-nav-${n.to.slice(1)}`}
+                          data-label={n.label}
+                          aria-label={n.label}
+                          title={n.label}
+                        >
                           <Icon className="h-4 w-4" />
-                          <span>{n.label}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
