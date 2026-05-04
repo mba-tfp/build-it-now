@@ -1461,6 +1461,10 @@ type State = {
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
   customLabels: string[];
+  /** Per-user "last seen on Home" timestamps + sprint snapshot for diff. */
+  lastVisits: Record<string, import("./types").LastVisitEntry>;
+  /** Per-(user,session) flag: did we already show the modal this session? */
+  sessionEntryShown: Record<string, boolean>;
   // Round 5
   flags: FeatureFlags;
   helpArticles: HelpArticle[];
