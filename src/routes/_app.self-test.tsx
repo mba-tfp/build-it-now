@@ -2342,19 +2342,20 @@ const TESTS: TestStep[] = [
       setParkHarnessOpen(true);
       await nextFrame();
       const input = document.querySelector('[data-testid="park-reason-input"]') as HTMLTextAreaElement | null;
-      const confirm = document.querySelector('[data-testid="park-reason-confirm"]') as HTMLButtonElement | null;
-      expect(!!input && !!confirm, "Park modal inputs must render");
-      expect(confirm!.disabled === true, "Confirm should start disabled");
+      expect(!!input, "Park modal input must render");
+      const getConfirm = () => document.querySelector('[data-testid="park-reason-confirm"]') as HTMLButtonElement | null;
+      expect(!!getConfirm(), "Confirm must render");
+      expect(getConfirm()!.disabled, "Confirm should start disabled");
       // short reason
       input!.value = "short";
       input!.dispatchEvent(new Event("input", { bubbles: true }));
       await nextFrame();
-      expect(confirm!.disabled === true, "Confirm should remain disabled for <10 char reason");
+      expect(getConfirm()!.disabled, "Confirm should remain disabled for <10 char reason");
       // long reason
       input!.value = "this is a long enough reason";
       input!.dispatchEvent(new Event("input", { bubbles: true }));
       await nextFrame();
-      expect(confirm!.disabled === false, "Confirm should enable once reason >= 10 chars");
+      expect(!getConfirm()!.disabled, "Confirm should enable once reason >= 10 chars");
       setParkHarnessOpen(false);
     },
   },
