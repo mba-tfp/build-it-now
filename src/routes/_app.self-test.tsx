@@ -11,6 +11,9 @@ import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows } from "./_app.delivery";
+import { EmptyZone } from "@/components/tfp/EmptyZone";
+import { PipelineHeader } from "@/components/tfp/PipelineHeader";
+import { StageTooltip } from "@/components/tfp/IntuitivenessTooltips";
 import type { Decision } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/self-test")({
