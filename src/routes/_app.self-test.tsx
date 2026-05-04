@@ -197,7 +197,7 @@ function SelfTestPage() {
         ))}
       </section>
       <p className="mt-4 text-sm font-medium">
-        {passed} of {TESTS.length} passed.
+        {passed} pass · {skipped} skip · {failed} fail (of {TESTS.length} total)
       </p>
 
       {/* Hidden mount of HomePage so DOM-based tests can inspect it without navigation */}
