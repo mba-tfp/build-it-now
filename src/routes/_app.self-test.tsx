@@ -2359,13 +2359,14 @@ const TESTS: TestStep[] = [
       const getConfirm = () => document.querySelector('[data-testid="park-reason-confirm"]') as HTMLButtonElement | null;
       expect(!!getConfirm(), "Confirm must render");
       expect(getConfirm()!.disabled, "Confirm should start disabled");
+      const setVal = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")!.set!;
       // short reason
-      input!.value = "short";
+      setVal.call(input, "short");
       input!.dispatchEvent(new Event("input", { bubbles: true }));
       await nextFrame();
       expect(getConfirm()!.disabled, "Confirm should remain disabled for <10 char reason");
       // long reason
-      input!.value = "this is a long enough reason";
+      setVal.call(input, "this is a long enough reason");
       input!.dispatchEvent(new Event("input", { bubbles: true }));
       await nextFrame();
       expect(!getConfirm()!.disabled, "Confirm should enable once reason >= 10 chars");
