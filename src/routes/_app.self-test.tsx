@@ -10,7 +10,7 @@ import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
-import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows, BoardCard } from "./_app.delivery";
+import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows, BoardCard, ReadyToCommitSection, InFlightSection, ParkReasonModal } from "./_app.delivery";
 import { EmptyZone } from "@/components/tfp/EmptyZone";
 import { defaultIntegrationPhases } from "./_app.clinics";
 import { PipelineHeader } from "@/components/tfp/PipelineHeader";
@@ -277,8 +277,73 @@ function SelfTestPage() {
       >
         <BoardCardHarness />
       </div>
+      {/* Hidden mount for Delivery Shaped Item Tracker tests (85-90) */}
+      <div
+        id="self-test-delivery-tracker-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 1200, height: 800, overflow: "auto", pointerEvents: "none", opacity: 0 }}
+      >
+        <DeliveryTrackerHarness />
+        <ParkReasonModalHarness />
+      </div>
     </div>
   );
+}
+
+function DeliveryTrackerHarness() {
+  const shaping = useTfpStore((s) => s.shaping);
+  const signals = useTfpStore((s) => s.signals);
+  const reviews = useTfpStore((s) => s.reviews);
+  const users = useTfpStore((s) => s.users);
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const startReview = useTfpStore((s) => s.startReview);
+  const allRows = shaping
+    .map((sh) => ({ sh, sig: signals.find((g) => g.id === sh.signal_id)! }))
+    .filter((r) => !!r.sig);
+  const readyRows = allRows.filter(({ sh }) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket !== "Not Now");
+  const parkedRows = allRows.filter(({ sh }) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket === "Not Now");
+  const inFlight = allRows.filter(({ sh }) => sh.in_sprint || !!sh.jira_key || !!sh.delivery_status);
+  return (
+    <>
+      <ReadyToCommitSection
+        rows={readyRows}
+        parkedRows={parkedRows}
+        users={users}
+        sprintLocked={false}
+        onPick={() => {}}
+        onPark={() => {}}
+        onUnpark={() => {}}
+        onViewBrief={() => {}}
+      />
+      <InFlightSection
+        rows={inFlight}
+        reviews={reviews}
+        users={users}
+        updateShaping={updateShaping}
+        ensureReview={(id) => reviews.find((r) => r.shaping_id === id) ?? startReview(id)}
+        onViewBrief={() => {}}
+      />
+    </>
+  );
+}
+
+const parkHarnessSubs = new Set<() => void>();
+let parkHarnessOpen = false;
+function setParkHarnessOpen(v: boolean) {
+  parkHarnessOpen = v;
+  parkHarnessSubs.forEach((f) => f());
+}
+function ParkReasonModalHarness() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    parkHarnessSubs.add(fn);
+    return () => { parkHarnessSubs.delete(fn); };
+  }, []);
+  const sh = useTfpStore((s) => s.shaping[0]);
+  const sig = useTfpStore((s) => s.signals.find((g) => g.id === sh?.signal_id));
+  if (!parkHarnessOpen || !sh || !sig) return null;
+  return <ParkReasonModal row={{ sh, sig }} onCancel={() => setParkHarnessOpen(false)} onConfirm={() => setParkHarnessOpen(false)} />;
 }
 
 const boardCardHarnessSubs = new Set<() => void>();
@@ -2224,6 +2289,113 @@ const TESTS: TestStep[] = [
       expect(after.linked_clinic_id === clinic.id, "Track should be linked to the chosen clinic");
       expect(after.phases.length === 3, "Track should be saved with the 3 default phases");
       useTfpStore.setState((s) => ({ integrations: s.integrations.filter((t) => t.id !== created.id) }));
+    },
+  },
+  {
+    id: 85,
+    name: "Delivery page shows Ready to Commit and In Flight sections",
+    description: "Both sections render in the delivery tracker harness with their headers visible.",
+    run: async () => {
+      await nextFrame();
+      const ready = document.querySelector('[data-testid="section-ready-to-commit"]');
+      const flight = document.querySelector('[data-testid="section-in-flight"]');
+      expect(!!ready, "Ready to Commit section must render");
+      expect(!!flight, "In Flight section must render");
+      expect((ready!.textContent ?? "").includes("Ready to Commit"), "Header text wrong");
+      expect((flight!.textContent ?? "").includes("In Flight"), "Header text wrong");
+    },
+  },
+  {
+    id: 86,
+    name: "Ready-for-Sprint item with no Jira key appears in Ready to Commit",
+    description: "A shaping item with shaping_status='Ready for Sprint' and no jira_key renders as a ready card.",
+    run: async () => {
+      // Pick or create such an item
+      let target = useTfpStore.getState().shaping.find((sh) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket !== "Not Now");
+      if (!target) {
+        const sample = useTfpStore.getState().shaping[0];
+        useTfpStore.getState().updateShaping(sample.id, { shaping_status: "Ready for Sprint", jira_key: null, in_sprint: false, roadmap_bucket: null });
+        target = useTfpStore.getState().shaping.find((sh) => sh.id === sample.id)!;
+      }
+      await nextFrame();
+      const card = document.querySelector(`[data-testid="ready-card-${target!.id}"]`);
+      expect(!!card, `Ready card for ${target!.id} should render`);
+    },
+  },
+  {
+    id: 87,
+    name: "Item with in_sprint=true appears in In Flight section",
+    description: "Any committed item shows up under the In Flight section.",
+    run: async () => {
+      const target = useTfpStore.getState().shaping.find((sh) => sh.in_sprint && sh.jira_key);
+      expect(!!target, "Need a committed sprint item in seed");
+      await nextFrame();
+      const card = document.querySelector(`[data-testid="flight-card-${target!.id}"]`);
+      expect(!!card, "Flight card must render for committed item");
+    },
+  },
+  {
+    id: 88,
+    name: "Park action requires a reason of at least 10 characters",
+    description: "ParkReasonModal disables Confirm until reason length >= 10.",
+    run: async () => {
+      setParkHarnessOpen(true);
+      await nextFrame();
+      const input = document.querySelector('[data-testid="park-reason-input"]') as HTMLTextAreaElement | null;
+      expect(!!input, "Park modal input must render");
+      const getConfirm = () => document.querySelector('[data-testid="park-reason-confirm"]') as HTMLButtonElement | null;
+      expect(!!getConfirm(), "Confirm must render");
+      expect(getConfirm()!.disabled, "Confirm should start disabled");
+      // short reason
+      input!.value = "short";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await nextFrame();
+      expect(getConfirm()!.disabled, "Confirm should remain disabled for <10 char reason");
+      // long reason
+      input!.value = "this is a long enough reason";
+      input!.dispatchEvent(new Event("input", { bubbles: true }));
+      await nextFrame();
+      expect(!getConfirm()!.disabled, "Confirm should enable once reason >= 10 chars");
+      setParkHarnessOpen(false);
+    },
+  },
+  {
+    id: 89,
+    name: "Blocked In Flight item renders with red left border and is in the first group",
+    description: "A flight card with delivery_status='Blocked' has the destructive left border and Blocked group renders before others.",
+    run: async () => {
+      // Find or create a blocked item
+      let target = useTfpStore.getState().shaping.find((sh) => (sh.in_sprint || sh.jira_key) && sh.delivery_status === "Blocked");
+      if (!target) {
+        const sample = useTfpStore.getState().shaping.find((sh) => sh.in_sprint && sh.jira_key)!;
+        useTfpStore.getState().updateShaping(sample.id, { delivery_status: "Blocked", blocker_description: "Test blocker", blocked_since: new Date().toISOString() });
+        target = useTfpStore.getState().shaping.find((sh) => sh.id === sample.id)!;
+      }
+      await nextFrame();
+      const card = document.querySelector(`[data-testid="flight-card-${target!.id}"]`);
+      expect(!!card, "Blocked flight card must render");
+      expect((card!.className || "").includes("border-l-destructive"), `Card must have destructive left border, got '${card!.className}'`);
+      // Check group order: Blocked group must appear before any other group in the section
+      const section = document.querySelector('[data-testid="section-in-flight"]');
+      const groups = section!.querySelectorAll('[data-testid^="flight-group-"]');
+      expect(groups.length > 0, "At least one group should render");
+      expect(groups[0].getAttribute("data-testid") === "flight-group-Blocked", `First group should be Blocked, got ${groups[0].getAttribute("data-testid")}`);
+    },
+  },
+  {
+    id: 90,
+    name: "Done item without outcome review shows 'Outcome review needed →'",
+    description: "FlightCard's What's Next shows the outcome-review CTA when delivery_status='Done' and no review exists.",
+    run: async () => {
+      // Find a committed item, set it to Done, and clear any review.
+      const target = useTfpStore.getState().shaping.find((sh) => sh.in_sprint && sh.jira_key);
+      expect(!!target, "Need a committed sprint item");
+      useTfpStore.setState((s) => ({ reviews: s.reviews.filter((r) => r.shaping_id !== target!.id) }));
+      useTfpStore.getState().updateShaping(target!.id, { delivery_status: "Done" });
+      await nextFrame();
+      const cta = document.querySelector(`[data-testid="flight-next-review-${target!.id}"]`);
+      expect(!!cta, "Outcome review CTA must render");
+      expect((cta!.textContent ?? "").includes("Outcome review needed"), `CTA text wrong: '${cta!.textContent}'`);
     },
   },
 ];

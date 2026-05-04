@@ -277,209 +277,110 @@ function DeliveryPage() {
   const syncFromJira = useTfpStore((s) => s.syncFromJira);
   const pushToJira = useTfpStore((s) => s.pushToJira);
   const addToSprint = useTfpStore((s) => s.addToSprint);
-  const toggleSprintLock = useTfpStore((s) => s.toggleSprintLock);
   const updateShaping = useTfpStore((s) => s.updateShaping);
-  const pushNotification = useTfpStore((s) => s.pushNotification);
   const startReview = useTfpStore((s) => s.startReview);
-  const completeReview = useTfpStore((s) => s.completeReview);
-  const logFollowOnSignal = useTfpStore((s) => s.logFollowOnSignal);
   const closeSprint = useTfpStore((s) => s.closeSprint);
 
-  const [orderedIds, setOrderedIds] = useState<string[]>([]);
-  const [planningIds, setPlanningIds] = useState<string[]>([]);
-  const [sprintGoal, setSprintGoal] = useState(sprint.notes ?? "");
-  const [committedKeys, setCommittedKeys] = useState<string[]>([]);
   const [briefFor, setBriefFor] = useState<Row | null>(null);
-  const [blockerFor, setBlockerFor] = useState<Row | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [cannotCloseOpen, setCannotCloseOpen] = useState(false);
-  const [overrideOpen, setOverrideOpen] = useState(false);
-  /** Pending pick awaiting user confirmation when adding pushes the sprint above item capacity. */
-  const [pendingOverCapPick, setPendingOverCapPick] = useState<string | null>(null);
-  const [expandedCriteria, setExpandedCriteria] = useState<Record<string, boolean>>({});
-  const [openSections, setOpenSections] = useState<Record<DeliverySectionKey, boolean>>(readSectionState);
+  const [parkFor, setParkFor] = useState<Row | null>(null);
+  const [overrideFor, setOverrideFor] = useState<Row | null>(null);
 
+  // Auto-sync from Jira once per page load.
   useEffect(() => {
-    window.localStorage.setItem(DELIVERY_SECTIONS_STORAGE_KEY, JSON.stringify(openSections));
-  }, [openSections]);
+    syncFromJira();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const readyRows = useMemo<Row[]>(() => {
-    return shaping
-      .filter((sh) => sh.shaping_status === "Ready for Sprint" && !sh.in_sprint && !sh.jira_key)
-      .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
-      .filter((row): row is Row => !!row.sig);
-  }, [shaping, signals]);
+  const allRows = useMemo<Row[]>(
+    () =>
+      shaping
+        .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
+        .filter((r): r is Row => !!r.sig),
+    [shaping, signals],
+  );
 
-  const orderedBacklog = useMemo(() => {
-    const ids = orderedIds.filter((id) => readyRows.some((row) => row.sh.id === id));
-    const missing = readyRows.filter((row) => !ids.includes(row.sh.id)).map((row) => row.sh.id);
-    const finalIds = [...ids, ...missing];
-    return finalIds
-      .map((id) => readyRows.find((row) => row.sh.id === id))
-      .filter((row): row is Row => !!row);
-  }, [orderedIds, readyRows]);
+  const readyRows = allRows.filter(
+    ({ sh }) =>
+      sh.shaping_status === "Ready for Sprint" &&
+      !sh.jira_key &&
+      sh.roadmap_bucket !== "Not Now",
+  );
+  const parkedRows = allRows.filter(
+    ({ sh }) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket === "Not Now",
+  );
+  const inFlightRows = allRows.filter(
+    ({ sh }) => sh.in_sprint || !!sh.jira_key || !!sh.delivery_status,
+  );
 
-  const planningRows = planningIds
-    .map((id) => readyRows.find((row) => row.sh.id === id))
-    .filter((row): row is Row => !!row);
-  const planningBacklog = orderedBacklog.filter((row) => !planningIds.includes(row.sh.id));
-  const sprintRows = shaping
-    .filter((sh) => sh.in_sprint && sh.jira_key && sh.delivery_status)
-    .map((sh) => ({ sh, sig: signals.find((sig) => sig.id === sh.signal_id) }))
-    .filter((row): row is Row => !!row.sig);
-  const usedPoints = planningRows.reduce((sum, row) => sum + (row.sh.tech_estimate_pts ?? 0), 0);
+  const sprintRows = inFlightRows;
   const usable = usableCapacity(sprint);
   const sprintEnded = new Date(sprint.end_date).getTime() < Date.now();
   const unresolvedCount = sprintRows.filter(({ sh }) => sh.delivery_status !== "Done" && !sh.carry_forwarded_at).length;
   const missingReviewCount = sprintRows.filter(({ sh }) => sh.delivery_status === "Done" && !completedReview(reviews, sh.id)).length;
   const closeBlocker = !sprintEnded ? "Sprint end date has not passed" : missingReviewCount > 0 ? `${missingReviewCount} items need outcome reviews` : unresolvedCount > 0 ? `${unresolvedCount} items not yet resolved` : "";
 
-  // Granular blocker rows for the "Cannot close sprint" modal. Each row is purely
-  // informational — the underlying close rule (`closeBlocker`) is unchanged.
   const blockerRows = useMemo<CannotCloseRow[]>(
     () => computeCannotCloseRows({ sprintEnded, sprintRows, reviews, usable, allocatedPts: sprint.allocated_pts, goLives }),
     [sprintEnded, sprintRows, reviews, usable, sprint.allocated_pts, goLives],
   );
-
   const hasBlockers = blockerRows.length > 0 || !!closeBlocker;
 
   function handleCloseSprintClick() {
-    // Edge case: rule string is set but no granular rows resolved — treat as blocked
-    // and surface a single generic row so the modal still informs the user. If the
-    // edge truly has zero rows AND no rule string, fall through to the happy path.
-    if (!hasBlockers) {
-      setCloseOpen(true);
-      return;
-    }
-    setCannotCloseOpen(true);
+    if (!hasBlockers) setCloseOpen(true);
+    else setCannotCloseOpen(true);
   }
 
-  // Auto-open the brief slideover when an `openItem` query param is present.
+  // Auto-open brief slideover for ?openItem=
   useEffect(() => {
     if (!openItem) return;
-    const row = sprintRows.find((r) => r.sh.id === openItem);
+    const row = allRows.find((r) => r.sh.id === openItem);
     if (row) setBriefFor(row);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openItem, shaping, signals]);
 
   if (tab) return <Navigate to="/delivery" search={openItem ? { openItem } : {}} replace />;
 
-  function toggleSection(section: DeliverySectionKey) {
-    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  function commitToCurrentSprint(row: Row) {
+    const key = pushToJira(row.sh.id);
+    addToSprint(row.sh.id);
+    updateShaping(row.sh.id, { sprint_target: 1 });
+    toast.success(`${key ?? "Item"} committed to ${sprint.name}.`);
   }
 
-  function handleSync() {
-    syncFromJira();
-    toast.info("Synced — no changes from Jira.");
-  }
-
-  function movePriority(dragId: string, targetId: string) {
-    if (dragId === targetId) return;
-    const ids = orderedBacklog.map((row) => row.sh.id);
-    const from = ids.indexOf(dragId);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0) return;
-    const next = [...ids];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setOrderedIds(next);
-  }
-
-  function commitSprint(override?: { reason: string; displacedIds: string[] }) {
-    const createdKeys: string[] = [];
-    planningRows.forEach(({ sh }) => {
-      const key = pushToJira(sh.id);
-      if (key) createdKeys.push(key);
-      addToSprint(sh.id, override?.reason, override ? "Scope added mid-sprint" : undefined, override?.displacedIds);
-    });
-    updateSprintGoal(sprintGoal);
-    if (!sprint.scope_locked_at) toggleSprintLock();
-    setCommittedKeys(createdKeys);
-    setPlanningIds([]);
-    pushNotification({
-      trigger: "scope_change",
-      title: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
-      body: `Active Sprint is locked. ${planningRows.length} items committed. Sprint board is live.`,
-      link_to: "/delivery",
-      for_user_id: "u-karim",
-      entity_id: sprint.id,
-    });
-    toast.success("Sprint committed", { description: `${createdKeys.length} Jira tickets created.` });
-  }
-
-  function confirmSprint() {
-    if (sprint.scope_locked_at) {
-      setOverrideOpen(true);
+  function handleSprintPick(row: Row, target: 1 | 2 | 3) {
+    if (target === 1) {
+      if (sprint.scope_locked_at) {
+        setOverrideFor(row);
+        return;
+      }
+      commitToCurrentSprint(row);
       return;
     }
-    commitSprint();
+    updateShaping(row.sh.id, { roadmap_bucket: "Committed", sprint_target: target });
+    toast.success(`Committed to ${target === 2 ? "next sprint" : "Sprint +2"}.`);
   }
 
-  function updateSprintGoal(goal: string) {
-    useTfpStore.setState((state) => ({ sprint: { ...state.sprint, notes: goal } }));
-  }
-
-  function logProductBlocker(data: { description: string; ownerId: string; expectedDate: string }) {
-    if (!blockerFor) return;
-    const now = new Date().toISOString();
-    const text = `${data.description}${data.expectedDate ? ` Expected resolution: ${data.expectedDate}.` : ""}`;
-    updateShaping(blockerFor.sh.id, {
-      delivery_status: "Blocked",
-      blocker_description: text,
-      blocked_since: blockerFor.sh.blocked_since ?? now,
-      delivery_assignee_id: data.ownerId,
+  function handlePark(row: Row, reason: string) {
+    const note = `[Parked: ${reason}]`;
+    const existing = row.sh.solution_questions ?? "";
+    updateShaping(row.sh.id, {
+      roadmap_bucket: "Not Now",
+      park_reason: reason,
+      solution_questions: existing.includes(note) ? existing : `${note}\n${existing}`.trim(),
     });
-    const blockedDays = blockerFor.sh.blocked_since ? daysSince(blockerFor.sh.blocked_since) : 0;
-    if (blockedDays >= 2) {
-      [blockerFor.sh.pm_owner_id, "u-shahid", "u-karim"].forEach((userId) => pushNotification({
-          trigger: "blocked_over_1d",
-          title: `${blockerFor.sh.jira_key} escalated to Leadership`,
-          body: text,
-          link_to: "/delivery",
-          for_user_id: userId,
-          entity_id: blockerFor.sh.id,
-        }));
-    }
-    toast.success("Product blocker logged");
-    setBlockerFor(null);
+    toast.success("Item parked.");
+    setParkFor(null);
+  }
+
+  function handleUnpark(row: Row) {
+    updateShaping(row.sh.id, { roadmap_bucket: null, park_reason: null });
+    toast.success("Item un-parked.");
   }
 
   function ensureReview(shapingId: string) {
     return reviews.find((review) => review.shaping_id === shapingId) ?? startReview(shapingId);
-  }
-
-  function logFollowOn(row: Row, _text: string) {
-    const review = ensureReview(row.sh.id);
-    if (!review) return;
-    logFollowOnSignalWithToast({
-      sourceTitle: row.sig.title,
-      parentSignalId: row.sig.id,
-      product: row.sig.product,
-      reviewId: review.id,
-    });
-  }
-
-  const itemCap = sprintItemCapacity(sprint);
-  // Capacity tracks the *predicted total sprint size*: items already in the sprint
-  // plus items currently selected in planning. The over-capacity warning fires when
-  // adding the next item would push that total above `itemCap`.
-  const planningTotalIfAdded = sprintRows.length + planningRows.length + 1;
-  const planningCap = capacityState(sprintRows.length + planningRows.length, itemCap);
-
-  function handlePick(id: string) {
-    if (planningIds.includes(id)) return;
-    if (planningTotalIfAdded > itemCap) {
-      setPendingOverCapPick(id);
-      return;
-    }
-    setPlanningIds((current) => [...current, id]);
-  }
-
-  function confirmOverCapPick() {
-    if (!pendingOverCapPick) return;
-    const id = pendingOverCapPick;
-    setPlanningIds((current) => (current.includes(id) ? current : [...current, id]));
-    setPendingOverCapPick(null);
   }
 
   return (
@@ -488,99 +389,70 @@ function DeliveryPage() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
-          <h1 className="mt-1 font-display text-3xl">Delivery</h1>
+          <h1 className="mt-1 font-display text-3xl">Shaped Item Tracker</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Backlog, sprint planning, and read-only Jira visibility.
+            Auto-syncing from Jira on load. Jira is the source of truth for delivery status; this view tracks commitment decisions and outcome reviews.
           </p>
         </div>
         <button
-          onClick={handleSync}
-          className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-sm hover:bg-accent/40"
+          data-testid="close-sprint-button"
+          title={closeBlocker || "Ready to close sprint"}
+          onClick={handleCloseSprintClick}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
-          <RefreshCw className="h-3.5 w-3.5" /> Sync from Jira
+          Close Sprint
         </button>
       </header>
 
-      <div className="space-y-4">
-        <DeliverySection
-          title="SPRINT BOARD"
-          countLabel={`${sprintRows.length} ${sprintRows.length === 1 ? "item" : "items"}`}
-          open={openSections.board}
-          onToggle={() => toggleSection("board")}
-        >
-          <SprintBoard
-            rows={sprintRows}
-            reviews={reviews}
-            sprintName={sprint.name}
-            committedKeys={committedKeys}
-            closeBlocker={closeBlocker}
-            users={users}
-            expandedCriteria={expandedCriteria}
-            setExpandedCriteria={setExpandedCriteria}
-            onViewBrief={setBriefFor}
-            onLogBlocker={setBlockerFor}
-            onEnsureReview={ensureReview}
-            onCompleteReview={completeReview}
-            onLogFollowOn={logFollowOn}
-            onCarryForward={(row) => carryForwardWithUndo({
-              rows: [row],
-              sprintName: sprint.name,
-              updateShaping,
-            })}
-            onCloseSprint={handleCloseSprintClick}
-          />
-        </DeliverySection>
+      <div className="space-y-8">
+        <ReadyToCommitSection
+          rows={readyRows}
+          parkedRows={parkedRows}
+          users={users}
+          sprintLocked={!!sprint.scope_locked_at}
+          onPick={handleSprintPick}
+          onPark={(row) => setParkFor(row)}
+          onUnpark={handleUnpark}
+          onViewBrief={setBriefFor}
+        />
 
-        <DeliverySection
-          title="SPRINT PLANNING"
-          countLabel={`${planningRows.length} selected`}
-          open={openSections.planning}
-          onToggle={() => toggleSection("planning")}
-        >
-          <PlanningTab
-            backlogRows={planningBacklog}
-            planningRows={planningRows}
-            sprintGoal={sprintGoal}
-            setSprintGoal={setSprintGoal}
-            usedPoints={usedPoints}
-            usable={usable}
-            onPick={handlePick}
-            onRemove={(id) => setPlanningIds((current) => current.filter((x) => x !== id))}
-            onConfirm={confirmSprint}
-            committedKeys={committedKeys}
-            sprint={sprint}
-            itemCap={planningCap}
-          />
-        </DeliverySection>
-
-        <DeliverySection
-          title="BACKLOG"
-          countLabel={`${planningBacklog.length} ready`}
-          open={openSections.backlog}
-          onToggle={() => toggleSection("backlog")}
-        >
-          <BacklogTab
-            rows={planningBacklog}
-            onMove={movePriority}
-            onAddToPlanning={handlePick}
-          />
-        </DeliverySection>
+        <InFlightSection
+          rows={inFlightRows}
+          reviews={reviews}
+          users={users}
+          updateShaping={updateShaping}
+          ensureReview={ensureReview}
+          onViewBrief={setBriefFor}
+        />
       </div>
 
       {briefFor && <BriefSlideover row={briefFor} onClose={() => setBriefFor(null)} />}
-      {blockerFor && (
-        <BlockerModal
-          row={blockerFor}
-          users={users}
-          onCancel={() => setBlockerFor(null)}
-          onSave={logProductBlocker}
+      {parkFor && (
+        <ParkReasonModal
+          row={parkFor}
+          onCancel={() => setParkFor(null)}
+          onConfirm={(reason) => handlePark(parkFor, reason)}
+        />
+      )}
+      {overrideFor && (
+        <ScopeOverrideModal
+          rows={sprintRows}
+          onCancel={() => setOverrideFor(null)}
+          onConfirm={(data) => {
+            const r = overrideFor;
+            const key = pushToJira(r.sh.id);
+            addToSprint(r.sh.id, data.reason, "Scope added mid-sprint", data.displacedIds);
+            updateShaping(r.sh.id, { sprint_target: 1 });
+            toast.success(`${key ?? "Item"} added to locked sprint with override.`);
+            setOverrideFor(null);
+          }}
         />
       )}
       {closeOpen && (
         <SprintCloseModal
           sprintName={sprint.name}
           onCancel={() => setCloseOpen(false)}
-          onConfirm={(data: { summary: string; what_worked: string; what_didnt: string; one_change: string; primary_theme: RetroTheme }) => {
+          onConfirm={(data) => {
             closeSprint(data);
             setCloseOpen(false);
             toast.success("Sprint closed");
@@ -588,30 +460,486 @@ function DeliveryPage() {
         />
       )}
       {cannotCloseOpen && (
-        <CannotCloseSprintModal
-          rows={blockerRows}
-          onClose={() => setCannotCloseOpen(false)}
-        />
-      )}
-      {overrideOpen && (
-        <ScopeOverrideModal
-          rows={sprintRows}
-          onCancel={() => setOverrideOpen(false)}
-          onConfirm={(data: { reason: string; displacedIds: string[] }) => {
-            commitSprint(data);
-            setOverrideOpen(false);
-          }}
-        />
-      )}
-      {pendingOverCapPick && (
-        <SprintAtCapacityModal
-          predictedCount={planningTotalIfAdded}
-          capacity={itemCap}
-          onCancel={() => setPendingOverCapPick(null)}
-          onConfirm={confirmOverCapPick}
-        />
+        <CannotCloseSprintModal rows={blockerRows} onClose={() => setCannotCloseOpen(false)} />
       )}
     </div>
+  );
+}
+
+// ============== Ready to Commit ==============
+
+export function ReadyToCommitSection({
+  rows,
+  parkedRows,
+  users,
+  sprintLocked,
+  onPick,
+  onPark,
+  onUnpark,
+  onViewBrief,
+}: {
+  rows: Row[];
+  parkedRows: Row[];
+  users: User[];
+  sprintLocked: boolean;
+  onPick: (row: Row, target: 1 | 2 | 3) => void;
+  onPark: (row: Row) => void;
+  onUnpark: (row: Row) => void;
+  onViewBrief: (row: Row) => void;
+}) {
+  const [parkedOpen, setParkedOpen] = useState(false);
+  return (
+    <section data-testid="section-ready-to-commit" className="rounded-md border border-border bg-surface/40">
+      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-display text-lg">Ready to Commit</h2>
+          <span data-testid="ready-count" className="rounded-full border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground">
+            {rows.length}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">Shaped, tech-signed-off, not yet committed.</p>
+      </header>
+      <div className="space-y-3 p-4">
+        {rows.length === 0 && (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No items are waiting for a commit decision. When shaping and tech review are complete, items appear here.
+          </p>
+        )}
+        {rows.map((row) => (
+          <ReadyCard
+            key={row.sh.id}
+            row={row}
+            users={users}
+            sprintLocked={sprintLocked}
+            onPick={onPick}
+            onPark={onPark}
+            onViewBrief={onViewBrief}
+          />
+        ))}
+      </div>
+      {parkedRows.length > 0 && (
+        <div className="border-t border-border">
+          <button
+            type="button"
+            data-testid="parked-toggle"
+            onClick={() => setParkedOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2 text-left text-xs uppercase tracking-wider text-muted-foreground hover:bg-accent/20"
+            aria-expanded={parkedOpen}
+          >
+            <span className="flex items-center gap-2">
+              {parkedOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              Parked ({parkedRows.length})
+            </span>
+          </button>
+          {parkedOpen && (
+            <ul className="space-y-2 px-4 pb-3">
+              {parkedRows.map((row) => {
+                const days = daysSince(row.sh.updated_at);
+                return (
+                  <li key={row.sh.id} data-testid={`parked-row-${row.sh.id}`} className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{row.sig.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {row.sh.park_reason ? `Reason: ${row.sh.park_reason}` : "No reason recorded."} · {days}d parked
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onUnpark(row)}
+                      className="rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40"
+                    >
+                      Unpark
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReadyCard({
+  row,
+  users,
+  sprintLocked,
+  onPick,
+  onPark,
+  onViewBrief,
+}: {
+  row: Row;
+  users: User[];
+  sprintLocked: boolean;
+  onPick: (row: Row, target: 1 | 2 | 3) => void;
+  onPark: (row: Row) => void;
+  onViewBrief: (row: Row) => void;
+}) {
+  const reviewer = users.find((u) => u.id === row.sh.tech_reviewer_id);
+  const daysSinceSignoff = row.sh.tech_signed_off_at ? daysSince(row.sh.tech_signed_off_at) : null;
+  return (
+    <article
+      data-testid={`ready-card-${row.sh.id}`}
+      className="grid gap-4 rounded-md border border-border bg-surface p-4 text-sm md:grid-cols-[1.1fr_1.2fr_0.9fr]"
+    >
+      <div>
+        <h3 className="font-medium leading-snug">{row.sig.title}</h3>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <TierBadge tier={row.sig.tier} />
+          {row.sh.commitment_type && (
+            <span className="rounded-full border border-border bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+              {row.sh.commitment_type}
+            </span>
+          )}
+          <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+            {row.sig.product}
+          </span>
+        </div>
+        <button
+          onClick={() => onViewBrief(row)}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <Eye className="h-3.5 w-3.5" /> View brief →
+        </button>
+      </div>
+
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Commit decision</p>
+        <div role="group" aria-label="Sprint target" className="mt-2 inline-flex flex-wrap gap-1 rounded-md border border-border p-1">
+          <button
+            data-testid={`commit-${row.sh.id}-sprint-1`}
+            disabled={sprintLocked}
+            title={sprintLocked ? "Current sprint is locked — use override flow" : "Commit to current sprint"}
+            onClick={() => onPick(row, 1)}
+            className="rounded px-2 py-1 text-xs font-medium hover:bg-accent/40 disabled:opacity-40"
+          >
+            Sprint 1
+          </button>
+          <button
+            data-testid={`commit-${row.sh.id}-sprint-2`}
+            onClick={() => onPick(row, 2)}
+            className="rounded px-2 py-1 text-xs font-medium hover:bg-accent/40"
+          >
+            Sprint 2
+          </button>
+          <button
+            data-testid={`commit-${row.sh.id}-sprint-3`}
+            onClick={() => onPick(row, 3)}
+            className="rounded px-2 py-1 text-xs font-medium hover:bg-accent/40"
+          >
+            Sprint +2
+          </button>
+          <button
+            data-testid={`commit-${row.sh.id}-park`}
+            onClick={() => onPark(row)}
+            className="rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/40"
+          >
+            Park
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Sprint 1 pushes to Jira immediately. Sprint 2 / +2 stores intent without pushing.
+        </p>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        <p>
+          <span className="text-foreground font-medium">{row.sh.tech_estimate_pts ?? "—"} pts</span>
+        </p>
+        <p className="mt-1">Reviewer: {reviewer?.name ?? "—"}</p>
+        <p className="mt-1">
+          {daysSinceSignoff !== null ? `${daysSinceSignoff}d since tech sign-off` : "Tech sign-off pending"}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+export function ParkReasonModal({
+  row,
+  onCancel,
+  onConfirm,
+}: {
+  row: Row;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const ready = reason.trim().length >= 10;
+  return (
+    <div data-testid="park-reason-modal" className="fixed inset-0 z-50 grid place-items-center bg-background/60 p-4">
+      <div className="w-full max-w-md rounded-md border border-border bg-surface p-5 shadow-xl">
+        <h2 className="font-display text-lg">Park item</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Parking <span className="font-medium text-foreground">{row.sig.title}</span>. Add a short reason (min. 10 characters) so it can be revisited later.
+        </p>
+        <textarea
+          data-testid="park-reason-input"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          placeholder="Why are we parking this?"
+          className="mt-4 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/40">
+            Cancel
+          </button>
+          <button
+            data-testid="park-reason-confirm"
+            disabled={!ready}
+            onClick={() => onConfirm(reason.trim())}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+          >
+            Confirm park
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== In Flight ==============
+
+const FLIGHT_GROUP_ORDER: DeliveryStatus[] = ["Blocked", "In Progress", "In QA", "To Do", "Done"];
+
+export function InFlightSection({
+  rows,
+  reviews,
+  users,
+  updateShaping,
+  ensureReview,
+  onViewBrief,
+}: {
+  rows: Row[];
+  reviews: Review[];
+  users: User[];
+  updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
+  ensureReview: (id: string) => Review | null;
+  onViewBrief: (row: Row) => void;
+}) {
+  return (
+    <section data-testid="section-in-flight" className="rounded-md border border-border bg-surface/40">
+      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-display text-lg">In Flight</h2>
+          <span data-testid="in-flight-count" className="rounded-full border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground">
+            {rows.length}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">Committed items, tracked to outcome.</p>
+      </header>
+      <div className="space-y-5 p-4">
+        {rows.length === 0 && (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No items are committed yet. Use the Ready to Commit section above to start.
+          </p>
+        )}
+        {FLIGHT_GROUP_ORDER.map((status) => {
+          const group = rows.filter((r) => (r.sh.delivery_status ?? "To Do") === status);
+          if (group.length === 0) return null;
+          return (
+            <div key={status} data-testid={`flight-group-${status.replace(/\s+/g, "-")}`}>
+              <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {status} <span className="text-muted-foreground/70">({group.length})</span>
+              </h3>
+              <div className="space-y-2">
+                {group.map((row) => (
+                  <FlightCard
+                    key={row.sh.id}
+                    row={row}
+                    review={completedReview(reviews, row.sh.id)}
+                    users={users}
+                    updateShaping={updateShaping}
+                    ensureReview={ensureReview}
+                    onViewBrief={onViewBrief}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FlightCard({
+  row,
+  review,
+  users,
+  updateShaping,
+  ensureReview,
+  onViewBrief,
+}: {
+  row: Row;
+  review: Review | null;
+  users: User[];
+  updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
+  ensureReview: (id: string) => Review | null;
+  onViewBrief: (row: Row) => void;
+}) {
+  const status = (row.sh.delivery_status ?? "To Do") as DeliveryStatus;
+  const assignee = users.find((u) => u.id === row.sh.delivery_assignee_id);
+  const days = daysSince(row.sh.updated_at);
+  const stale = hoursSince(row.sh.updated_at) >= sprintStaleHoursForTier(row.sig.tier);
+  const isBlocked = status === "Blocked";
+  const isDonePendingReview = status === "Done" && !review;
+  const borderClass = isBlocked
+    ? "border-l-4 border-l-destructive"
+    : isDonePendingReview
+      ? "border-l-4 border-l-[var(--color-status-hold)]"
+      : "";
+  const jiraHref = row.sh.jira_key
+    ? `https://thefertilitypartners.atlassian.net/browse/${row.sh.jira_key}`
+    : null;
+
+  // Next action chooser
+  let nextAction: ReactNode = <span className="text-muted-foreground">On track</span>;
+  if (isBlocked) {
+    const owner = assignee?.name ?? "Owner TBD";
+    nextAction = (
+      <span className="text-destructive">Unblock: {owner} to resolve</span>
+    );
+  } else if (status === "Done" && !review) {
+    nextAction = (
+      <button
+        data-testid={`flight-next-review-${row.sh.id}`}
+        onClick={() => ensureReview(row.sh.id)}
+        className="text-primary hover:underline"
+      >
+        Outcome review needed →
+      </button>
+    );
+  } else if (status === "Done" && review) {
+    nextAction = <span className="text-muted-foreground">Complete ✓</span>;
+  } else if (stale) {
+    nextAction = (
+      <span className="text-[var(--color-status-hold)]">
+        No update in {days}d — check with {assignee?.name ?? "assignee"}
+      </span>
+    );
+  } else if (row.sh.carry_forwarded_at) {
+    nextAction = <span className="text-muted-foreground">Carried forward from previous sprint</span>;
+  }
+
+  return (
+    <article
+      data-testid={`flight-card-${row.sh.id}`}
+      data-status={status}
+      className={cn("grid gap-4 rounded-md border border-border bg-surface p-3 text-sm md:grid-cols-[1.1fr_1.1fr_1fr]", borderClass)}
+    >
+      <div>
+        {jiraHref ? (
+          <a
+            href={jiraHref}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-xs text-primary hover:underline"
+          >
+            {row.sh.jira_key}
+          </a>
+        ) : (
+          <span className="font-mono text-xs text-muted-foreground">No Jira key</span>
+        )}
+        <h3 className="mt-1 font-medium leading-snug">{row.sig.title}</h3>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          {row.sh.commitment_type && (
+            <span className="rounded-full border border-border bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+              {row.sh.commitment_type}
+            </span>
+          )}
+          <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+            {row.sig.product}
+          </span>
+        </div>
+        <button
+          onClick={() => onViewBrief(row)}
+          className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <Eye className="h-3.5 w-3.5" /> View brief →
+        </button>
+      </div>
+
+      <div className="text-xs">
+        <FlightStatusControl row={row} updateShaping={updateShaping} ensureReview={ensureReview} />
+        <p className="mt-2 text-muted-foreground">
+          Assignee: <span className="text-foreground">{assignee?.name ?? "Unassigned"}</span>
+        </p>
+        <p className="mt-1 text-muted-foreground">
+          {days}d in {status}
+          {stale && (
+            <span className="ml-2 rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
+              stale
+            </span>
+          )}
+        </p>
+        {isBlocked && (
+          <p className="mt-2 text-destructive">
+            {(row.sh.blocker_description ?? "").slice(0, 60) || "No blocker description."}
+            {row.sh.blocked_since && ` · ${daysSince(row.sh.blocked_since)}d blocked`}
+          </p>
+        )}
+      </div>
+
+      <div className="text-xs">
+        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">What's next</p>
+        <p data-testid={`flight-next-${row.sh.id}`} className="mt-1">{nextAction}</p>
+      </div>
+    </article>
+  );
+}
+
+function FlightStatusControl({
+  row,
+  updateShaping,
+  ensureReview,
+}: {
+  row: Row;
+  updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
+  ensureReview: (id: string) => Review | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const status = (row.sh.delivery_status ?? "To Do") as DeliveryStatus;
+  const tone =
+    status === "Blocked"
+      ? "border-destructive/40 bg-destructive/10 text-destructive"
+      : status === "Done"
+        ? "border-[var(--color-status-proceed)]/30 bg-[var(--color-status-proceed)]/10 text-[var(--color-status-proceed)]"
+        : status === "In Progress"
+          ? "border-primary/30 bg-primary/10 text-primary"
+          : "border-border bg-muted text-muted-foreground";
+  return (
+    <span className="relative inline-block">
+      <button
+        type="button"
+        data-testid={`flight-status-${row.sh.id}`}
+        onClick={() => setOpen((v) => !v)}
+        className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium", tone)}
+      >
+        {status}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-10 mt-1 min-w-[8rem] rounded-md border border-border bg-surface p-1 shadow-md">
+          {(["To Do", "In Progress", "In QA", "Blocked", "Done"] as DeliveryStatus[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                if (s === status) return;
+                updateShaping(row.sh.id, { delivery_status: s });
+                if (s === "Done") ensureReview(row.sh.id);
+              }}
+              className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-accent/40"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
   );
 }
 
