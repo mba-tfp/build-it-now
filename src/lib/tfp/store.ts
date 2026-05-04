@@ -3518,6 +3518,23 @@ export const useTfpStore = create<State>()(
       resetDemoData: () => {
         set(latestDemoState(get().currentUserId));
       },
+      recordHomeVisit: () => {
+        const userId = get().currentUserId;
+        const prev = get().lastVisits[userId] ?? null;
+        const snapshot = computeSprintHealthSnapshot(get().sprints, get().shaping);
+        const next: import("./types").LastVisitEntry = {
+          ts: new Date().toISOString(),
+          sprintSnapshot: snapshot,
+        };
+        set({ lastVisits: { ...get().lastVisits, [userId]: next } });
+        return prev;
+      },
+      markSessionEntryShown: (userId) => {
+        set({ sessionEntryShown: { ...get().sessionEntryShown, [userId]: true } });
+      },
+      resetSessionEntryShown: () => {
+        set({ sessionEntryShown: {} });
+      },
     }),
     {
       name: "tfp-os-v6",
