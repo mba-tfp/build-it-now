@@ -10,11 +10,12 @@ import { HomePage } from "./_app.index";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
-import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows } from "./_app.delivery";
+import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows, BoardCard } from "./_app.delivery";
 import { EmptyZone } from "@/components/tfp/EmptyZone";
 import { PipelineHeader } from "@/components/tfp/PipelineHeader";
 import { StageTooltip } from "@/components/tfp/IntuitivenessTooltips";
 import type { Decision } from "@/lib/tfp/types";
+import { USERS } from "@/lib/tfp/store";
 
 export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
