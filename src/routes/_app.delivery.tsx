@@ -208,6 +208,60 @@ export function carryForwardWithUndo({ rows, sprintName, updateShaping }: CarryF
   });
 }
 
+/** How long the "New signal logged" toast stays visible. */
+export const FOLLOW_ON_TOAST_DURATION_MS = 5000;
+
+/**
+ * Pre-populate and create a follow-on signal from any source item, then surface
+ * a sonner toast with a "View signal →" deep link.
+ */
+export function logFollowOnSignalWithToast(args: {
+  sourceTitle: string;
+  parentSignalId: string;
+  product: import("@/lib/tfp/types").Product;
+  reviewId?: string;
+}): import("@/lib/tfp/types").Signal {
+  const store = useTfpStore.getState();
+  const newTitle = `Follow-up: ${args.sourceTitle}`;
+  let signal: import("@/lib/tfp/types").Signal;
+  if (args.reviewId) {
+    signal = store.logFollowOnSignal(args.reviewId, {
+      title: newTitle,
+      description: newTitle,
+      source: "Internal",
+      product: args.product,
+    });
+  } else {
+    signal = store.createSignal({
+      title: newTitle,
+      description: newTitle,
+      source: "Internal",
+      product: args.product,
+      displacement_flag: false,
+      displacement_note: null,
+    });
+    useTfpStore.setState((s) => ({
+      signals: s.signals.map((sg) =>
+        sg.id === signal.id ? { ...sg, parent_signal_id: args.parentSignalId } : sg,
+      ),
+    }));
+  }
+  const href = `/inbox?tab=triage&signal=${encodeURIComponent(signal.id)}`;
+  toast("New signal logged.", {
+    duration: FOLLOW_ON_TOAST_DURATION_MS,
+    description: (
+      <a
+        data-testid="follow-on-toast-link"
+        data-signal-id={signal.id}
+        href={href}
+        className="text-primary hover:underline"
+      >
+        View signal →
+      </a>
+    ),
+  });
+  return signal;
+}
 
 function DeliveryPage() {
   const { tab, openItem } = Route.useSearch();
@@ -391,11 +445,15 @@ function DeliveryPage() {
     return reviews.find((review) => review.shaping_id === shapingId) ?? startReview(shapingId);
   }
 
-  function logFollowOn(row: Row, text: string) {
+  function logFollowOn(row: Row, _text: string) {
     const review = ensureReview(row.sh.id);
     if (!review) return;
-    logFollowOnSignal(review.id, { title: text, description: text, source: "Internal", product: row.sig.product });
-    toast.success("Follow-on signal logged in Inbox");
+    logFollowOnSignalWithToast({
+      sourceTitle: row.sig.title,
+      parentSignalId: row.sig.id,
+      product: row.sig.product,
+      reviewId: review.id,
+    });
   }
 
   const itemCap = sprintItemCapacity(sprint);

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
+import { logFollowOnSignalWithToast } from "./_app.delivery";
 import type {
   OutcomeRating,
   Product,
@@ -374,7 +375,15 @@ function ReviewDetail({ review }: { review: Review }) {
           review={review}
           defaultSource={(sig?.source as Source) ?? "Internal"}
           defaultProduct={(sig?.product as Product) ?? "Platform"}
-          onLog={(d) => logFollowOnSignal(review.id, d)}
+          onLog={(d) => {
+            void d;
+            return logFollowOnSignalWithToast({
+              sourceTitle: sig?.title ?? "item",
+              parentSignalId: sig?.id ?? review.signal_id,
+              product: (sig?.product as Product) ?? "Platform",
+              reviewId: review.id,
+            });
+          }}
           onDraft={(title, desc) =>
             updateReview(review.id, {
               follow_on_draft_title: title,
@@ -522,11 +531,10 @@ function FollowOnComposer({
   const canLog = title.trim().length > 3 && desc.trim().length > 10;
 
   function handleLog() {
-    const s = onLog({ title, description: desc, source, product });
+    onLog({ title, description: desc, source, product });
     setTitle("");
     setDesc("");
-    setConfirm(`Logged signal ${s.id} into intake.`);
-    window.setTimeout(() => setConfirm(null), 3500);
+    setConfirm(null);
   }
 
   return (
