@@ -160,6 +160,55 @@ const BOARD_COLUMNS: Array<Exclude<DeliveryStatus, "Blocked">> = [
   "Done",
 ];
 
+/**
+ * Window (ms) during which the carry-forward toast offers Undo.
+ * Exposed for self-test.
+ */
+export const CARRY_FORWARD_UNDO_WINDOW_MS = 6000;
+
+type CarryForwardArgs = {
+  rows: Row[];
+  sprintName: string;
+  updateShaping: (id: string, patch: Partial<ShapingItem>) => void;
+};
+
+/**
+ * Apply carry-forward to one or more sprint items and surface a sonner toast
+ * with an inline Undo link. Manual dismissal of the first toast suppresses
+ * the follow-up "Carry forward undone." toast.
+ */
+export function carryForwardWithUndo({ rows, sprintName, updateShaping }: CarryForwardArgs) {
+  if (rows.length === 0) return;
+  const ts = new Date().toISOString();
+  const userId = useTfpStore.getState().currentUserId;
+  const snapshot = rows.map((r) => ({
+    id: r.sh.id,
+    carry_forwarded_at: r.sh.carry_forwarded_at,
+    carry_forwarded_by: r.sh.carry_forwarded_by,
+  }));
+  rows.forEach((r) => updateShaping(r.sh.id, { carry_forwarded_at: ts, carry_forwarded_by: userId }));
+
+  const n = rows.length;
+  const message = `Carried ${n} item${n === 1 ? "" : "s"} to ${sprintName}.`;
+  toast(message, {
+    duration: CARRY_FORWARD_UNDO_WINDOW_MS,
+    closeButton: true,
+    action: {
+      label: "Undo",
+      onClick: () => {
+        snapshot.forEach((s) =>
+          updateShaping(s.id, {
+            carry_forwarded_at: s.carry_forwarded_at,
+            carry_forwarded_by: s.carry_forwarded_by,
+          }),
+        );
+        toast("Carry forward undone.", { duration: 3000 });
+      },
+    },
+  });
+}
+
+
 function DeliveryPage() {
   const { tab, openItem } = Route.useSearch();
   const shaping = useTfpStore((s) => s.shaping);
@@ -411,10 +460,11 @@ function DeliveryPage() {
             onEnsureReview={ensureReview}
             onCompleteReview={completeReview}
             onLogFollowOn={logFollowOn}
-            onCarryForward={(row) => {
-              updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
-              toast.success("Marked carry-forward");
-            }}
+            onCarryForward={(row) => carryForwardWithUndo({
+              rows: [row],
+              sprintName: sprint.name,
+              updateShaping,
+            })}
             onCloseSprint={handleCloseSprintClick}
           />
         </DeliverySection>
