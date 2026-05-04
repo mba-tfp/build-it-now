@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
+import { PipelineHeader } from "@/components/tfp/PipelineHeader";
+import { EmptyZone } from "@/components/tfp/EmptyZone";
 import { complianceMissingRows } from "./_app.clinics";
 
 const searchSchema = z.object({
