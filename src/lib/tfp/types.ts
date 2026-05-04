@@ -297,6 +297,13 @@ export type GoLiveStatus = "Not Started" | "In Progress" | "Ready" | "Live" | "R
 
 export type GoLiveCriterionState = { done: boolean; note: string; checked_by: string | null; checked_at: string | null };
 
+export type ChecklistPhase = {
+  id: string;
+  title: string;
+  /** Item labels in display order. Criteria are keyed by label. */
+  items: string[];
+};
+
 export type GoLiveChecklist = {
   id: string;
   shaping_id: string;
@@ -306,10 +313,38 @@ export type GoLiveChecklist = {
   status: GoLiveStatus;
   war_room: boolean;
   criteria: Record<string, GoLiveCriterionState>;
+  /**
+   * Per-clinic customizable checklist. When undefined, the default PHASES
+   * template is rendered. When present, it overrides the template.
+   */
+  custom_phases?: ChecklistPhase[];
   go_no_go_decision: "Go" | "No-Go" | null;
   go_no_go_by: string | null;
   go_no_go_at: string | null;
   attachments?: Attachment[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type IntegrationType =
+  | "eIVF"
+  | "EngagedMD"
+  | "Accuro"
+  | "Oscar"
+  | "IDEAs"
+  | "Google Analytics"
+  | "Other";
+
+export type IntegrationTrack = {
+  id: string;
+  name: string;
+  type: IntegrationType;
+  /** Clinic id, or null when standalone. */
+  linked_clinic_id: string | null;
+  target_date: string | null;
+  phases: ChecklistPhase[];
+  /** Per-item completion state keyed by label. */
+  criteria: Record<string, { done: boolean; checked_at: string | null }>;
   created_at: string;
   updated_at: string;
 };
