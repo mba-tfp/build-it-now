@@ -400,6 +400,10 @@ export function HomePage() {
           )}
         </section>
       )}
+
+      {sinceModalPrev && (
+        <SinceLastVisitModal prev={sinceModalPrev} onClose={() => setSinceModalPrev(null)} />
+      )}
     </div>
   );
 }
