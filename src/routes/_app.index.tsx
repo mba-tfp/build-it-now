@@ -68,6 +68,16 @@ export function HomePage() {
     setResume(readResume());
   }, [currentUserId]);
 
+  // Session-entry "Since your last visit" modal
+  const [sinceModalPrev, setSinceModalPrev] = useState<LastVisitEntry | null>(null);
+  useEffect(() => {
+    const state = useTfpStore.getState();
+    if (state.sessionEntryShown[currentUserId]) return;
+    const prev = state.recordHomeVisit();
+    state.markSessionEntryShown(currentUserId);
+    if (prev) setSinceModalPrev(prev);
+  }, [currentUserId]);
+
   // ============ Sprint Health ============
   const sprintItems = shaping.filter((i) => i.in_sprint && i.delivery_status);
   const blocked = sprintItems.filter((i) => i.delivery_status === "Blocked").length;
