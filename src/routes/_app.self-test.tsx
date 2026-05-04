@@ -325,16 +325,28 @@ function SelfTestOutcomeHarness() {
 }
 
 function TestRow({ step, state }: { step: TestStep; state: RowState }) {
+  const isSkip = state.status === "skipped";
   return (
-    <div className="border-b border-border p-4 last:border-b-0">
+    <div className="border-b border-border p-4 last:border-b-0" data-testid={`test-row-${step.id}`}>
       <div className="flex items-start gap-3">
         <StatusIcon status={state.status} />
         <div>
-          <h2 className="text-sm font-semibold">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
             STEP {step.id} — {step.name}
+            {isSkip && (
+              <span
+                data-testid={`test-skip-badge-${step.id}`}
+                className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                SKIP
+              </span>
+            )}
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">{step.description}</p>
-          {state.error && (
+          {isSkip && state.error && (
+            <p className="mt-1 text-xs italic text-muted-foreground">{state.error}</p>
+          )}
+          {!isSkip && state.error && (
             <p className="mt-2 text-xs font-medium text-destructive">{state.error}</p>
           )}
         </div>
@@ -348,6 +360,7 @@ function StatusIcon({ status }: { status: TestStatus }) {
   if (status === "passed")
     return <CheckCircle2 className="mt-0.5 h-4 w-4 text-[var(--color-status-proceed)]" />;
   if (status === "failed") return <XCircle className="mt-0.5 h-4 w-4 text-destructive" />;
+  if (status === "skipped") return <Circle className="mt-0.5 h-4 w-4 text-muted-foreground/50" />;
   return <Circle className="mt-0.5 h-4 w-4 text-muted-foreground" />;
 }
 
