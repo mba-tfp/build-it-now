@@ -1687,4 +1687,127 @@ const TESTS: TestStep[] = [
       expect(!recognised, "Board column drop handler must reject unrecognised mime types");
     },
   },
+  {
+    id: 63,
+    name: "Carry forward toast appears with count and target sprint name",
+    description:
+      "After carryForwardWithUndo runs, a sonner toast is rendered with text 'Carried N item(s) to <Sprint Name>.'",
+    run: async () => {
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const state = useTfpStore.getState();
+      const candidate = state.shaping.find((i) => i.in_sprint && i.delivery_status && i.delivery_status !== "Done" && !i.carry_forwarded_at);
+      expect(candidate, "Need an active sprint item to carry-forward");
+      const sig = state.signals.find((s) => s.id === candidate!.signal_id)!;
+      const before = candidate!.carry_forwarded_at;
+      carryForwardWithUndo({
+        rows: [{ sh: candidate!, sig }],
+        sprintName: state.sprint.name,
+        updateShaping: state.updateShaping,
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      const after = useTfpStore.getState().shaping.find((i) => i.id === candidate!.id)!;
+      expect(after.carry_forwarded_at !== before, "carry_forwarded_at must be set");
+      const toastEl = document.querySelector('[data-sonner-toast]');
+      expect(!!toastEl, "Sonner toast element must be rendered");
+      const text = (toastEl!.textContent ?? "").replace(/\s+/g, " ");
+      expect(text.includes("Carried 1 item to"), `Toast text missing count phrase: '${text}'`);
+      expect(text.includes(state.sprint.name), `Toast must include sprint name '${state.sprint.name}'`);
+      // Restore so subsequent tests don't see the carry mark.
+      useTfpStore.getState().updateShaping(candidate!.id, { carry_forwarded_at: before, carry_forwarded_by: candidate!.carry_forwarded_by });
+      toast.dismiss();
+    },
+  },
+  {
+    id: 64,
+    name: "Carry forward toast exposes Undo action and a close button",
+    description:
+      "The toast renders both an Undo action ([data-button]) and an '×' close affordance ([data-close-button]).",
+    run: async () => {
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const state = useTfpStore.getState();
+      const candidate = state.shaping.find((i) => i.in_sprint && i.delivery_status && i.delivery_status !== "Done" && !i.carry_forwarded_at);
+      expect(candidate, "Need an active sprint item to carry-forward");
+      const sig = state.signals.find((s) => s.id === candidate!.signal_id)!;
+      const before = candidate!.carry_forwarded_at;
+      carryForwardWithUndo({
+        rows: [{ sh: candidate!, sig }],
+        sprintName: state.sprint.name,
+        updateShaping: state.updateShaping,
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      const toastEl = document.querySelector('[data-sonner-toast]');
+      expect(!!toastEl, "Sonner toast must be present");
+      const action = toastEl!.querySelector('[data-button]');
+      expect(!!action, "Undo action button must render");
+      expect(((action as HTMLElement).textContent ?? "").trim() === "Undo", "Action label must read 'Undo'");
+      const close = toastEl!.querySelector('[data-close-button]');
+      expect(!!close, "Close button must render");
+      // Cleanup
+      useTfpStore.getState().updateShaping(candidate!.id, { carry_forwarded_at: before, carry_forwarded_by: candidate!.carry_forwarded_by });
+      toast.dismiss();
+    },
+  },
+  {
+    id: 65,
+    name: "Clicking Undo within the window reverses carry forward and shows confirmation toast",
+    description:
+      "Invoking the Undo action restores carry_forwarded_at to its previous value and renders a 'Carry forward undone.' toast.",
+    run: async () => {
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const state = useTfpStore.getState();
+      const candidate = state.shaping.find((i) => i.in_sprint && i.delivery_status && i.delivery_status !== "Done" && !i.carry_forwarded_at);
+      expect(candidate, "Need an active sprint item to carry-forward");
+      const sig = state.signals.find((s) => s.id === candidate!.signal_id)!;
+      const before = candidate!.carry_forwarded_at;
+      carryForwardWithUndo({
+        rows: [{ sh: candidate!, sig }],
+        sprintName: state.sprint.name,
+        updateShaping: state.updateShaping,
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      const action = document.querySelector('[data-sonner-toast] [data-button]') as HTMLButtonElement | null;
+      expect(!!action, "Undo button must exist before click");
+      action!.click();
+      await new Promise((r) => setTimeout(r, 80));
+      const after = useTfpStore.getState().shaping.find((i) => i.id === candidate!.id)!;
+      expect(after.carry_forwarded_at === before, `carry_forwarded_at must be restored, got ${after.carry_forwarded_at}`);
+      const toasts = Array.from(document.querySelectorAll('[data-sonner-toast]'));
+      const undoneToast = toasts.find((t) => (t.textContent ?? "").includes("Carry forward undone."));
+      expect(!!undoneToast, "Confirmation toast 'Carry forward undone.' must render");
+      toast.dismiss();
+    },
+  },
+  {
+    id: 66,
+    name: "Toast auto-dismisses after the undo window and Undo action is gone",
+    description:
+      `After ${CARRY_FORWARD_UNDO_WINDOW_MS}ms with no interaction, the carry-forward toast is removed and no Undo button remains in the DOM.`,
+    run: async () => {
+      const { toast } = await import("sonner");
+      toast.dismiss();
+      const state = useTfpStore.getState();
+      const candidate = state.shaping.find((i) => i.in_sprint && i.delivery_status && i.delivery_status !== "Done" && !i.carry_forwarded_at);
+      expect(candidate, "Need an active sprint item to carry-forward");
+      const sig = state.signals.find((s) => s.id === candidate!.signal_id)!;
+      const before = candidate!.carry_forwarded_at;
+      carryForwardWithUndo({
+        rows: [{ sh: candidate!, sig }],
+        sprintName: state.sprint.name,
+        updateShaping: state.updateShaping,
+      });
+      // Wait for the window to elapse plus a small buffer for sonner's removal animation.
+      await new Promise((r) => setTimeout(r, CARRY_FORWARD_UNDO_WINDOW_MS + 800));
+      const remaining = Array.from(document.querySelectorAll('[data-sonner-toast]')).filter((t) => {
+        const txt = t.textContent ?? "";
+        return txt.includes("Carried") && txt.includes("to ");
+      });
+      expect(remaining.length === 0, `Carry-forward toast must auto-dismiss; ${remaining.length} still present`);
+      // Cleanup
+      useTfpStore.getState().updateShaping(candidate!.id, { carry_forwarded_at: before, carry_forwarded_by: candidate!.carry_forwarded_by });
+      toast.dismiss();
+    },
+  },
 ];
