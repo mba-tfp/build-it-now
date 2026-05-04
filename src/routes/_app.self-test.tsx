@@ -2021,4 +2021,103 @@ const TESTS: TestStep[] = [
       wrap.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
     },
   },
+  {
+    id: 75,
+    name: "Sprint Board card shows tier badge and product tag",
+    description: "BoardCard renders a TierBadge and the signal's product tag in the meta row.",
+    run: async () => {
+      const sh = useTfpStore.getState().shaping.find((x) => x.in_sprint && x.jira_key && x.delivery_status);
+      expect(sh, "Need a sprint shaping item");
+      setBoardCardHarnessItem(sh!.id);
+      await nextFrame();
+      const meta = document.querySelector(`[data-testid="board-card-meta-${sh!.id}"]`);
+      expect(!!meta, "Meta row must render");
+      const product = document.querySelector(`[data-testid="board-card-product-${sh!.id}"]`);
+      const sig = useTfpStore.getState().signals.find((g) => g.id === sh!.signal_id)!;
+      expect((meta!.textContent ?? "").includes(sig.tier), `Meta row should include tier ${sig.tier}, got '${meta!.textContent}'`);
+      expect((product!.textContent ?? "").includes(sig.product), `Product tag should include ${sig.product}`);
+    },
+  },
+  {
+    id: 76,
+    name: "Sprint Board card shows one-line problem preview",
+    description: "BoardCard renders a 'Problem' preview using problem_what (or empty fallback).",
+    run: async () => {
+      const sh = useTfpStore.getState().shaping.find((x) => x.in_sprint && x.jira_key && x.delivery_status);
+      expect(sh, "Need a sprint shaping item");
+      // Case A: with text
+      useTfpStore.getState().updateShaping(sh!.id, { problem_what: "Users cannot find the export button when in mobile view across all clinics nationwide" });
+      setBoardCardHarnessItem(sh!.id);
+      await nextFrame();
+      const a = document.querySelector(`[data-testid="board-card-problem-${sh!.id}"]`);
+      expect(!!a && (a!.textContent ?? "").length > 0, "Problem preview must render");
+      expect((a!.textContent ?? "").startsWith("Users cannot find"), `Got '${a!.textContent}'`);
+      // Case B: empty
+      useTfpStore.getState().updateShaping(sh!.id, { problem_what: "" });
+      await nextFrame();
+      const b = document.querySelector(`[data-testid="board-card-problem-${sh!.id}"]`);
+      expect((b!.textContent ?? "").includes("No problem statement recorded."), `Empty fallback missing, got '${b!.textContent}'`);
+    },
+  },
+  {
+    id: 77,
+    name: "Sprint Board card shows decisions count pill when decisions exist",
+    description: "BoardCard shows 'N decision(s)' pill when linked decisions exist; nothing when zero.",
+    run: async () => {
+      const sh = useTfpStore.getState().shaping.find((x) => x.in_sprint && x.jira_key && x.delivery_status);
+      expect(sh, "Need a sprint shaping item");
+      setBoardCardHarnessItem(sh!.id);
+      await nextFrame();
+      // Remove any existing decisions for this item to verify the empty case
+      useTfpStore.setState((s) => ({ decisions: s.decisions.filter((d) => d.linked_shaping_id !== sh!.id) }));
+      await nextFrame();
+      const empty = document.querySelector(`[data-testid="board-card-decisions-${sh!.id}"]`);
+      expect(!empty, "Decisions pill must NOT render when count is zero");
+      // Now add a decision
+      const dec: Decision = {
+        id: "dec-e2e-board-card",
+        title: "E2E test board decision",
+        type: "Product",
+        status: "Decided",
+        context: "self-test",
+        options_considered: "self-test",
+        decision: "self-test body",
+        consequences: "none",
+        decided_by: "u-bazil",
+        decided_at: new Date().toISOString(),
+        linked_signal_id: sh!.signal_id,
+        linked_shaping_id: sh!.id,
+        superseded_by_id: null,
+      };
+      useTfpStore.setState((s) => ({ decisions: [dec, ...s.decisions.filter((d) => d.id !== dec.id)] }));
+      await nextFrame();
+      const pill = document.querySelector(`[data-testid="board-card-decisions-${sh!.id}"]`);
+      expect(!!pill, "Decisions pill must render when count >= 1");
+      expect((pill!.textContent ?? "").includes("1 decision"), `Pill text wrong: '${pill!.textContent}'`);
+      // Cleanup
+      useTfpStore.setState((s) => ({ decisions: s.decisions.filter((d) => d.id !== dec.id) }));
+    },
+  },
+  {
+    id: 78,
+    name: "Clicking delivery status opens dropdown with four statuses",
+    description: "Clicking the status control on BoardCard opens a menu listing To Do, In Progress, In QA, Done.",
+    run: async () => {
+      const sh = useTfpStore.getState().shaping.find((x) => x.in_sprint && x.jira_key && x.delivery_status);
+      expect(sh, "Need a sprint shaping item");
+      setBoardCardHarnessItem(sh!.id);
+      await nextFrame();
+      const btn = document.querySelector(`[data-testid="board-card-status-${sh!.id}"]`) as HTMLButtonElement | null;
+      expect(!!btn, "Status control must render");
+      btn!.click();
+      await nextFrame();
+      const menu = document.querySelector(`[data-testid="board-card-status-menu-${sh!.id}"]`);
+      expect(!!menu, "Status dropdown must open on click");
+      const expected = ["To Do", "In Progress", "In QA", "Done"];
+      for (const s of expected) {
+        const opt = document.querySelector(`[data-testid="board-card-status-option-${sh!.id}-${s.replace(/\s+/g, "-")}"]`);
+        expect(!!opt, `Dropdown should include option '${s}'`);
+      }
+    },
+  },
 ];
