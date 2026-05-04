@@ -411,10 +411,11 @@ function DeliveryPage() {
             onEnsureReview={ensureReview}
             onCompleteReview={completeReview}
             onLogFollowOn={logFollowOn}
-            onCarryForward={(row) => {
-              updateShaping(row.sh.id, { carry_forwarded_at: new Date().toISOString(), carry_forwarded_by: useTfpStore.getState().currentUserId });
-              toast.success("Marked carry-forward");
-            }}
+            onCarryForward={(row) => carryForwardWithUndo({
+              rows: [row],
+              sprintName: sprint.name,
+              updateShaping,
+            })}
             onCloseSprint={handleCloseSprintClick}
           />
         </DeliverySection>
