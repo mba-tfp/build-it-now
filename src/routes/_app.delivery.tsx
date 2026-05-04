@@ -717,9 +717,32 @@ function PlanningTab(props: {
       </div>
     );
   }
+  const [overBacklog, setOverBacklog] = useState(false);
+  const [overPlanning, setOverPlanning] = useState(false);
   return (
     <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="rounded-md border border-border bg-surface/50">
+      <section
+        data-testid="planning-backlog-dropzone"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("application/x-tfp-from-planning")) {
+            e.preventDefault();
+            setOverBacklog(true);
+          }
+        }}
+        onDragLeave={() => setOverBacklog(false)}
+        onDrop={(e) => {
+          setOverBacklog(false);
+          if (e.dataTransfer.types.includes("application/x-tfp-from-planning")) {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) props.onRemove(id);
+          }
+        }}
+        className={cn(
+          "rounded-md border bg-surface/50 transition-colors",
+          overBacklog ? "border-primary bg-primary/5" : "border-border",
+        )}
+      >
         <div className="border-b border-border p-4">
           <h2 className="font-display text-lg">Prioritized backlog</h2>
         </div>
@@ -729,7 +752,7 @@ function PlanningTab(props: {
           action={undefined}
         />
         <div className="border-t border-border p-3 text-xs text-muted-foreground">
-          Click a row to move it into sprint planning. Jira tickets are created only when the sprint is confirmed.
+          Click a row to move it into sprint planning, or drag a planning item back here to remove it. Jira tickets are created only when the sprint is confirmed.
         </div>
       </section>
 
