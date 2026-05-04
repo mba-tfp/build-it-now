@@ -148,6 +148,10 @@ export type ShapingItem = {
   delivery_status: DeliveryStatus | null;
   carry_forwarded_at?: string | null;
   carry_forwarded_by?: string | null;
+  /** Reason recorded when an item is parked from the Ready to Commit section. */
+  park_reason?: string | null;
+  /** Sprint intention for committed-but-not-yet-pushed items. 1=this sprint, 2=next, 3=+2. */
+  sprint_target?: number | null;
   blocked_since: string | null;
   blocker_description: string;
   delivery_assignee_id: string | null;
