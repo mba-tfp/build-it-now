@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { USERS, capacityState, daysSince, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
-import type { Signal } from "@/lib/tfp/types";
+import type { LastVisitEntry, Signal } from "@/lib/tfp/types";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
+import { SinceLastVisitModal } from "@/components/tfp/SinceLastVisitModal";
+import { YourQueueStrip } from "@/components/tfp/YourQueueStrip";
 
 export const Route = createFileRoute("/_app/")({
   component: HomePage,
