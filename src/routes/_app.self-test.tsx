@@ -256,6 +256,33 @@ function SelfTestPage() {
       >
         <SelfTestOutcomeHarness />
       </div>
+      {/* Hidden mount for empty-state + pipeline + tooltip tests (71-73) */}
+      <div
+        id="self-test-empty-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 800, height: 600, overflow: "hidden", pointerEvents: "none", opacity: 0 }}
+      >
+        <EmptyZone variant="signals" />
+        <EmptyZone variant="backlog" />
+        <PipelineHeader activeStage="shaping" />
+        <StageTooltipHarness />
+      </div>
+    </div>
+  );
+}
+
+function StageTooltipHarness() {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      data-testid="stage-tooltip-harness"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <StageTooltip stage="Shaping">
+        <span>Shaping</span>
+      </StageTooltip>
+      {hover && <span data-testid="stage-tooltip-hover-marker" />}
     </div>
   );
 }
