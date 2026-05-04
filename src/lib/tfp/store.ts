@@ -1561,7 +1561,8 @@ type State = {
     displaced_pts?: number;
     shahid_visible?: boolean;
   }) => Override;
-  ackOverride: (id: string) => void;
+  ackOverride: (id: string, comment?: string) => void;
+  unackOverride: (id: string) => void;
   upsertGoLive: (
     data: Partial<GoLiveChecklist> & {
       id?: string;
