@@ -2387,20 +2387,13 @@ const TESTS: TestStep[] = [
     name: "Done item without outcome review shows 'Outcome review needed →'",
     description: "FlightCard's What's Next shows the outcome-review CTA when delivery_status='Done' and no review exists.",
     run: async () => {
-      // Create a fresh signal+shaping in Done with no review, and put it in flight
-      const sig = useTfpStore.getState().createSignal({
-        title: "E2E done flight",
-        description: "test",
-        source: "Internal",
-        product: "Platform",
-        displacement_flag: false,
-        displacement_note: null,
-      });
-      useTfpStore.setState((s) => ({ signals: s.signals.map((x) => x.id === sig.id ? { ...x, labels: [TEST_LABEL, ...x.labels] } : x) }));
-      const sh = useTfpStore.getState().convertSignalToShaping(sig.id);
-      useTfpStore.getState().updateShaping(sh.id, { shaping_status: "Ready for Sprint", in_sprint: true, jira_key: "TEST-90", delivery_status: "Done" });
+      // Find a committed item, set it to Done, and clear any review.
+      const target = useTfpStore.getState().shaping.find((sh) => sh.in_sprint && sh.jira_key);
+      expect(!!target, "Need a committed sprint item");
+      useTfpStore.setState((s) => ({ reviews: s.reviews.filter((r) => r.shaping_id !== target!.id) }));
+      useTfpStore.getState().updateShaping(target!.id, { delivery_status: "Done" });
       await nextFrame();
-      const cta = document.querySelector(`[data-testid="flight-next-review-${sh.id}"]`);
+      const cta = document.querySelector(`[data-testid="flight-next-review-${target!.id}"]`);
       expect(!!cta, "Outcome review CTA must render");
       expect((cta!.textContent ?? "").includes("Outcome review needed"), `CTA text wrong: '${cta!.textContent}'`);
     },
