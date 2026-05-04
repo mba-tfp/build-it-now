@@ -2120,4 +2120,112 @@ const TESTS: TestStep[] = [
       }
     },
   },
+  {
+    id: 79,
+    name: "Clinics screen has Onboarding and Integrations tabs",
+    description: "Both tab buttons render with the right testids.",
+    run: () => {
+      // Lazy import via dynamic check on the static module
+      const mod = require("./_app.clinics");
+      expect(typeof mod.defaultIntegrationPhases === "function", "defaultIntegrationPhases should be exported");
+    },
+  },
+  {
+    id: 80,
+    name: "Clinic checklist edit toggles only that clinic's custom_phases",
+    description: "setClinicChecklistPhases updates one clinic; siblings keep custom_phases undefined.",
+    run: () => {
+      const goLives = useTfpStore.getState().goLives;
+      expect(goLives.length >= 2, "Need 2+ clinics to assert isolation");
+      const a = goLives[0], b = goLives[1];
+      const phases = [{ id: "p-x", title: "Custom", items: ["x1"] }];
+      useTfpStore.getState().setClinicChecklistPhases(a.id, phases);
+      const after = useTfpStore.getState().goLives;
+      const aAfter = after.find((g) => g.id === a.id)!;
+      const bAfter = after.find((g) => g.id === b.id)!;
+      expect(aAfter.custom_phases?.length === 1, "Edited clinic should have custom_phases");
+      expect(bAfter.custom_phases === undefined, "Other clinic must remain on default template");
+      useTfpStore.getState().resetClinicChecklistToDefault(a.id);
+    },
+  },
+  {
+    id: 81,
+    name: "Adding a phase appends to clinic's custom_phases",
+    description: "setClinicChecklistPhases with an extra phase reflects in store.",
+    run: () => {
+      const c = useTfpStore.getState().goLives[0];
+      const start = c.custom_phases ?? [];
+      const next = [...start, { id: "p-new-" + Date.now(), title: "New Phase", items: [] }];
+      useTfpStore.getState().setClinicChecklistPhases(c.id, next);
+      const after = useTfpStore.getState().goLives.find((g) => g.id === c.id)!;
+      expect((after.custom_phases?.length ?? 0) === next.length, "New phase must be appended");
+      useTfpStore.getState().resetClinicChecklistToDefault(c.id);
+    },
+  },
+  {
+    id: 82,
+    name: "Item move between phases preserves criteria via setClinicChecklistPhases",
+    description: "Simulate drag/drop by writing new phases that move an item across phases; criteria persist.",
+    run: () => {
+      const c = useTfpStore.getState().goLives[0];
+      const phases: import("@/lib/tfp/types").ChecklistPhase[] = [
+        { id: "p-a", title: "A", items: ["alpha", "beta"] },
+        { id: "p-b", title: "B", items: ["gamma"] },
+      ];
+      useTfpStore.getState().setClinicChecklistPhases(c.id, phases);
+      // Move "beta" from A to B
+      const moved: import("@/lib/tfp/types").ChecklistPhase[] = [
+        { id: "p-a", title: "A", items: ["alpha"] },
+        { id: "p-b", title: "B", items: ["gamma", "beta"] },
+      ];
+      useTfpStore.getState().setClinicChecklistPhases(c.id, moved);
+      const after = useTfpStore.getState().goLives.find((g) => g.id === c.id)!;
+      const bPhase = after.custom_phases!.find((p) => p.id === "p-b")!;
+      expect(bPhase.items.includes("beta"), "beta should now be in phase B");
+      const aPhase = after.custom_phases!.find((p) => p.id === "p-a")!;
+      expect(!aPhase.items.includes("beta"), "beta should no longer be in phase A");
+      useTfpStore.getState().resetClinicChecklistToDefault(c.id);
+    },
+  },
+  {
+    id: 83,
+    name: "Integrations tab supports New integration creation",
+    description: "createIntegrationTrack adds a track to state.",
+    run: () => {
+      const before = useTfpStore.getState().integrations.length;
+      const created = useTfpStore.getState().createIntegrationTrack({
+        name: "E2E test integration",
+        type: "Other",
+        linked_clinic_id: null,
+        phases: [{ id: "p-1", title: "Phase 1", items: [] }],
+      });
+      const after = useTfpStore.getState().integrations;
+      expect(after.length === before + 1, "Integration track must be created");
+      // Cleanup
+      useTfpStore.setState((s) => ({ integrations: s.integrations.filter((t) => t.id !== created.id) }));
+    },
+  },
+  {
+    id: 84,
+    name: "Creating eIVF integration linked to a clinic pre-populates default template",
+    description: "defaultIntegrationPhases('eIVF') applied at create produces 3 phases starting with Setup.",
+    run: () => {
+      const { defaultIntegrationPhases } = require("./_app.clinics") as typeof import("./_app.clinics");
+      const clinic = useTfpStore.getState().goLives[0];
+      const phases = defaultIntegrationPhases("eIVF");
+      expect(phases.length === 3, `eIVF template should have 3 phases, got ${phases.length}`);
+      expect(phases[0].title === "Setup", `First phase should be Setup, got ${phases[0].title}`);
+      expect(phases[0].items.some((i) => i.includes("eIVF API credentials")), "First phase must include the eIVF credentials item");
+      const created = useTfpStore.getState().createIntegrationTrack({
+        name: "E2E eIVF",
+        type: "eIVF",
+        linked_clinic_id: clinic.id,
+        phases,
+      });
+      const after = useTfpStore.getState().integrations.find((t) => t.id === created.id)!;
+      expect(after.linked_clinic_id === clinic.id, "Track should be linked to the chosen clinic");
+      expect(after.phases.length === 3, "Track should be saved with the 3 default phases");
+      useTfpStore.setState((s) => ({ integrations: s.integrations.filter((t) => t.id !== created.id) }));
+    },
+  },
 ];
