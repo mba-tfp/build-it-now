@@ -12,6 +12,8 @@ import type {
   ShapingItem,
 } from "@/lib/tfp/types";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import { PipelineHeader } from "@/components/tfp/PipelineHeader";
+import { EmptyZone } from "@/components/tfp/EmptyZone";
 import { fmtDateTime } from "@/lib/tfp/format";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
