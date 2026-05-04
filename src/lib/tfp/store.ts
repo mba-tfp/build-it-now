@@ -1452,6 +1452,7 @@ type State = {
   audit: AuditEntry[];
   overrides: Override[];
   goLives: GoLiveChecklist[];
+  integrations: import("./types").IntegrationTrack[];
   comms: CommsItem[];
   decisions: Decision[];
   retros: SprintRetro[];
