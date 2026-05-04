@@ -307,7 +307,7 @@ export function AppShell() {
         <AppSidebar />
         <SidebarInset>
           <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/85 px-4 py-2.5 backdrop-blur">
-            <SidebarTrigger />
+            
             <Link
               to="/"
               data-testid="header-home-link"
