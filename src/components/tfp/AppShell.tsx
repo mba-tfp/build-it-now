@@ -30,16 +30,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger,
   SidebarInset,
-  useSidebar,
 } from "@/components/ui/sidebar";
 
 const PIPELINE_NAV: Array<{ to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/shaping", label: "Shaping", icon: Layers },
   { to: "/delivery", label: "Delivery", icon: Truck },
-  { to: "/clinics", label: "Clinics", icon: Building2 },
+  { to: "/clinics", label: "Operations", icon: Building2 },
   { to: "/leadership", label: "Leadership", icon: Crown },
 ];
 
