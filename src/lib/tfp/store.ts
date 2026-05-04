@@ -1575,6 +1575,27 @@ type State = {
   toggleGoLiveCriterion: (id: string, criterion: string, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
+  /** Replace a clinic's checklist phase structure (custom_phases). */
+  setClinicChecklistPhases: (id: string, phases: import("./types").ChecklistPhase[]) => void;
+  /** Reset clinic checklist back to the default 4-phase, 20-item template. */
+  resetClinicChecklistToDefault: (id: string) => void;
+  /** Create a new integration track. */
+  createIntegrationTrack: (data: {
+    name: string;
+    type: import("./types").IntegrationType;
+    linked_clinic_id: string | null;
+    target_date?: string | null;
+    phases?: import("./types").ChecklistPhase[];
+  }) => import("./types").IntegrationTrack;
+  /** Update an integration track's phases (after edits / reorders). */
+  setIntegrationPhases: (id: string, phases: import("./types").ChecklistPhase[]) => void;
+  /** Toggle an integration item completion. */
+  toggleIntegrationItem: (id: string, item: string, done: boolean) => void;
+  /** Patch top-level integration fields (name, target_date, linked_clinic_id). */
+  updateIntegrationTrack: (
+    id: string,
+    patch: Partial<Pick<import("./types").IntegrationTrack, "name" | "target_date" | "linked_clinic_id">>,
+  ) => void;
   createComms: (
     data: Omit<
       CommsItem,
