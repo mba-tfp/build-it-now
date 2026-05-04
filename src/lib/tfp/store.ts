@@ -3556,7 +3556,7 @@ export const useTfpStore = create<State>()(
     }),
     {
       name: "tfp-os-v6",
-      version: 15,
+      version: 16,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
@@ -3591,6 +3591,8 @@ export const useTfpStore = create<State>()(
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
           workflows: p.workflows ?? demo.workflows,
+          lastVisits: (p as Partial<State>).lastVisits ?? {},
+          sessionEntryShown: {},
         } as State;
       },
     },
