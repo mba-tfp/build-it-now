@@ -643,10 +643,23 @@ function BacklogTable({
             return (
               <tr
                 key={row.sh.id}
-                draggable={!!onMove}
-                onDragStart={(event) => event.dataTransfer.setData("text/plain", row.sh.id)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => onMove?.(event.dataTransfer.getData("text/plain"), row.sh.id)}
+                data-testid={`backlog-row-${row.sh.id}`}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData("text/plain", row.sh.id);
+                  event.dataTransfer.setData("application/x-tfp-from-backlog", "1");
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(event) => {
+                  if (onMove && event.dataTransfer.types.includes("application/x-tfp-from-backlog")) {
+                    event.preventDefault();
+                  }
+                }}
+                onDrop={(event) => {
+                  if (!onMove) return;
+                  if (!event.dataTransfer.types.includes("application/x-tfp-from-backlog")) return;
+                  onMove(event.dataTransfer.getData("text/plain"), row.sh.id);
+                }}
                 onClick={() => onRowClick?.(row)}
                 className={cn("bg-surface/40 hover:bg-accent/20", onRowClick && "cursor-pointer")}
               >
@@ -717,9 +730,32 @@ function PlanningTab(props: {
       </div>
     );
   }
+  const [overBacklog, setOverBacklog] = useState(false);
+  const [overPlanning, setOverPlanning] = useState(false);
   return (
     <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="rounded-md border border-border bg-surface/50">
+      <section
+        data-testid="planning-backlog-dropzone"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("application/x-tfp-from-planning")) {
+            e.preventDefault();
+            setOverBacklog(true);
+          }
+        }}
+        onDragLeave={() => setOverBacklog(false)}
+        onDrop={(e) => {
+          setOverBacklog(false);
+          if (e.dataTransfer.types.includes("application/x-tfp-from-planning")) {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain");
+            if (id) props.onRemove(id);
+          }
+        }}
+        className={cn(
+          "rounded-md border bg-surface/50 transition-colors",
+          overBacklog ? "border-primary bg-primary/5" : "border-border",
+        )}
+      >
         <div className="border-b border-border p-4">
           <h2 className="font-display text-lg">Prioritized backlog</h2>
         </div>
@@ -729,11 +765,31 @@ function PlanningTab(props: {
           action={undefined}
         />
         <div className="border-t border-border p-3 text-xs text-muted-foreground">
-          Click a row to move it into sprint planning. Jira tickets are created only when the sprint is confirmed.
+          Click a row to move it into sprint planning, or drag a planning item back here to remove it. Jira tickets are created only when the sprint is confirmed.
         </div>
       </section>
 
-      <section className="rounded-md border border-border bg-surface p-4">
+      <section
+        data-testid="planning-active-dropzone"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("application/x-tfp-from-backlog")) {
+            e.preventDefault();
+            setOverPlanning(true);
+          }
+        }}
+        onDragLeave={() => setOverPlanning(false)}
+        onDrop={(e) => {
+          setOverPlanning(false);
+          if (!e.dataTransfer.types.includes("application/x-tfp-from-backlog")) return;
+          e.preventDefault();
+          const id = e.dataTransfer.getData("text/plain");
+          if (id) props.onPick(id);
+        }}
+        className={cn(
+          "rounded-md border bg-surface p-4 transition-colors",
+          overPlanning ? "border-primary bg-primary/5" : "border-border",
+        )}
+      >
         <div
           data-testid="sprint-planning-header"
           data-capacity-color={props.itemCap.color}
@@ -784,7 +840,14 @@ function PlanningTab(props: {
           {props.planningRows.map((row) => (
             <div
               key={row.sh.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+              data-testid={`planning-row-${row.sh.id}`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", row.sh.id);
+                e.dataTransfer.setData("application/x-tfp-from-planning", "1");
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm cursor-grab active:cursor-grabbing"
             >
               <div>
                 <p className="font-medium">{row.sig.title}</p>
@@ -900,6 +963,8 @@ function SprintBoard({
   onCloseSprint: () => void;
 }) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const [overColumn, setOverColumn] = useState<string | null>(null);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
@@ -921,8 +986,31 @@ function SprintBoard({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_COLUMNS.map((status) => {
           const columnRows = rows.filter((row) => row.sh.delivery_status === status);
+          const isOver = overColumn === status;
           return (
-            <section key={status} className="rounded-md border border-border bg-muted/20 p-3">
+            <section
+              key={status}
+              data-testid={`board-column-${status.replace(/\s+/g, "-")}`}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes("application/x-tfp-board-card")) return;
+                e.preventDefault();
+                setOverColumn(status);
+              }}
+              onDragLeave={() => setOverColumn((c) => (c === status ? null : c))}
+              onDrop={(e) => {
+                setOverColumn(null);
+                if (!e.dataTransfer.types.includes("application/x-tfp-board-card")) return;
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/plain");
+                const item = useTfpStore.getState().shaping.find((x) => x.id === id);
+                if (!item || item.delivery_status === status) return;
+                updateShaping(id, { delivery_status: status });
+              }}
+              className={cn(
+                "rounded-md border p-3 transition-colors",
+                isOver ? "border-primary bg-primary/10" : "border-border bg-muted/20",
+              )}
+            >
               <div className="mb-3 flex justify-between text-sm font-medium">
                 <span>{status}</span>
                 <span className="text-muted-foreground">{columnRows.length}</span>
@@ -985,7 +1073,16 @@ function BoardCard({
   const isStale = hoursSince(row.sh.updated_at) >= sprintStaleHoursForTier(row.sig.tier);
   const [reviewOpen, setReviewOpen] = useState(false);
   return (
-    <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
+    <article
+      data-testid={`board-card-${row.sh.id}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", row.sh.id);
+        e.dataTransfer.setData("application/x-tfp-board-card", "1");
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm cursor-grab active:cursor-grabbing"
+    >
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="font-mono">{row.sh.jira_key}</span>
         <span>{row.sh.tech_estimate_pts ?? "—"} pts</span>
