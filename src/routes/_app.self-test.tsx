@@ -1965,12 +1965,13 @@ const TESTS: TestStep[] = [
       const badge = document.querySelector('[data-testid="stage-badge-Shaping"]');
       expect(!!badge, "Stage badge harness must mount");
       const wrap = badge!.parentElement!;
+      wrap.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       wrap.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-      await new Promise((r) => setTimeout(r, 350));
+      await new Promise((r) => setTimeout(r, 400));
       const tip = document.querySelector('[data-testid="stage-tooltip-Shaping"]');
       expect(!!tip, "Stage tooltip should appear after hover delay");
       expect((tip!.textContent ?? "").includes("Being defined"), `Tooltip text was '${tip!.textContent}'`);
-      wrap.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true }));
+      wrap.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
     },
   },
 ];
