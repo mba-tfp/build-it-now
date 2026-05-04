@@ -2209,7 +2209,6 @@ const TESTS: TestStep[] = [
     name: "Creating eIVF integration linked to a clinic pre-populates default template",
     description: "defaultIntegrationPhases('eIVF') applied at create produces 3 phases starting with Setup.",
     run: () => {
-      const { defaultIntegrationPhases } = require("./_app.clinics") as typeof import("./_app.clinics");
       const clinic = useTfpStore.getState().goLives[0];
       const phases = defaultIntegrationPhases("eIVF");
       expect(phases.length === 3, `eIVF template should have 3 phases, got ${phases.length}`);
