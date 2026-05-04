@@ -2944,7 +2944,7 @@ export const useTfpStore = create<State>()(
         return ovr;
       },
 
-      ackOverride: (id) => {
+      ackOverride: (id, comment) => {
         const me = get().currentUserId;
         set({
           overrides: get().overrides.map((o) =>
@@ -2954,6 +2954,7 @@ export const useTfpStore = create<State>()(
                   ack_status: "Acknowledged",
                   acknowledged_by: me,
                   acknowledged_at: new Date().toISOString(),
+                  ack_comment: comment?.trim() ? comment.trim() : null,
                 }
               : o,
           ),
@@ -2961,7 +2962,22 @@ export const useTfpStore = create<State>()(
         get().audit_log({
           entity_type: "override",
           entity_id: id,
-          action: "Override acknowledged",
+          action: comment?.trim() ? `Override acknowledged: ${comment.trim()}` : "Override acknowledged",
+        });
+      },
+
+      unackOverride: (id) => {
+        set({
+          overrides: get().overrides.map((o) =>
+            o.id === id
+              ? { ...o, ack_status: "Pending", acknowledged_by: null, acknowledged_at: null, ack_comment: null }
+              : o,
+          ),
+        });
+        get().audit_log({
+          entity_type: "override",
+          entity_id: id,
+          action: "Override acknowledgement reversed",
         });
       },
 
