@@ -17,7 +17,7 @@ const ACK_UNDO_WINDOW_MS = 6000;
 const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600000;
 const blockedEscalationHoursForTier = (tier: Signal["tier"]) => ({ P0: 24, P1: 48, P2: 72, P3: 96 })[tier];
 
-function LeadershipPage() {
+export function LeadershipPage() {
   const signals = useTfpStore((s) => s.signals);
   const shaping = useTfpStore((s) => s.shaping);
   const reviews = useTfpStore((s) => s.reviews);
