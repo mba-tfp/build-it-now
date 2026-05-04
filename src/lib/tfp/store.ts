@@ -1452,6 +1452,7 @@ type State = {
   audit: AuditEntry[];
   overrides: Override[];
   goLives: GoLiveChecklist[];
+  integrations: import("./types").IntegrationTrack[];
   comms: CommsItem[];
   decisions: Decision[];
   retros: SprintRetro[];
@@ -1574,6 +1575,27 @@ type State = {
   toggleGoLiveCriterion: (id: string, criterion: string, done: boolean, note?: string) => void;
   toggleGoLiveWarRoom: (id: string) => void;
   setGoLiveDecision: (id: string, decision: "Go" | "No-Go") => void;
+  /** Replace a clinic's checklist phase structure (custom_phases). */
+  setClinicChecklistPhases: (id: string, phases: import("./types").ChecklistPhase[]) => void;
+  /** Reset clinic checklist back to the default 4-phase, 20-item template. */
+  resetClinicChecklistToDefault: (id: string) => void;
+  /** Create a new integration track. */
+  createIntegrationTrack: (data: {
+    name: string;
+    type: import("./types").IntegrationType;
+    linked_clinic_id: string | null;
+    target_date?: string | null;
+    phases?: import("./types").ChecklistPhase[];
+  }) => import("./types").IntegrationTrack;
+  /** Update an integration track's phases (after edits / reorders). */
+  setIntegrationPhases: (id: string, phases: import("./types").ChecklistPhase[]) => void;
+  /** Toggle an integration item completion. */
+  toggleIntegrationItem: (id: string, item: string, done: boolean) => void;
+  /** Patch top-level integration fields (name, target_date, linked_clinic_id). */
+  updateIntegrationTrack: (
+    id: string,
+    patch: Partial<Pick<import("./types").IntegrationTrack, "name" | "target_date" | "linked_clinic_id">>,
+  ) => void;
   createComms: (
     data: Omit<
       CommsItem,
@@ -1692,6 +1714,7 @@ function latestDemoState(currentUserId = "u-bazil"): Partial<State> {
     audit: seedAudit,
     overrides: seedOverrides,
     goLives: seedGoLive,
+    integrations: [],
     comms: seedComms,
     decisions: seedDecisions,
     retros: seedRetros,
@@ -1739,6 +1762,7 @@ export const useTfpStore = create<State>()(
       audit: seedAudit,
       overrides: seedOverrides,
       goLives: seedGoLive,
+      integrations: [],
       comms: seedComms,
       decisions: seedDecisions,
       retros: seedRetros,
@@ -3080,6 +3104,79 @@ export const useTfpStore = create<State>()(
           entity_type: "checklist",
           entity_id: id,
           action: `Go/No-Go: ${decision}`,
+        });
+      },
+
+      setClinicChecklistPhases: (id, phases) => {
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id ? { ...g, custom_phases: phases, updated_at: new Date().toISOString() } : g,
+          ),
+        });
+      },
+
+      resetClinicChecklistToDefault: (id) => {
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id ? { ...g, custom_phases: undefined, updated_at: new Date().toISOString() } : g,
+          ),
+        });
+      },
+
+      createIntegrationTrack: (data) => {
+        const phases = data.phases ?? [];
+        const criteria: Record<string, { done: boolean; checked_at: string | null }> = {};
+        phases.forEach((p) => p.items.forEach((it) => { criteria[it] = { done: false, checked_at: null }; }));
+        const track: import("./types").IntegrationTrack = {
+          id: "intg-" + uid(),
+          name: data.name,
+          type: data.type,
+          linked_clinic_id: data.linked_clinic_id,
+          target_date: data.target_date ?? null,
+          phases,
+          criteria,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set({ integrations: [track, ...get().integrations] });
+        return track;
+      },
+
+      setIntegrationPhases: (id, phases) => {
+        set({
+          integrations: get().integrations.map((t) => {
+            if (t.id !== id) return t;
+            // Preserve criteria for retained items, zero for new items.
+            const next: Record<string, { done: boolean; checked_at: string | null }> = {};
+            phases.forEach((p) => p.items.forEach((it) => {
+              next[it] = t.criteria[it] ?? { done: false, checked_at: null };
+            }));
+            return { ...t, phases, criteria: next, updated_at: new Date().toISOString() };
+          }),
+        });
+      },
+
+      toggleIntegrationItem: (id, item, done) => {
+        set({
+          integrations: get().integrations.map((t) => {
+            if (t.id !== id) return t;
+            return {
+              ...t,
+              criteria: {
+                ...t.criteria,
+                [item]: { done, checked_at: done ? new Date().toISOString() : null },
+              },
+              updated_at: new Date().toISOString(),
+            };
+          }),
+        });
+      },
+
+      updateIntegrationTrack: (id, patch) => {
+        set({
+          integrations: get().integrations.map((t) =>
+            t.id === id ? { ...t, ...patch, updated_at: new Date().toISOString() } : t,
+          ),
         });
       },
 
