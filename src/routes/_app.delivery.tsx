@@ -10,6 +10,7 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, GoLiveChecklist, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import { TierBadge } from "@/components/tfp/Badge";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 import { PipelineHeader } from "@/components/tfp/PipelineHeader";
