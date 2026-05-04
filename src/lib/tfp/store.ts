@@ -3107,6 +3107,79 @@ export const useTfpStore = create<State>()(
         });
       },
 
+      setClinicChecklistPhases: (id, phases) => {
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id ? { ...g, custom_phases: phases, updated_at: new Date().toISOString() } : g,
+          ),
+        });
+      },
+
+      resetClinicChecklistToDefault: (id) => {
+        set({
+          goLives: get().goLives.map((g) =>
+            g.id === id ? { ...g, custom_phases: undefined, updated_at: new Date().toISOString() } : g,
+          ),
+        });
+      },
+
+      createIntegrationTrack: (data) => {
+        const phases = data.phases ?? [];
+        const criteria: Record<string, { done: boolean; checked_at: string | null }> = {};
+        phases.forEach((p) => p.items.forEach((it) => { criteria[it] = { done: false, checked_at: null }; }));
+        const track: import("./types").IntegrationTrack = {
+          id: "intg-" + uid(),
+          name: data.name,
+          type: data.type,
+          linked_clinic_id: data.linked_clinic_id,
+          target_date: data.target_date ?? null,
+          phases,
+          criteria,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set({ integrations: [track, ...get().integrations] });
+        return track;
+      },
+
+      setIntegrationPhases: (id, phases) => {
+        set({
+          integrations: get().integrations.map((t) => {
+            if (t.id !== id) return t;
+            // Preserve criteria for retained items, zero for new items.
+            const next: Record<string, { done: boolean; checked_at: string | null }> = {};
+            phases.forEach((p) => p.items.forEach((it) => {
+              next[it] = t.criteria[it] ?? { done: false, checked_at: null };
+            }));
+            return { ...t, phases, criteria: next, updated_at: new Date().toISOString() };
+          }),
+        });
+      },
+
+      toggleIntegrationItem: (id, item, done) => {
+        set({
+          integrations: get().integrations.map((t) => {
+            if (t.id !== id) return t;
+            return {
+              ...t,
+              criteria: {
+                ...t.criteria,
+                [item]: { done, checked_at: done ? new Date().toISOString() : null },
+              },
+              updated_at: new Date().toISOString(),
+            };
+          }),
+        });
+      },
+
+      updateIntegrationTrack: (id, patch) => {
+        set({
+          integrations: get().integrations.map((t) =>
+            t.id === id ? { ...t, ...patch, updated_at: new Date().toISOString() } : t,
+          ),
+        });
+      },
+
       createComms: (data) => {
         const autoApproval: Record<CommsType, boolean> = {
           "Delay notification": false,
