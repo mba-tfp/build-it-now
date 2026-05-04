@@ -286,6 +286,14 @@ function SelfTestPage() {
         <DeliveryTrackerHarness />
         <ParkReasonModalHarness />
       </div>
+      {/* Hidden mount for Leadership tests (94-96) */}
+      <div
+        id="self-test-leadership-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 1200, height: 800, overflow: "auto", pointerEvents: "none", opacity: 0 }}
+      >
+        <LeadershipHarness />
+      </div>
     </div>
   );
 }
