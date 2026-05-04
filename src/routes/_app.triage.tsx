@@ -862,7 +862,7 @@ function OriginatedFromRow({ parentId }: { parentId: string }) {
       <dd className="mt-0.5 text-sm">
         <button
           type="button"
-          readOnly
+          aria-readonly="true"
           onClick={() => navigate({ to: "/inbox", search: { tab: "triage", signal: parentId } })}
           className="text-primary hover:underline"
         >
