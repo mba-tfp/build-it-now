@@ -81,6 +81,10 @@ function SelfTestPage() {
     };
     useTfpStore.getState().setDemoMode(false);
     for (const step of TESTS) {
+      if (step.skip) {
+        setRows((current) => ({ ...current, [step.id]: { status: "skipped", error: step.skip } }));
+        continue;
+      }
       setRows((current) => ({ ...current, [step.id]: { status: "running" } }));
       try {
         await step.run(ctx);
