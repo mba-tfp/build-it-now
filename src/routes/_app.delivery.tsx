@@ -963,6 +963,8 @@ function SprintBoard({
   onCloseSprint: () => void;
 }) {
   const blocked = rows.filter((row) => row.sh.delivery_status === "Blocked");
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const [overColumn, setOverColumn] = useState<string | null>(null);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
@@ -984,8 +986,31 @@ function SprintBoard({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {BOARD_COLUMNS.map((status) => {
           const columnRows = rows.filter((row) => row.sh.delivery_status === status);
+          const isOver = overColumn === status;
           return (
-            <section key={status} className="rounded-md border border-border bg-muted/20 p-3">
+            <section
+              key={status}
+              data-testid={`board-column-${status.replace(/\s+/g, "-")}`}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes("application/x-tfp-board-card")) return;
+                e.preventDefault();
+                setOverColumn(status);
+              }}
+              onDragLeave={() => setOverColumn((c) => (c === status ? null : c))}
+              onDrop={(e) => {
+                setOverColumn(null);
+                if (!e.dataTransfer.types.includes("application/x-tfp-board-card")) return;
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/plain");
+                const item = useTfpStore.getState().shaping.find((x) => x.id === id);
+                if (!item || item.delivery_status === status) return;
+                updateShaping(id, { delivery_status: status });
+              }}
+              className={cn(
+                "rounded-md border p-3 transition-colors",
+                isOver ? "border-primary bg-primary/10" : "border-border bg-muted/20",
+              )}
+            >
               <div className="mb-3 flex justify-between text-sm font-medium">
                 <span>{status}</span>
                 <span className="text-muted-foreground">{columnRows.length}</span>
