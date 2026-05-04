@@ -374,7 +374,15 @@ function ReviewDetail({ review }: { review: Review }) {
           review={review}
           defaultSource={(sig?.source as Source) ?? "Internal"}
           defaultProduct={(sig?.product as Product) ?? "Platform"}
-          onLog={(d) => logFollowOnSignal(review.id, d)}
+          onLog={(d) => {
+            void d;
+            return logFollowOnSignalWithToast({
+              sourceTitle: sig?.title ?? "item",
+              parentSignalId: sig?.id ?? review.signal_id,
+              product: (sig?.product as Product) ?? "Platform",
+              reviewId: review.id,
+            });
+          }}
           onDraft={(title, desc) =>
             updateReview(review.id, {
               follow_on_draft_title: title,
