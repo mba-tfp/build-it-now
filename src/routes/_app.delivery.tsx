@@ -643,10 +643,23 @@ function BacklogTable({
             return (
               <tr
                 key={row.sh.id}
-                draggable={!!onMove}
-                onDragStart={(event) => event.dataTransfer.setData("text/plain", row.sh.id)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => onMove?.(event.dataTransfer.getData("text/plain"), row.sh.id)}
+                data-testid={`backlog-row-${row.sh.id}`}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData("text/plain", row.sh.id);
+                  event.dataTransfer.setData("application/x-tfp-from-backlog", "1");
+                  event.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(event) => {
+                  if (onMove && event.dataTransfer.types.includes("application/x-tfp-from-backlog")) {
+                    event.preventDefault();
+                  }
+                }}
+                onDrop={(event) => {
+                  if (!onMove) return;
+                  if (!event.dataTransfer.types.includes("application/x-tfp-from-backlog")) return;
+                  onMove(event.dataTransfer.getData("text/plain"), row.sh.id);
+                }}
                 onClick={() => onRowClick?.(row)}
                 className={cn("bg-surface/40 hover:bg-accent/20", onRowClick && "cursor-pointer")}
               >
