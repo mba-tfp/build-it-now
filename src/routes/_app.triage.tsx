@@ -848,3 +848,27 @@ function Detail({ label, value }: { label: string; value: string }) {
     </>
   );
 }
+
+function OriginatedFromRow({ parentId }: { parentId: string }) {
+  const parent = useTfpStore((s) => s.signals.find((x) => x.id === parentId));
+  const navigate = useNavigate();
+  return (
+    <div
+      data-testid="originated-from"
+      data-parent-id={parentId}
+      className="col-span-2"
+    >
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">Originated from</dt>
+      <dd className="mt-0.5 text-sm">
+        <button
+          type="button"
+          readOnly
+          onClick={() => navigate({ to: "/inbox", search: { tab: "triage", signal: parentId } })}
+          className="text-primary hover:underline"
+        >
+          {parent?.title ?? parentId}
+        </button>
+      </dd>
+    </div>
+  );
+}
