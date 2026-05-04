@@ -445,11 +445,15 @@ function DeliveryPage() {
     return reviews.find((review) => review.shaping_id === shapingId) ?? startReview(shapingId);
   }
 
-  function logFollowOn(row: Row, text: string) {
+  function logFollowOn(row: Row, _text: string) {
     const review = ensureReview(row.sh.id);
     if (!review) return;
-    logFollowOnSignal(review.id, { title: text, description: text, source: "Internal", product: row.sig.product });
-    toast.success("Follow-on signal logged in Inbox");
+    logFollowOnSignalWithToast({
+      sourceTitle: row.sig.title,
+      parentSignalId: row.sig.id,
+      product: row.sig.product,
+      reviewId: review.id,
+    });
   }
 
   const itemCap = sprintItemCapacity(sprint);
