@@ -53,6 +53,14 @@ function SelfTestPage() {
     () => Object.values(rows).filter((row) => row.status === "passed").length,
     [rows],
   );
+  const failed = useMemo(
+    () => Object.values(rows).filter((row) => row.status === "failed").length,
+    [rows],
+  );
+  const skipped = useMemo(
+    () => Object.values(rows).filter((row) => row.status === "skipped").length,
+    [rows],
+  );
 
   useEffect(() => {
     window.localStorage.setItem(AUTO_RUN_KEY, String(autoRun));
