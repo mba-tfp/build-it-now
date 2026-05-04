@@ -151,7 +151,11 @@ export function YourQueueStrip() {
         )}
       </div>
       {items.length === 0 ? (
-        <p data-testid="your-queue-empty" className="text-sm text-muted-foreground">
+        <p
+          data-testid="your-queue-empty"
+          data-empty-variant="queue"
+          className="text-center text-sm text-muted-foreground"
+        >
           You're clear.
         </p>
       ) : (

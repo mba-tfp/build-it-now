@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
+import { PipelineHeader } from "@/components/tfp/PipelineHeader";
+import { EmptyZone } from "@/components/tfp/EmptyZone";
 import { complianceMissingRows } from "./_app.clinics";
 
 const searchSchema = z.object({
@@ -481,6 +483,7 @@ function DeliveryPage() {
 
   return (
     <div>
+      <PipelineHeader activeStage="delivery" />
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
@@ -788,8 +791,8 @@ function BacklogTable({
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={action ? 8 : 7} className="px-3 py-10 text-center text-muted-foreground">
-                No ready backlog items.
+              <td colSpan={action ? 8 : 7} className="px-3 py-6">
+                <EmptyZone variant="backlog" />
               </td>
             </tr>
           )}

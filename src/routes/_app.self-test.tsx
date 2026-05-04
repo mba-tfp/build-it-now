@@ -11,6 +11,9 @@ import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CARRY_FORWARD_UNDO_WINDOW_MS, carryForwardWithUndo, computeCannotCloseRows } from "./_app.delivery";
+import { EmptyZone } from "@/components/tfp/EmptyZone";
+import { PipelineHeader } from "@/components/tfp/PipelineHeader";
+import { StageTooltip } from "@/components/tfp/IntuitivenessTooltips";
 import type { Decision } from "@/lib/tfp/types";
 
 export const Route = createFileRoute("/_app/self-test")({
@@ -253,6 +256,33 @@ function SelfTestPage() {
       >
         <SelfTestOutcomeHarness />
       </div>
+      {/* Hidden mount for empty-state + pipeline + tooltip tests (71-73) */}
+      <div
+        id="self-test-empty-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 800, height: 600, overflow: "hidden", pointerEvents: "none", opacity: 0 }}
+      >
+        <EmptyZone variant="signals" />
+        <EmptyZone variant="backlog" />
+        <PipelineHeader activeStage="shaping" />
+        <StageTooltipHarness />
+      </div>
+    </div>
+  );
+}
+
+function StageTooltipHarness() {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      data-testid="stage-tooltip-harness"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <StageTooltip stage="Shaping">
+        <span>Shaping</span>
+      </StageTooltip>
+      {hover && <span data-testid="stage-tooltip-hover-marker" />}
     </div>
   );
 }
@@ -1891,6 +1921,57 @@ const TESTS: TestStep[] = [
       expect(href.includes("tab=triage"), `href should include tab=triage, got '${href}'`);
       expect(href.includes(`signal=${encodeURIComponent(sig.id)}`), `href should include signal=${sig.id}, got '${href}'`);
       toast.dismiss();
+    },
+  },
+  {
+    id: 71,
+    name: "Empty Signals zone shows label and CTA",
+    description: "EmptyZone variant=signals renders the configured label and CTA link.",
+    run: () => {
+      const label = document.querySelector('[data-testid="empty-zone-label-signals"]');
+      const cta = document.querySelector('[data-testid="empty-zone-cta-signals"]');
+      expect(!!label && (label!.textContent ?? "").includes("Signals are observations"), "Signals empty label missing");
+      expect(!!cta && (cta!.textContent ?? "").includes("Log the first signal"), "Signals empty CTA missing");
+    },
+  },
+  {
+    id: 72,
+    name: "Empty Backlog zone shows label and CTA",
+    description: "EmptyZone variant=backlog renders the configured label and CTA link.",
+    run: () => {
+      const label = document.querySelector('[data-testid="empty-zone-label-backlog"]');
+      const cta = document.querySelector('[data-testid="empty-zone-cta-backlog"]');
+      expect(!!label && (label!.textContent ?? "").includes("backlog holds"), "Backlog empty label missing");
+      expect(!!cta && (cta!.textContent ?? "").includes("Log a signal"), "Backlog empty CTA missing");
+    },
+  },
+  {
+    id: 73,
+    name: "PipelineHeader on Shaping highlights Shaping stage",
+    description: "PipelineHeader rendered with activeStage=shaping marks the Shaping stage active.",
+    run: () => {
+      const header = document.querySelector('[data-testid="pipeline-header"]');
+      expect(!!header, "Pipeline header must render");
+      expect(header!.getAttribute("data-active-stage") === "shaping", "Active stage should be shaping");
+      const stage = document.querySelector('[data-testid="pipeline-stage-shaping"]');
+      expect(!!stage && stage!.getAttribute("data-active") === "true", "Shaping stage must be marked active");
+    },
+  },
+  {
+    id: 74,
+    name: "Hovering a stage badge shows correct stage tooltip",
+    description: "Dispatching mouseenter on the Shaping stage badge renders the matching stage tooltip after the show delay.",
+    run: async () => {
+      const badge = document.querySelector('[data-testid="stage-badge-Shaping"]');
+      expect(!!badge, "Stage badge harness must mount");
+      const wrap = badge!.parentElement!;
+      wrap.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      wrap.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 400));
+      const tip = document.querySelector('[data-testid="stage-tooltip-Shaping"]');
+      expect(!!tip, "Stage tooltip should appear after hover delay");
+      expect((tip!.textContent ?? "").includes("Being defined"), `Tooltip text was '${tip!.textContent}'`);
+      wrap.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
     },
   },
 ];
