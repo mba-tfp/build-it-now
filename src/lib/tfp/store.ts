@@ -1730,6 +1730,8 @@ export const useTfpStore = create<State>()(
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
       customLabels: [],
+      lastVisits: {},
+      sessionEntryShown: {},
       flags: DEFAULT_FLAGS,
       helpArticles: SEED_HELP,
       workflows: [],
