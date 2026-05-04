@@ -1473,4 +1473,106 @@ const TESTS: TestStep[] = [
       });
     },
   },
+  {
+    id: 53,
+    name: "First-ever visit (no last-visit timestamp): modal does NOT appear",
+    description:
+      "When lastVisits[user] is empty and no session flag is set, recordHomeVisit returns null and no modal is shown.",
+    run: () => {
+      const userId = "u-bazil";
+      // Clear lastVisits + session flag for this user
+      useTfpStore.setState((s) => ({
+        lastVisits: Object.fromEntries(Object.entries(s.lastVisits).filter(([k]) => k !== userId)),
+        sessionEntryShown: Object.fromEntries(Object.entries(s.sessionEntryShown).filter(([k]) => k !== userId)),
+      }));
+      const prev = useTfpStore.getState().recordHomeVisit();
+      expect(prev === null, "First visit must return null prev (no modal)");
+      // After call, lastVisits[user] is now set
+      expect(!!useTfpStore.getState().lastVisits[userId], "lastVisits must be silently set on first visit");
+    },
+  },
+  {
+    id: 54,
+    name: "Second visit: recordHomeVisit returns the previous entry (modal would appear)",
+    description: "Calling recordHomeVisit twice yields a non-null prev on the second call.",
+    run: async () => {
+      const userId = "u-bazil";
+      useTfpStore.setState((s) => ({
+        lastVisits: Object.fromEntries(Object.entries(s.lastVisits).filter(([k]) => k !== userId)),
+        sessionEntryShown: Object.fromEntries(Object.entries(s.sessionEntryShown).filter(([k]) => k !== userId)),
+      }));
+      useTfpStore.getState().recordHomeVisit();
+      await new Promise((r) => setTimeout(r, 5));
+      const prev = useTfpStore.getState().recordHomeVisit();
+      expect(prev !== null, "Second visit must return the previous entry");
+      expect(typeof prev!.ts === "string", "Previous entry must have a ts");
+    },
+  },
+  {
+    id: 55,
+    name: "markSessionEntryShown blocks re-show within the same session",
+    description:
+      "Once marked shown, the home effect logic uses sessionEntryShown[user] to skip; we mirror that gate here.",
+    run: () => {
+      const userId = "u-bazil";
+      useTfpStore.getState().markSessionEntryShown(userId);
+      const shown = useTfpStore.getState().sessionEntryShown[userId];
+      expect(shown === true, "sessionEntryShown[user] must be true after mark");
+      // Reset for clean state in subsequent tests
+      useTfpStore.getState().resetSessionEntryShown();
+      expect(!useTfpStore.getState().sessionEntryShown[userId], "resetSessionEntryShown must clear flag");
+    },
+  },
+  {
+    id: 56,
+    name: "Your Queue strip is visible for Bazil and Waseem",
+    description:
+      "Hidden HomePage mount renders [data-testid=your-queue-strip] for u-bazil and u-waseem.",
+    run: async () => {
+      const rootB = await withCurrentUser("u-bazil");
+      expect(!!rootB.querySelector('[data-testid="your-queue-strip"]'), "Queue strip missing for Bazil");
+      const rootW = await withCurrentUser("u-waseem");
+      expect(!!rootW.querySelector('[data-testid="your-queue-strip"]'), "Queue strip missing for Waseem");
+    },
+  },
+  {
+    id: 57,
+    name: "Your Queue strip is NOT visible for Shahid",
+    description: "Shahid's home is state-only; the queue strip must not render.",
+    run: async () => {
+      const root = await withCurrentUser("u-shahid");
+      expect(!root.querySelector('[data-testid="your-queue-strip"]'), "Queue strip must NOT render for Shahid");
+    },
+  },
+  {
+    id: 58,
+    name: "Empty queue shows 'You're clear.' and the strip stays mounted",
+    description:
+      "When computeQueueForUser returns zero items, render the empty state instead of hiding the strip.",
+    run: async () => {
+      // Snapshot then wipe relevant queue inputs for Waseem to force empty.
+      const before = useTfpStore.getState();
+      const blockedRestore = before.shaping.map((i) => ({ id: i.id, ds: i.delivery_status, b: i.blocked_since, bd: i.blocker_description }));
+      useTfpStore.setState((s) => ({
+        shaping: s.shaping.map((i) =>
+          i.delivery_assignee_id === "u-waseem"
+            ? { ...i, delivery_status: i.delivery_status === "Blocked" ? "In Progress" : i.delivery_status, updated_at: new Date().toISOString() }
+            : i,
+        ),
+      }));
+      const root = await withCurrentUser("u-waseem");
+      const strip = root.querySelector('[data-testid="your-queue-strip"]');
+      expect(!!strip, "Queue strip must remain mounted");
+      const empty = strip!.querySelector('[data-testid="your-queue-empty"]');
+      expect(!!empty, "Empty-state copy must render");
+      expect((empty!.textContent ?? "").includes("You're clear."), "Empty copy must read 'You're clear.'");
+      // Restore
+      useTfpStore.setState((s) => ({
+        shaping: s.shaping.map((i) => {
+          const r = blockedRestore.find((x) => x.id === i.id);
+          return r ? { ...i, delivery_status: r.ds, blocked_since: r.b, blocker_description: r.bd } : i;
+        }),
+      }));
+    },
+  },
 ];

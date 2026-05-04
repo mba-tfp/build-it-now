@@ -233,6 +233,17 @@ export type Sprint = {
 export type CapacityColor = "green" | "yellow" | "red";
 export type CapacityState = { used: number; capacity: number; pct: number; color: CapacityColor };
 
+export type SprintHealthSnapshot = {
+  capacity: number;
+  blockers: number;
+  spillover: number;
+};
+
+export type LastVisitEntry = {
+  ts: string;
+  sprintSnapshot: Record<string, SprintHealthSnapshot>;
+};
+
 // ============ Wave 4 additions ============
 
 export type AuditEntityType = "signal" | "shaping" | "review" | "sprint" | "override" | "comms" | "checklist" | "decision" | "retro" | "clinic" | "monitoring";

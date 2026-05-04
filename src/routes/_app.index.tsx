@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { USERS, capacityState, daysSince, sprintItemCapacity, useTfpStore } from "@/lib/tfp/store";
 import { cn } from "@/lib/utils";
-import type { Signal } from "@/lib/tfp/types";
+import type { LastVisitEntry, Signal } from "@/lib/tfp/types";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
+import { SinceLastVisitModal } from "@/components/tfp/SinceLastVisitModal";
+import { YourQueueStrip } from "@/components/tfp/YourQueueStrip";
 
 export const Route = createFileRoute("/_app/")({
   component: HomePage,
@@ -64,6 +66,16 @@ export function HomePage() {
   const [resume, setResume] = useState<ResumeEntry | null>(null);
   useEffect(() => {
     setResume(readResume());
+  }, [currentUserId]);
+
+  // Session-entry "Since your last visit" modal
+  const [sinceModalPrev, setSinceModalPrev] = useState<LastVisitEntry | null>(null);
+  useEffect(() => {
+    const state = useTfpStore.getState();
+    if (state.sessionEntryShown[currentUserId]) return;
+    const prev = state.recordHomeVisit();
+    state.markSessionEntryShown(currentUserId);
+    if (prev) setSinceModalPrev(prev);
   }, [currentUserId]);
 
   // ============ Sprint Health ============
@@ -344,6 +356,9 @@ export function HomePage() {
         </section>
       </div>
 
+      {/* 3b. Your Queue strip (Bazil + Waseem only) */}
+      <YourQueueStrip />
+
       {/* 4. Throughput strip */}
       <ThroughputStrip
         label={throughputLabel}
@@ -384,6 +399,10 @@ export function HomePage() {
             </ul>
           )}
         </section>
+      )}
+
+      {sinceModalPrev && (
+        <SinceLastVisitModal prev={sinceModalPrev} onClose={() => setSinceModalPrev(null)} />
       )}
     </div>
   );

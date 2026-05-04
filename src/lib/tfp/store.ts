@@ -1461,6 +1461,10 @@ type State = {
   techDebtReviews: TechDebtReview[];
   clinicFeedbackLog: ClinicFeedbackRecord[];
   customLabels: string[];
+  /** Per-user "last seen on Home" timestamps + sprint snapshot for diff. */
+  lastVisits: Record<string, import("./types").LastVisitEntry>;
+  /** Per-(user,session) flag: did we already show the modal this session? */
+  sessionEntryShown: Record<string, boolean>;
   // Round 5
   flags: FeatureFlags;
   helpArticles: HelpArticle[];
@@ -1659,6 +1663,12 @@ type State = {
   removeWorkflow: (id: string) => void;
   toggleWorkflowActive: (id: string) => void;
   resetDemoData: () => void;
+  /** Capture the current sprint health snapshot AND advance lastVisits[user] to now. Returns the previous entry (or null if first ever). */
+  recordHomeVisit: () => import("./types").LastVisitEntry | null;
+  /** Mark that this user has seen their session-entry modal this session (in-memory). */
+  markSessionEntryShown: (userId: string) => void;
+  /** Test/dev helper: clear sessionEntryShown for all users (does not touch lastVisits). */
+  resetSessionEntryShown: () => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
@@ -1697,6 +1707,24 @@ function latestDemoState(currentUserId = "u-bazil"): Partial<State> {
   };
 }
 
+export function computeSprintHealthSnapshot(
+  sprints: Sprint[],
+  shaping: ShapingItem[],
+): Record<string, import("./types").SprintHealthSnapshot> {
+  const out: Record<string, import("./types").SprintHealthSnapshot> = {};
+  for (const sp of sprints) {
+    const items = shaping.filter((i) => i.in_sprint && i.delivery_status);
+    const blockers = items.filter((i) => i.delivery_status === "Blocked").length;
+    const spillover = items.filter((i) => i.carry_forwarded_at).length;
+    out[sp.id] = {
+      capacity: sp.item_capacity ?? 20,
+      blockers,
+      spillover,
+    };
+  }
+  return out;
+}
+
 export const useTfpStore = create<State>()(
   persist(
     (set, get) => ({
@@ -1720,6 +1748,8 @@ export const useTfpStore = create<State>()(
       techDebtReviews: seedTechDebtReviews,
       clinicFeedbackLog: [],
       customLabels: [],
+      lastVisits: {},
+      sessionEntryShown: {},
       flags: DEFAULT_FLAGS,
       helpArticles: SEED_HELP,
       workflows: [],
@@ -3506,10 +3536,27 @@ export const useTfpStore = create<State>()(
       resetDemoData: () => {
         set(latestDemoState(get().currentUserId));
       },
+      recordHomeVisit: () => {
+        const userId = get().currentUserId;
+        const prev = get().lastVisits[userId] ?? null;
+        const snapshot = computeSprintHealthSnapshot(get().sprints, get().shaping);
+        const next: import("./types").LastVisitEntry = {
+          ts: new Date().toISOString(),
+          sprintSnapshot: snapshot,
+        };
+        set({ lastVisits: { ...get().lastVisits, [userId]: next } });
+        return prev;
+      },
+      markSessionEntryShown: (userId) => {
+        set({ sessionEntryShown: { ...get().sessionEntryShown, [userId]: true } });
+      },
+      resetSessionEntryShown: () => {
+        set({ sessionEntryShown: {} });
+      },
     }),
     {
       name: "tfp-os-v6",
-      version: 15,
+      version: 16,
       skipHydration: true,
       migrate: (persisted: unknown) => {
         const p = (persisted ?? {}) as Partial<State>;
@@ -3544,6 +3591,8 @@ export const useTfpStore = create<State>()(
           flags: { ...DEFAULT_FLAGS, ...(p.flags ?? {}) },
           helpArticles: p.helpArticles?.length ? p.helpArticles : SEED_HELP,
           workflows: p.workflows ?? demo.workflows,
+          lastVisits: (p as Partial<State>).lastVisits ?? {},
+          sessionEntryShown: {},
         } as State;
       },
     },
