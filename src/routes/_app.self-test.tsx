@@ -7,6 +7,7 @@ import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/no
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { complianceMissingRows, complianceRequiredItems, isComplianceRequired, procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
+import { LeadershipPage } from "./_app.leadership";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
