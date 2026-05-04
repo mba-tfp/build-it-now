@@ -468,7 +468,7 @@ function DeliveryPage() {
 
 // ============== Ready to Commit ==============
 
-function ReadyToCommitSection({
+export function ReadyToCommitSection({
   rows,
   parkedRows,
   users,
@@ -655,7 +655,7 @@ function ReadyCard({
   );
 }
 
-function ParkReasonModal({
+export function ParkReasonModal({
   row,
   onCancel,
   onConfirm,
@@ -703,7 +703,7 @@ function ParkReasonModal({
 
 const FLIGHT_GROUP_ORDER: DeliveryStatus[] = ["Blocked", "In Progress", "In QA", "To Do", "Done"];
 
-function InFlightSection({
+export function InFlightSection({
   rows,
   reviews,
   users,
