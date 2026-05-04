@@ -1157,7 +1157,7 @@ function SprintBoard({
   );
 }
 
-function BoardCard({
+export function BoardCard({
   row,
   review,
   users,
