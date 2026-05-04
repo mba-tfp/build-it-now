@@ -522,7 +522,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   outcomes: "Outcomes",
   review: "Reviews",
   retros: "Retros",
-  clinics: "Clinics",
+  clinics: "Operations",
   golive: "Go-Live",
   leadership: "Leadership",
   governance: "Governance",
