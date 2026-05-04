@@ -2454,7 +2454,7 @@ const TESTS: TestStep[] = [
       const { LeadershipPage } = await import("./_app.leadership");
       const host = document.getElementById("self-test-leadership-preview");
       expect(!!host, "Leadership host must be mounted");
-      setLeadershipHarnessActive(true);
+      // harness mounted
       await nextFrame();
       const hero = host!.querySelector('[data-testid="leadership-sprint-hero"]');
       const attention = host!.querySelector('[data-testid="leadership-attention"]');
@@ -2471,7 +2471,7 @@ const TESTS: TestStep[] = [
     name: "Acknowledge button reveals inline comment form",
     description: "Clicking Acknowledge on a pending override mounts an inline form before firing.",
     run: async () => {
-      setLeadershipHarnessActive(true);
+      // harness mounted
       await nextFrame();
       const pending = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending");
       expect(!!pending, "Need a pending override in the seed");
@@ -2490,12 +2490,12 @@ const TESTS: TestStep[] = [
     name: "Acknowledged overrides appear in collapsed history section",
     description: "Acknowledging an override saves comment and surfaces it in the ack history list.",
     run: async () => {
-      setLeadershipHarnessActive(true);
+      // harness mounted
       await nextFrame();
       const pending = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending");
       if (!pending) {
         // create a fresh pending override
-        useTfpStore.getState().logOverride({ kind: "Other", reason: "Self-test ack flow", signal_id: null, shaping_id: null, sprint_id: null, displaced_shaping_ids: [], displaced_pts: 0 });
+        useTfpStore.getState().logOverride({ kind: "Other", reason: "Self-test ack flow", signal_id: null, shaping_id: null, displaced_shaping_ids: [], displaced_pts: 0 });
       }
       await nextFrame();
       const target = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending")!;
