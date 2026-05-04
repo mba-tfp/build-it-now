@@ -268,7 +268,53 @@ function SelfTestPage() {
         <PipelineHeader activeStage="shaping" />
         <StageTooltipHarness />
       </div>
+      {/* Hidden mount for BoardCard tests (75-78) */}
+      <div
+        id="self-test-board-card-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 800, height: 600, overflow: "hidden", pointerEvents: "none", opacity: 0 }}
+      >
+        <BoardCardHarness />
+      </div>
     </div>
+  );
+}
+
+const boardCardHarnessSubs = new Set<() => void>();
+let boardCardHarnessItemId: string | null = null;
+function setBoardCardHarnessItem(id: string | null) {
+  boardCardHarnessItemId = id;
+  boardCardHarnessSubs.forEach((fn) => fn());
+}
+function useBoardCardHarnessItemId(): string | null {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    boardCardHarnessSubs.add(fn);
+    return () => {
+      boardCardHarnessSubs.delete(fn);
+    };
+  }, []);
+  return boardCardHarnessItemId;
+}
+function BoardCardHarness() {
+  const itemId = useBoardCardHarnessItemId();
+  const sh = useTfpStore((s) => s.shaping.find((x) => x.id === itemId));
+  const sig = useTfpStore((s) => s.signals.find((g) => g.id === sh?.signal_id));
+  if (!sh || !sig) return null;
+  return (
+    <BoardCard
+      row={{ sh, sig }}
+      review={null}
+      users={USERS}
+      expanded={false}
+      onToggleMore={() => {}}
+      onViewBrief={() => {}}
+      onEnsureReview={() => null}
+      onCompleteReview={() => {}}
+      onLogFollowOn={() => {}}
+      onCarryForward={() => {}}
+    />
   );
 }
 
