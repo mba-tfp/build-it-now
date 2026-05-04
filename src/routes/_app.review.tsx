@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { USERS, useTfpStore } from "@/lib/tfp/store";
+import { logFollowOnSignalWithToast } from "./_app.delivery";
 import type {
   OutcomeRating,
   Product,
