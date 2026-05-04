@@ -840,7 +840,14 @@ function PlanningTab(props: {
           {props.planningRows.map((row) => (
             <div
               key={row.sh.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+              data-testid={`planning-row-${row.sh.id}`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", row.sh.id);
+                e.dataTransfer.setData("application/x-tfp-from-planning", "1");
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3 text-sm cursor-grab active:cursor-grabbing"
             >
               <div>
                 <p className="font-medium">{row.sig.title}</p>
