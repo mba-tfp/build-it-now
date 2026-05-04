@@ -645,23 +645,9 @@ function TriagePanel({
                 value={fmtDateTime(sig.hold_until)}
               />
             )}
-            {sig.parent_signal_id && (() => {
-              const parent = signals.find((s) => s.id === sig.parent_signal_id);
-              return (
-                <div data-testid="originated-from" data-parent-id={sig.parent_signal_id} className="col-span-2">
-                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">Originated from</dt>
-                  <dd className="mt-0.5 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => parent && setOpenId(parent.id)}
-                      className="text-primary hover:underline"
-                    >
-                      {parent?.title ?? sig.parent_signal_id}
-                    </button>
-                  </dd>
-                </div>
-              );
-            })()}
+            {sig.parent_signal_id && (
+              <OriginatedFromRow parentId={sig.parent_signal_id} />
+            )}
           </dl>
 
           {!editing && (sig.status === "New" || sig.status === "In Review") ? (
