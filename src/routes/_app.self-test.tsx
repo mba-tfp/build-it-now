@@ -277,8 +277,73 @@ function SelfTestPage() {
       >
         <BoardCardHarness />
       </div>
+      {/* Hidden mount for Delivery Shaped Item Tracker tests (85-90) */}
+      <div
+        id="self-test-delivery-tracker-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 1200, height: 800, overflow: "auto", pointerEvents: "none", opacity: 0 }}
+      >
+        <DeliveryTrackerHarness />
+        <ParkReasonModalHarness />
+      </div>
     </div>
   );
+}
+
+function DeliveryTrackerHarness() {
+  const shaping = useTfpStore((s) => s.shaping);
+  const signals = useTfpStore((s) => s.signals);
+  const reviews = useTfpStore((s) => s.reviews);
+  const users = useTfpStore((s) => s.users);
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const startReview = useTfpStore((s) => s.startReview);
+  const allRows = shaping
+    .map((sh) => ({ sh, sig: signals.find((g) => g.id === sh.signal_id)! }))
+    .filter((r) => !!r.sig);
+  const readyRows = allRows.filter(({ sh }) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket !== "Not Now");
+  const parkedRows = allRows.filter(({ sh }) => sh.shaping_status === "Ready for Sprint" && !sh.jira_key && sh.roadmap_bucket === "Not Now");
+  const inFlight = allRows.filter(({ sh }) => sh.in_sprint || !!sh.jira_key || !!sh.delivery_status);
+  return (
+    <>
+      <ReadyToCommitSection
+        rows={readyRows}
+        parkedRows={parkedRows}
+        users={users}
+        sprintLocked={false}
+        onPick={() => {}}
+        onPark={() => {}}
+        onUnpark={() => {}}
+        onViewBrief={() => {}}
+      />
+      <InFlightSection
+        rows={inFlight}
+        reviews={reviews}
+        users={users}
+        updateShaping={updateShaping}
+        ensureReview={(id) => reviews.find((r) => r.shaping_id === id) ?? startReview(id)}
+        onViewBrief={() => {}}
+      />
+    </>
+  );
+}
+
+const parkHarnessSubs = new Set<() => void>();
+let parkHarnessOpen = false;
+function setParkHarnessOpen(v: boolean) {
+  parkHarnessOpen = v;
+  parkHarnessSubs.forEach((f) => f());
+}
+function ParkReasonModalHarness() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    parkHarnessSubs.add(fn);
+    return () => { parkHarnessSubs.delete(fn); };
+  }, []);
+  const sh = useTfpStore((s) => s.shaping[0]);
+  const sig = useTfpStore((s) => s.signals.find((g) => g.id === sh?.signal_id));
+  if (!parkHarnessOpen || !sh || !sig) return null;
+  return <ParkReasonModal row={{ sh, sig }} onCancel={() => setParkHarnessOpen(false)} onConfirm={() => setParkHarnessOpen(false)} />;
 }
 
 const boardCardHarnessSubs = new Set<() => void>();
