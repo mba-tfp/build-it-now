@@ -1741,6 +1741,7 @@ export const useTfpStore = create<State>()(
       audit: seedAudit,
       overrides: seedOverrides,
       goLives: seedGoLive,
+      integrations: [],
       comms: seedComms,
       decisions: seedDecisions,
       retros: seedRetros,
