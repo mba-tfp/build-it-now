@@ -483,6 +483,7 @@ function DeliveryPage() {
 
   return (
     <div>
+      <PipelineHeader activeStage="delivery" />
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Delivery</p>
