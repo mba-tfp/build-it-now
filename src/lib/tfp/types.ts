@@ -281,6 +281,7 @@ export type Override = {
   ack_status: OverrideAckStatus;
   acknowledged_by: string | null;
   acknowledged_at: string | null;
+  ack_comment?: string | null;
   shahid_visible: boolean;
   attachments?: Attachment[];
 };

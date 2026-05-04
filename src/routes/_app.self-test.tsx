@@ -7,6 +7,7 @@ import { categorizeNotification, filterNotificationsForRole } from "@/lib/tfp/no
 import type { GoLiveChecklist, Notification, Review, Role, ShapingItem, Signal } from "@/lib/tfp/types";
 import { complianceMissingRows, complianceRequiredItems, isComplianceRequired, procreaFlag } from "./_app.clinics";
 import { HomePage } from "./_app.index";
+import { LeadershipPage } from "./_app.leadership";
 import { buildCrumbs } from "@/components/tfp/AppShell";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
@@ -286,8 +287,20 @@ function SelfTestPage() {
         <DeliveryTrackerHarness />
         <ParkReasonModalHarness />
       </div>
+      {/* Hidden mount for Leadership tests (94-96) */}
+      <div
+        id="self-test-leadership-preview"
+        aria-hidden="true"
+        style={{ position: "fixed", left: -99999, top: 0, width: 1200, height: 800, overflow: "auto", pointerEvents: "none", opacity: 0 }}
+      >
+        <LeadershipHarness />
+      </div>
     </div>
   );
+}
+
+function LeadershipHarness() {
+  return <LeadershipPage />;
 }
 
 function DeliveryTrackerHarness() {
@@ -2398,4 +2411,107 @@ const TESTS: TestStep[] = [
       expect((cta!.textContent ?? "").includes("Outcome review needed"), `CTA text wrong: '${cta!.textContent}'`);
     },
   },
+  {
+    id: 91,
+    name: "Sidebar has no toggle and renders icon-only",
+    description: "AppSidebar mounts with data-mode='icon-only', no SidebarTrigger button exists in the DOM.",
+    run: () => {
+      const sidebar = document.querySelector('[data-testid="app-sidebar"]');
+      expect(!!sidebar, "Sidebar should be present");
+      expect(sidebar!.getAttribute("data-mode") === "icon-only", "Sidebar must be icon-only");
+      const trigger = document.querySelector('[data-sidebar="trigger"]');
+      expect(!trigger, "Sidebar trigger button must not exist");
+    },
+  },
+  {
+    id: 92,
+    name: "Sidebar nav items expose label for hover tooltip",
+    description: "Each sidebar nav link carries a data-label attribute used for tooltip text.",
+    run: () => {
+      const link = document.querySelector('[data-testid="sidebar-nav-shaping"]');
+      expect(!!link, "Shaping nav link should exist");
+      expect(link!.getAttribute("data-label") === "Shaping", `Expected label 'Shaping', got '${link!.getAttribute("data-label")}'`);
+    },
+  },
+  {
+    id: 93,
+    name: "Clinics nav and breadcrumb read 'Operations'",
+    description: "Sidebar /clinics nav uses label 'Operations' and breadcrumb labelForSegment maps clinics → Operations.",
+    run: () => {
+      const link = document.querySelector('[data-testid="sidebar-nav-clinics"]');
+      expect(!!link, "Clinics nav link should exist");
+      expect(link!.getAttribute("data-label") === "Operations", `Expected 'Operations', got '${link!.getAttribute("data-label")}'`);
+      const crumbs = buildCrumbs("/clinics");
+      const last = crumbs[crumbs.length - 1];
+      expect(last.label === "Operations", `Breadcrumb segment should be 'Operations', got '${last.label}'`);
+    },
+  },
+  {
+    id: 94,
+    name: "Leadership sprint hero renders above attention panel",
+    description: "Render the leadership page in a hidden host and confirm DOM order: hero before attention.",
+    run: async () => {
+      const { LeadershipPage } = await import("./_app.leadership");
+      const host = document.getElementById("self-test-leadership-preview");
+      expect(!!host, "Leadership host must be mounted");
+      // harness mounted
+      await nextFrame();
+      const hero = host!.querySelector('[data-testid="leadership-sprint-hero"]');
+      const attention = host!.querySelector('[data-testid="leadership-attention"]');
+      expect(!!hero, "Sprint hero should render");
+      expect(!!attention, "Attention panel should render");
+      const order = hero!.compareDocumentPosition(attention!);
+      expect((order & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "Hero must come before attention");
+      // touch import to avoid tree-shake
+      void LeadershipPage;
+    },
+  },
+  {
+    id: 95,
+    name: "Acknowledge button reveals inline comment form",
+    description: "Clicking Acknowledge on a pending override mounts an inline form before firing.",
+    run: async () => {
+      // harness mounted
+      await nextFrame();
+      const pending = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending");
+      expect(!!pending, "Need a pending override in the seed");
+      const btn = document.querySelector(`[data-testid="override-ack-${pending!.id}"]`) as HTMLButtonElement | null;
+      expect(!!btn, "Acknowledge button should be present");
+      btn!.click();
+      await nextFrame();
+      const form = document.querySelector(`[data-testid="override-ack-form-${pending!.id}"]`);
+      expect(!!form, "Inline ack form must appear after click");
+      const confirm = document.querySelector(`[data-testid="override-ack-confirm-${pending!.id}"]`);
+      expect(!!confirm, "Confirm button must be in the form");
+    },
+  },
+  {
+    id: 96,
+    name: "Acknowledged overrides appear in collapsed history section",
+    description: "Acknowledging an override saves comment and surfaces it in the ack history list.",
+    run: async () => {
+      // harness mounted
+      await nextFrame();
+      const pending = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending");
+      if (!pending) {
+        // create a fresh pending override
+        useTfpStore.getState().logOverride({ kind: "Other", reason: "Self-test ack flow", signal_id: null, shaping_id: null, displaced_shaping_ids: [], displaced_pts: 0 });
+      }
+      await nextFrame();
+      const target = useTfpStore.getState().overrides.find((o) => o.shahid_visible && o.ack_status === "Pending")!;
+      useTfpStore.getState().ackOverride(target.id, "Reviewed in self-test");
+      await nextFrame();
+      const updated = useTfpStore.getState().overrides.find((o) => o.id === target.id)!;
+      expect(updated.ack_status === "Acknowledged", "Override should be acknowledged");
+      expect(updated.ack_comment === "Reviewed in self-test", `ack_comment expected, got '${updated.ack_comment}'`);
+      const toggle = document.querySelector('[data-testid="ack-history-toggle"]') as HTMLButtonElement | null;
+      expect(!!toggle, "History toggle must be present when there are acknowledged overrides");
+      toggle!.click();
+      await nextFrame();
+      const list = document.querySelector('[data-testid="ack-history-list"]');
+      expect(!!list, "History list should expand");
+      expect((list!.textContent ?? "").includes("Reviewed in self-test"), "Comment should appear in history");
+    },
+  },
 ];
+
