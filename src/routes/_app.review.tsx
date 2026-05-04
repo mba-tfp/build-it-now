@@ -522,11 +522,10 @@ function FollowOnComposer({
   const canLog = title.trim().length > 3 && desc.trim().length > 10;
 
   function handleLog() {
-    const s = onLog({ title, description: desc, source, product });
+    onLog({ title, description: desc, source, product });
     setTitle("");
     setDesc("");
-    setConfirm(`Logged signal ${s.id} into intake.`);
-    window.setTimeout(() => setConfirm(null), 3500);
+    setConfirm(null);
   }
 
   return (
