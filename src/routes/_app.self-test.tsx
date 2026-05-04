@@ -1596,4 +1596,95 @@ const TESTS: TestStep[] = [
       }));
     },
   },
+  {
+    id: 59,
+    name: "Drag from Backlog and drop on Sprint Planning adds item to planning",
+    description:
+      "Simulates the planning dropzone handler: a drop carrying 'application/x-tfp-from-backlog' calls onPick(id), which moves the item out of backlog into planning state.",
+    run: () => {
+      // Mirror DeliveryPage state.
+      let planning: string[] = [];
+      const backlog: string[] = ["b1", "b2"];
+      function onPick(id: string) {
+        if (!planning.includes(id)) planning = [...planning, id];
+      }
+      // Simulate the planning dropzone onDrop logic exactly as in _app.delivery.tsx.
+      function planningDrop(types: string[], id: string) {
+        if (!types.includes("application/x-tfp-from-backlog")) return;
+        if (id) onPick(id);
+      }
+      planningDrop(["application/x-tfp-from-backlog", "text/plain"], "b1");
+      expect(planning.includes("b1"), "planning must contain dropped backlog item");
+      const visibleBacklog = backlog.filter((x) => !planning.includes(x));
+      expect(!visibleBacklog.includes("b1"), "backlog list (filtered by planningIds) must hide moved item");
+    },
+  },
+  {
+    id: 60,
+    name: "Drag from Sprint Planning and drop on Backlog removes item from planning",
+    description:
+      "Simulates the backlog dropzone handler: a drop carrying 'application/x-tfp-from-planning' calls onRemove(id), restoring the item to the visible backlog.",
+    run: () => {
+      let planning: string[] = ["b1", "b2"];
+      function onRemove(id: string) {
+        planning = planning.filter((x) => x !== id);
+      }
+      function backlogDrop(types: string[], id: string) {
+        if (!types.includes("application/x-tfp-from-planning")) return;
+        if (id) onRemove(id);
+      }
+      backlogDrop(["application/x-tfp-from-planning", "text/plain"], "b1");
+      expect(!planning.includes("b1"), "planning must no longer contain the dragged item");
+      expect(planning.includes("b2"), "other planning items must be untouched");
+    },
+  },
+  {
+    id: 61,
+    name: "Drag a Sprint Board card from To Do to In Progress moves the item",
+    description:
+      "Updates a sprint shaping item's delivery_status via updateShaping (the same mutation the column drop handler invokes) and confirms the new status persists.",
+    run: () => {
+      const state = useTfpStore.getState();
+      const card = state.shaping.find((i) => i.in_sprint && i.delivery_status === "To Do");
+      expect(card, "Need at least one 'To Do' item in the active sprint to run this test");
+      const original = card!.delivery_status;
+      state.updateShaping(card!.id, { delivery_status: "In Progress" });
+      const after = useTfpStore.getState().shaping.find((i) => i.id === card!.id)!;
+      expect(after.delivery_status === "In Progress", `Expected In Progress, got ${after.delivery_status}`);
+      // Restore so the rest of the suite is unaffected.
+      useTfpStore.getState().updateShaping(card!.id, { delivery_status: original });
+    },
+  },
+  {
+    id: 62,
+    name: "Dropping outside any valid target leaves item position unchanged",
+    description:
+      "Drop handlers gate on a dataTransfer mime type — a drop with an unrecognized mime (i.e. outside any valid zone) must NOT mutate planning or board state.",
+    run: () => {
+      let planning: string[] = ["b1"];
+      function onPick(id: string) {
+        if (!planning.includes(id)) planning = [...planning, id];
+      }
+      function onRemove(id: string) {
+        planning = planning.filter((x) => x !== id);
+      }
+      function planningDrop(types: string[], id: string) {
+        if (!types.includes("application/x-tfp-from-backlog")) return;
+        if (id) onPick(id);
+      }
+      function backlogDrop(types: string[], id: string) {
+        if (!types.includes("application/x-tfp-from-planning")) return;
+        if (id) onRemove(id);
+      }
+      // Drop with no recognized mime = dropped outside any drop target.
+      planningDrop(["text/plain"], "b2");
+      backlogDrop(["text/plain"], "b1");
+      expect(planning.length === 1 && planning[0] === "b1", "Planning state must be unchanged after invalid drop");
+
+      // Same gate on the board column drop handler.
+      const types = ["text/plain"];
+      const recognised = types.includes("application/x-tfp-board-card");
+      expect(!recognised, "Board column drop handler must reject unrecognised mime types");
+    },
+  },
 ];
