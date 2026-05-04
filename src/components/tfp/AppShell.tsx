@@ -51,11 +51,7 @@ function AppSidebar() {
 
   return (
     <Sidebar collapsible="none" data-testid="app-sidebar" data-mode="icon-only" className="w-14 border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border flex items-center justify-center px-0 py-3">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground" title="TFP Workflow">
-          <Activity className="h-4 w-4" strokeWidth={2.25} />
-        </span>
-      </SidebarHeader>
+      <SidebarHeader className="h-[52px] shrink-0 border-b border-sidebar-border p-0" />
       <SidebarContent>
         {([{ label: "Pipeline", items: PIPELINE_NAV }] as const).map((group) => (
           <SidebarGroup key={group.label} className="px-0">
