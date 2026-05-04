@@ -17,12 +17,14 @@ export const Route = createFileRoute("/_app/self-test")({
   component: SelfTestPage,
 });
 
-type TestStatus = "pending" | "running" | "passed" | "failed";
+type TestStatus = "pending" | "running" | "passed" | "failed" | "skipped";
 type TestStep = {
   id: number;
   name: string;
   description: string;
   run: (ctx: TestContext) => void | Promise<void>;
+  /** When set, the runner records this test as "skipped" and includes the reason. */
+  skip?: string;
 };
 type TestContext = {
   signalId?: string;
