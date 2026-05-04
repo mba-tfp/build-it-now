@@ -299,6 +299,10 @@ function SelfTestPage() {
   );
 }
 
+function LeadershipHarness() {
+  return <LeadershipPage />;
+}
+
 function DeliveryTrackerHarness() {
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
