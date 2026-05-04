@@ -10,6 +10,7 @@ import { fmtDateTime } from "@/lib/tfp/format";
 import type { DeliveryStatus, GoLiveChecklist, OutcomeRating, RetroTheme, Review, ShapingItem, Signal, User } from "@/lib/tfp/types";
 import { cn } from "@/lib/utils";
 import { InlineDecisions } from "@/components/tfp/InlineDecisions";
+import { TierBadge } from "@/components/tfp/Badge";
 import { StartOutcomeReview } from "@/components/tfp/StartOutcomeReview";
 import { CapacityMeter } from "@/components/tfp/CapacityMeter";
 import { PipelineHeader } from "@/components/tfp/PipelineHeader";
@@ -1156,7 +1157,7 @@ function SprintBoard({
   );
 }
 
-function BoardCard({
+export function BoardCard({
   row,
   review,
   users,
@@ -1183,6 +1184,26 @@ function BoardCard({
   const staleDays = daysSince(row.sh.updated_at);
   const isStale = hoursSince(row.sh.updated_at) >= sprintStaleHoursForTier(row.sig.tier);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const updateShaping = useTfpStore((s) => s.updateShaping);
+  const decisionCount = useTfpStore(
+    (s) => s.decisions.filter((d) => d.linked_shaping_id === row.sh.id).length,
+  );
+  const problemPreview = (row.sh.problem_what ?? "").trim();
+  const problemText = problemPreview
+    ? problemPreview.length > 80
+      ? `${problemPreview.slice(0, 80)}…`
+      : problemPreview
+    : "No problem statement recorded.";
+  function handleStatusChange(next: DeliveryStatus) {
+    setStatusOpen(false);
+    if (next === row.sh.delivery_status) return;
+    updateShaping(row.sh.id, { delivery_status: next });
+    if (next === "Done") {
+      onEnsureReview();
+      setReviewOpen(true);
+    }
+  }
   return (
     <article
       data-testid={`board-card-${row.sh.id}`}
@@ -1198,16 +1219,65 @@ function BoardCard({
         <span className="font-mono">{row.sh.jira_key}</span>
         <span>{row.sh.tech_estimate_pts ?? "—"} pts</span>
       </div>
+      <div
+        data-testid={`board-card-meta-${row.sh.id}`}
+        className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground"
+      >
+        <TierBadge tier={row.sig.tier} />
+        <span data-testid={`board-card-product-${row.sh.id}`}>{row.sig.product}</span>
+      </div>
       <h3 className="mt-1 line-clamp-2 font-medium leading-snug">{row.sig.title}</h3>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary/10 px-1.5 font-mono text-primary">
           {initials(assignee?.name)}
         </span>
-        <span>{row.sh.delivery_status}</span>
+        <span className="relative">
+          <button
+            type="button"
+            data-testid={`board-card-status-${row.sh.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setStatusOpen((v) => !v);
+            }}
+            className="inline-flex items-center gap-0.5 rounded hover:text-foreground cursor-pointer"
+          >
+            {row.sh.delivery_status}
+            <ChevronDown className="h-3 w-3" />
+          </button>
+          {statusOpen && (
+            <div
+              data-testid={`board-card-status-menu-${row.sh.id}`}
+              className="absolute left-0 top-full z-10 mt-1 min-w-[7rem] rounded-md border border-border bg-surface p-1 shadow-md"
+            >
+              {BOARD_COLUMNS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  data-testid={`board-card-status-option-${row.sh.id}-${s.replace(/\s+/g, "-")}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStatusChange(s);
+                  }}
+                  className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-accent/40"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </span>
         <span>{staleDays}d in status</span>
         {isStale && (
           <span className="rounded-full bg-[var(--color-status-hold)]/15 px-2 py-0.5 font-medium text-[var(--color-status-hold)]">
             {staleDays}d stale
+          </span>
+        )}
+        {decisionCount > 0 && (
+          <span
+            data-testid={`board-card-decisions-${row.sh.id}`}
+            className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground"
+          >
+            {decisionCount} decision{decisionCount === 1 ? "" : "s"}
           </span>
         )}
         {row.sh.carry_forwarded_at && <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">Carry-forwarded</span>}
@@ -1221,6 +1291,18 @@ function BoardCard({
             {expanded ? "less" : "more"}
           </button>
         )}
+      </div>
+      <div className="mt-2">
+        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Problem</p>
+        <p
+          data-testid={`board-card-problem-${row.sh.id}`}
+          className={cn(
+            "mt-0.5 text-xs",
+            problemPreview ? "text-foreground/80" : "text-muted-foreground italic",
+          )}
+        >
+          {problemText}
+        </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={onViewBrief} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent/40">
