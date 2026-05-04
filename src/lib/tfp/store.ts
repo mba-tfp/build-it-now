@@ -1663,6 +1663,12 @@ type State = {
   removeWorkflow: (id: string) => void;
   toggleWorkflowActive: (id: string) => void;
   resetDemoData: () => void;
+  /** Capture the current sprint health snapshot AND advance lastVisits[user] to now. Returns the previous entry (or null if first ever). */
+  recordHomeVisit: () => import("./types").LastVisitEntry | null;
+  /** Mark that this user has seen their session-entry modal this session (in-memory). */
+  markSessionEntryShown: (userId: string) => void;
+  /** Test/dev helper: clear sessionEntryShown for all users (does not touch lastVisits). */
+  resetSessionEntryShown: () => void;
 };
 
 const JIRA_FLOW: DeliveryStatus[] = ["To Do", "In Progress", "In QA", "Done"];
