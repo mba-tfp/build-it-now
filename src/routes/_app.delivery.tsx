@@ -263,7 +263,7 @@ export function logFollowOnSignalWithToast(args: {
   return signal;
 }
 
-
+function DeliveryPage() {
   const { tab, openItem } = Route.useSearch();
   const shaping = useTfpStore((s) => s.shaping);
   const signals = useTfpStore((s) => s.signals);
