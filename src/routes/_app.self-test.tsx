@@ -2124,11 +2124,9 @@ const TESTS: TestStep[] = [
   {
     id: 79,
     name: "Clinics screen has Onboarding and Integrations tabs",
-    description: "Both tab buttons render with the right testids.",
+    description: "defaultIntegrationPhases is exported from clinics module.",
     run: () => {
-      // Lazy import via dynamic check on the static module
-      const mod = require("./_app.clinics");
-      expect(typeof mod.defaultIntegrationPhases === "function", "defaultIntegrationPhases should be exported");
+      expect(typeof defaultIntegrationPhases === "function", "defaultIntegrationPhases should be exported");
     },
   },
   {
