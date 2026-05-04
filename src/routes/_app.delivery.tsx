@@ -1073,7 +1073,16 @@ function BoardCard({
   const isStale = hoursSince(row.sh.updated_at) >= sprintStaleHoursForTier(row.sig.tier);
   const [reviewOpen, setReviewOpen] = useState(false);
   return (
-    <article className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm">
+    <article
+      data-testid={`board-card-${row.sh.id}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", row.sh.id);
+        e.dataTransfer.setData("application/x-tfp-board-card", "1");
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className="rounded-md border border-border bg-surface p-3 text-sm shadow-sm cursor-grab active:cursor-grabbing"
+    >
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="font-mono">{row.sh.jira_key}</span>
         <span>{row.sh.tech_estimate_pts ?? "—"} pts</span>
